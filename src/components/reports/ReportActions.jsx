@@ -1,3 +1,4 @@
+import exportPdf from "../../utils/exportPdf";
 import { Menu } from "@headlessui/react";
 import {
   EllipsisVertical,
@@ -29,14 +30,17 @@ const ReportActions = ({ report, onView }) => {
             )}
           </Menu.Item>
 
-          <Menu.Item>
-            {() => (
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
-                <FileText size={16} />
-                Export PDF
-              </button>
-            )}
-          </Menu.Item>
+         <Menu.Item>
+  {() => (
+    <button
+      onClick={() => exportPdf(report)}
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+    >
+      <FileText size={16} />
+      Export PDF
+    </button>
+  )}
+</Menu.Item>
 
           <Menu.Item>
             {() => (
