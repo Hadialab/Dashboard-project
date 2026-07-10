@@ -35,7 +35,7 @@ const ReportActions = ({ report, reports, onView }) => {
           <Menu.Item>
             {() => (
               <button
-                onClick={() => exportPdf(report)}
+                onClick={() => window.print()}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <FileText size={16} />
@@ -56,11 +56,7 @@ const ReportActions = ({ report, reports, onView }) => {
             )}
           </Menu.Item>
 
-          <Menu.Item>
-            {() => (
-              <button
-                onClick={() => window.print()}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+          <Menu.Item>className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <Printer size={16} />
                 Print
