@@ -9,7 +9,7 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import useThemeStore from "./store/themeStore";
-
+import Reports from "./pages/Reports";
 function App() {
   const theme = useThemeStore((state) => state.theme);
 
@@ -47,6 +47,7 @@ function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          < Route path="/reports" element={<Reports/>}/>
         </Route>
 
         {/* 404 Page */}

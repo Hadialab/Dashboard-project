@@ -30,6 +30,11 @@ const links = [
     path: "/profile",
     icon: User,
   },
+  {
+    name:"Reports",
+    path:"/reports",
+    icon:BarChart3,
+  }
 ];
 
 function Sidebar({ isOpen, onClose }) {
