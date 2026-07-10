@@ -1,7 +1,7 @@
 import { useState } from "react";
-import ReportActions from "./ReportActions";
 import useReportStore from "../../store/reportStore";
 import ReportDetailsModal from "./ReportDetailsModal";
+import ReportActions from "./ReportActions";
 
 const statusStyles = {
   Completed:
@@ -40,7 +40,8 @@ const ReportsTable = () => {
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              Showing {paginatedReports.length} reports
+              Showing {paginatedReports.length} of{" "}
+              {filteredReports.length} reports
             </p>
           </div>
         </div>
@@ -110,23 +111,23 @@ const ReportsTable = () => {
                     </td>
 
                     <td className="px-6 py-4 font-semibold">
-                      $
-                      {report.amount.toLocaleString()}
+                      ${report.amount.toLocaleString()}
                     </td>
 
                     <td className="px-6 py-4">
                       {report.date}
                     </td>
 
-                   <td className="px-6 py-4 text-center">
-  <ReportActions
-    report={report}
-    onView={(report) => {
-      setSelectedReport(report);
-      setOpen(true);
-    }}
-  />
-</td>
+                    <td className="px-6 py-4 text-center">
+                      <ReportActions
+                        report={report}
+                        reports={filteredReports}
+                        onView={(report) => {
+                          setSelectedReport(report);
+                          setOpen(true);
+                        }}
+                      />
+                    </td>
                   </tr>
                 ))
               ) : (
@@ -147,7 +148,10 @@ const ReportsTable = () => {
       <ReportDetailsModal
         report={selectedReport}
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          setSelectedReport(null);
+        }}
       />
     </>
   );

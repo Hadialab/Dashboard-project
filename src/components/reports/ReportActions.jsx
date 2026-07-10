@@ -8,8 +8,9 @@ import {
 } from "lucide-react";
 
 import exportPdf from "../../utils/exportPdf";
+import exportCsv from "../../utils/exportCsv";
 
-const ReportActions = ({ report, onView }) => {
+const ReportActions = ({ report, reports, onView }) => {
   return (
     <Menu as="div" className="relative inline-block text-left">
       <Menu.Button className="rounded-lg p-2 transition hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -45,7 +46,10 @@ const ReportActions = ({ report, onView }) => {
 
           <Menu.Item>
             {() => (
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+              <button
+                onClick={() => exportCsv(reports)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
                 <FileDown size={16} />
                 Export CSV
               </button>
