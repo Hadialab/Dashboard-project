@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Analytics from "./pages/Analytics";
 import Login from "./pages/Login";
@@ -15,8 +15,11 @@ function App() {
 
   useEffect(() => {
     const root = document.documentElement;
+
     if (theme === "system") {
-      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const isDark = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
       root.classList.toggle("dark", isDark);
     } else {
       root.classList.toggle("dark", theme === "dark");
@@ -26,10 +29,13 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
+        {/* Redirect homepage to login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* Public Route */}
         <Route path="/login" element={<Login />} />
 
-        {/* Protected */}
+        {/* Protected Routes */}
         <Route
           element={
             <ProtectedRoute>
@@ -43,6 +49,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
         </Route>
 
+        {/* 404 Page */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
