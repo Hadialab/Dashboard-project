@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import useAuthStore from "../../store/AuthStore";
+import useAuthStore from "../../store/authStore";
 
 function UserMenu() {
   const [open, setOpen] = useState(false);

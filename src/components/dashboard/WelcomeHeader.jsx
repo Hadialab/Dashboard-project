@@ -1,4 +1,4 @@
-import useAuthStore from "../../store/AuthStore";
+import useAuthStore from "../../store/authStore";
 
 function WelcomeHeader() {
   const user = useAuthStore((state) => state.user);

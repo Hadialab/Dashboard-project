@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Lock, Mail } from "lucide-react";
 import * as yup from "yup";
-import useAuthStore from "../store/AuthStore";
+import useAuthStore from "../store/authStore";
 import { useNavigate } from "react-router-dom";
 
 const mockUser = {

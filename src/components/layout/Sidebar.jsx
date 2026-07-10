@@ -7,7 +7,7 @@ import {
   LogOut,
   X,
 } from "lucide-react";
-import useAuthStore from "../../store/AuthStore";
+import useAuthStore from "../../store/authStore";
 
 const links = [
   {
