@@ -19,12 +19,12 @@ const ReportActions = ({ report, reports, onView }) => {
 
       <Menu.Items className="absolute right-0 z-50 mt-2 w-48 rounded-xl border bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
         <div className="p-2">
-
+          {/* View Details */}
           <Menu.Item>
             {() => (
               <button
                 onClick={() => onView(report)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <Eye size={16} />
                 View Details
@@ -32,11 +32,12 @@ const ReportActions = ({ report, reports, onView }) => {
             )}
           </Menu.Item>
 
+          {/* Export PDF */}
           <Menu.Item>
             {() => (
               <button
-                onClick={() => window.print()}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={() => exportPdf(report)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <FileText size={16} />
                 Export PDF
@@ -44,11 +45,12 @@ const ReportActions = ({ report, reports, onView }) => {
             )}
           </Menu.Item>
 
+          {/* Export CSV */}
           <Menu.Item>
             {() => (
               <button
                 onClick={() => exportCsv(reports)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <FileDown size={16} />
                 Export CSV
@@ -56,14 +58,18 @@ const ReportActions = ({ report, reports, onView }) => {
             )}
           </Menu.Item>
 
-          <Menu.Item>className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+          {/* Print */}
+          <Menu.Item>
+            {() => (
+              <button
+                onClick={() => window.print()}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <Printer size={16} />
                 Print
               </button>
             )}
           </Menu.Item>
-
         </div>
       </Menu.Items>
     </Menu>
