@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye } from "lucide-react";
+import ReportActions from "./ReportActions";
 import useReportStore from "../../store/reportStore";
 import ReportDetailsModal from "./ReportDetailsModal";
 
@@ -118,17 +118,15 @@ const ReportsTable = () => {
                       {report.date}
                     </td>
 
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => {
-                          setSelectedReport(report);
-                          setOpen(true);
-                        }}
-                        className="rounded-lg bg-blue-100 p-2 text-blue-600 transition hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400"
-                      >
-                        <Eye size={18} />
-                      </button>
-                    </td>
+                   <td className="px-6 py-4 text-center">
+  <ReportActions
+    report={report}
+    onView={(report) => {
+      setSelectedReport(report);
+      setOpen(true);
+    }}
+  />
+</td>
                   </tr>
                 ))
               ) : (
