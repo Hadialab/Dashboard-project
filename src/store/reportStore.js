@@ -20,7 +20,23 @@ const applyFilters = (reports, filters) => {
       report.reportType.toLowerCase().includes(search) ||
       report.status.toLowerCase().includes(search);
 
-    return matchesType && matchesStatus && matchesSearch;
+    const reportDate = new Date(report.date);
+
+    const matchesDateFrom =
+      !filters.dateFrom ||
+      reportDate >= new Date(filters.dateFrom);
+
+    const matchesDateTo =
+      !filters.dateTo ||
+      reportDate <= new Date(filters.dateTo);
+
+    return (
+      matchesType &&
+      matchesStatus &&
+      matchesSearch &&
+      matchesDateFrom &&
+      matchesDateTo
+    );
   });
 
   if (filters.sortBy !== "none") {
@@ -61,6 +77,8 @@ const useReportStore = create((set, get) => ({
     status: "All",
     search: "",
     sortBy: "none",
+    dateFrom: "",
+    dateTo: "",
   },
 
   updateFilters: (newFilters) => {
@@ -85,15 +103,21 @@ const useReportStore = create((set, get) => ({
       filteredReports.length / itemsPerPage
     );
 
-    if (currentPage < totalPages)
-      set({ currentPage: currentPage + 1 });
+    if (currentPage < totalPages) {
+      set({
+        currentPage: currentPage + 1,
+      });
+    }
   },
 
   previousPage: () => {
     const { currentPage } = get();
 
-    if (currentPage > 1)
-      set({ currentPage: currentPage - 1 });
+    if (currentPage > 1) {
+      set({
+        currentPage: currentPage - 1,
+      });
+    }
   },
 
   setPage: (page) => set({ currentPage: page }),

@@ -2,7 +2,7 @@ import { useState } from "react";
 import useReportStore from "../../store/reportStore";
 import ReportDetailsModal from "./ReportDetailsModal";
 import ReportActions from "./ReportActions";
-
+import EmptyState from "./EmptyState";
 const statusStyles = {
   Completed:
     "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
@@ -132,13 +132,10 @@ const ReportsTable = () => {
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan="7"
-                    className="py-12 text-center text-gray-500"
-                  >
-                    No reports found.
-                  </td>
-                </tr>
+  <td colSpan="7">
+    <EmptyState />
+  </td>
+</tr>
               )}
             </tbody>
           </table>

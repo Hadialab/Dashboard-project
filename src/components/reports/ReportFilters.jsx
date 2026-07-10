@@ -9,7 +9,6 @@ const ReportFilters = () => {
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-xl font-semibold">Report Builder</h2>
-
         <p className="mt-1 text-sm text-gray-500">
           Filter and generate custom business reports.
         </p>
@@ -31,12 +30,12 @@ const ReportFilters = () => {
               search: e.target.value,
             })
           }
-          className="w-full rounded-xl border py-3 pl-10 pr-4 transition focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-xl border px-4 py-3 pl-10 focus:border-blue-500 focus:outline-none"
         />
       </div>
 
       {/* Filters */}
-      <div className="grid gap-5 lg:grid-cols-4">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-6">
         {/* Report Type */}
         <div>
           <label className="mb-2 block text-sm font-medium">
@@ -52,11 +51,11 @@ const ReportFilters = () => {
             }
             className="w-full rounded-xl border px-3 py-3"
           >
-            <option>All</option>
-            <option>Sales</option>
-            <option>Orders</option>
-            <option>Customers</option>
-            <option>Products</option>
+            <option value="All">All</option>
+            <option value="Sales">Sales</option>
+            <option value="Orders">Orders</option>
+            <option value="Customers">Customers</option>
+            <option value="Products">Products</option>
           </select>
         </div>
 
@@ -75,10 +74,10 @@ const ReportFilters = () => {
             }
             className="w-full rounded-xl border px-3 py-3"
           >
-            <option>All</option>
-            <option>Completed</option>
-            <option>Pending</option>
-            <option>Cancelled</option>
+            <option value="All">All</option>
+            <option value="Completed">Completed</option>
+            <option value="Pending">Pending</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
         </div>
 
@@ -105,7 +104,7 @@ const ReportFilters = () => {
           </select>
         </div>
 
-        {/* Date */}
+        {/* Date From */}
         <div>
           <label className="mb-2 block text-sm font-medium">
             Date From
@@ -113,13 +112,45 @@ const ReportFilters = () => {
 
           <input
             type="date"
+            value={filters.dateFrom}
+            onChange={(e) =>
+              updateFilters({
+                dateFrom: e.target.value,
+              })
+            }
             className="w-full rounded-xl border px-3 py-3"
           />
+        </div>
+
+        {/* Date To */}
+        <div>
+          <label className="mb-2 block text-sm font-medium">
+            Date To
+          </label>
+
+          <input
+            type="date"
+            value={filters.dateTo}
+            onChange={(e) =>
+              updateFilters({
+                dateTo: e.target.value,
+              })
+            }
+            className="w-full rounded-xl border px-3 py-3"
+          />
+        </div>
+
+        {/* Generate Button */}
+        <div className="flex items-end">
+          <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700">
+            <FileBarChart size={18} />
+            Generate
+          </button>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-8 flex flex-wrap justify-end gap-3">
+      <div className="mt-6 flex justify-end">
         <button
           onClick={() =>
             updateFilters({
@@ -127,17 +158,14 @@ const ReportFilters = () => {
               reportType: "All",
               status: "All",
               sortBy: "none",
+              dateFrom: "",
+              dateTo: "",
             })
           }
           className="flex items-center gap-2 rounded-xl border px-5 py-3 transition hover:bg-gray-100 dark:hover:bg-gray-800"
         >
           <RotateCcw size={18} />
           Reset Filters
-        </button>
-
-        <button className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700">
-          <FileBarChart size={18} />
-          Generate Report
         </button>
       </div>
     </div>
