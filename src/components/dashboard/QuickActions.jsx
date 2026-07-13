@@ -35,7 +35,7 @@ function QuickActions() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-            Quick actions
+            Sales Workspace
           </p>
           <h2 className="mt-3 text-2xl font-semibold text-slate-900 dark:text-white">
             Quick CRM Actions

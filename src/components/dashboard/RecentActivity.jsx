@@ -2,36 +2,31 @@ import { Download, RefreshCcw } from "lucide-react";
 
 const activityItems = [
   {
-    title: "New subscription",
-    description: "Acme Corp purchased the Pro plan.",
-    time: "5m ago",
-    status: "Success",
+    id: 1,
+    title: "New customer added",
+    description: "John Smith was added by Sarah.",
+    time: "5 min ago",
   },
   {
-    title: "Payment failed",
-    description: "Customer card declined on renewal.",
-    time: "22m ago",
-    status: "Failed",
+    id: 2,
+    title: "Deal moved to Negotiation",
+    description: "Acme Corp deal updated by Ahmed.",
+    time: "20 min ago",
   },
   {
-    title: "Team member added",
-    description: "A new collaborator joined the Sales team.",
-    time: "1h ago",
-    status: "Pending",
+    id: 3,
+    title: "Meeting scheduled",
+    description: "Meeting with Tech Solutions at 2:00 PM.",
+    time: "1 hour ago",
   },
   {
-    title: "Export completed",
-    description: "Monthly report is ready for download.",
-    time: "2h ago",
-    status: "Success",
+    id: 4,
+    title: "Lead converted",
+    description: "Emily Johnson became a customer.",
+    time: "Today",
   },
 ];
 
-const statusStyles = {
-  Success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-200/10 dark:text-emerald-300",
-  Failed: "bg-rose-100 text-rose-700 dark:bg-rose-200/10 dark:text-rose-300",
-  Pending: "bg-amber-100 text-amber-700 dark:bg-amber-200/10 dark:text-amber-300",
-};
 
 function RecentActivity() {
   function exportCsv() {
@@ -94,9 +89,7 @@ function RecentActivity() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-500 dark:text-slate-400">{item.time}</span>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[item.status]}`}>
-                  {item.status}
-                </span>
+                
               </div>
             </div>
           </div>
