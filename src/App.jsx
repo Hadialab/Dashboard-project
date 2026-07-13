@@ -10,6 +10,9 @@ import Profile from "./pages/Profile";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import useThemeStore from "./store/themeStore";
 import Reports from "./pages/Reports";
+import Customers from "./pages/Customers";
+import Leads from "./pages/Leads";
+import Deals from "./pages/Deals";
 function App() {
   const theme = useThemeStore((state) => state.theme);
 
@@ -44,10 +47,11 @@ function App() {
           }
         >
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/customers" element={<Customers />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/leads" element={<Leads />} />
           < Route path="/reports" element={<Reports/>}/>
+           < Route path="/deals" element={<Deals/>}/>
         </Route>
 
         {/* 404 Page */}

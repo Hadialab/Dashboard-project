@@ -6,6 +6,10 @@ import {
   User,
   LogOut,
   X,
+  FileBarChart,
+  Users,
+  UserPlus,
+  Handshake,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 
@@ -15,27 +19,34 @@ const links = [
     path: "/dashboard",
     icon: LayoutDashboard,
   },
-  {
-    name: "Analytics",
-    path: "/analytics",
-    icon: BarChart3,
+ 
+ {
+    name:"Customers",
+    path:"/customers",
+    icon:Users
   },
+  {
+    name:"Leads",
+    path:"/leads",
+    icon:UserPlus
+  },
+  {
+    name:"Deals",
+    path:"/deals",
+    icon:Handshake
+  },
+   {
+    name:"Reports",
+    path:"/reports",
+    icon:FileBarChart,
+  }, 
   {
     name: "Settings",
     path: "/settings",
     icon: Settings,
-  },
-  {
-    name: "Profile",
-    path: "/profile",
-    icon: User,
-  },
-  {
-    name:"Reports",
-    path:"/reports",
-    icon:BarChart3,
   }
 ];
+
 
 function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
