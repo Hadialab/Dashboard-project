@@ -1,30 +1,31 @@
 import {
-  PlusCircle,
-  Zap,
-  ArrowUpRight,
-  FolderPlus,
+  
+  UserPlus,
+  Target,
+  BriefcaseBusiness,
+  CalendarPlus,
 } from "lucide-react";
 
 const actions = [
   {
-    title: "Create project",
-    description: "Launch a new campaign or workspace.",
-    icon: PlusCircle,
+    title: "Add Customer",
+    description: "Create a new customer profile.",
+    icon: UserPlus,
   },
   {
-    title: "View reports",
-    description: "Open the latest revenue insights.",
-    icon: ArrowUpRight,
+    title: "Add Lead",
+    description: "Register a potential customer.",
+    icon: Target,
   },
   {
-    title: "Add members",
-    description: "Invite your team to collaborate.",
-    icon: FolderPlus,
+    title: "Create Deal",
+    description: "Start a new sales opportunity.",
+    icon: BriefcaseBusiness,
   },
   {
-    title: "Optimize workflow",
-    description: "Review tasks and progress.",
-    icon: Zap,
+    title: "Schedule Meeting",
+    description: "Book a customer meeting.",
+    icon: CalendarPlus,
   },
 ];
 
@@ -37,7 +38,7 @@ function QuickActions() {
             Quick actions
           </p>
           <h2 className="mt-3 text-2xl font-semibold text-slate-900 dark:text-white">
-            Take action fast
+            Quick CRM Actions
           </h2>
         </div>
       </div>
