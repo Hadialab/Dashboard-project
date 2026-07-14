@@ -1,5 +1,5 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
-import { customers } from "../../data/customers";
+
 
 const statusColors = {
   Active:
@@ -12,7 +12,7 @@ const statusColors = {
     "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
 };
 
-function CustomersTable() {
+function CustomersTable({ customers}) {
   return (
     <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <table className="w-full">
