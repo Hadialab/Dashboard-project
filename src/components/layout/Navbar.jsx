@@ -1,15 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Menu, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Menu } from "lucide-react";
 import ThemeToggle from "../ui/ThemeToggle";
 import UserMenu from "./UserMenu";
-
-const suggestions = [
-  "Revenue report",
-  "Customer activity",
-  "New users",
-  "Settings overview",
-  "Billing history",
-];
 
 const notifications = [
   {
@@ -30,24 +22,11 @@ const notifications = [
 ];
 
 function Navbar({ onToggleSidebar }) {
-  const [query, setQuery] = useState("");
-  const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const searchRef = useRef(null);
   const notificationRef = useRef(null);
-
-  const filteredSuggestions = useMemo(() => {
-    if (!query.trim()) return suggestions;
-    return suggestions.filter((item) =>
-      item.toLowerCase().includes(query.toLowerCase())
-    );
-  }, [query]);
 
   useEffect(() => {
     const listener = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setShowResults(false);
-      }
       if (
         notificationRef.current &&
         !notificationRef.current.contains(event.target)
@@ -71,42 +50,9 @@ function Navbar({ onToggleSidebar }) {
         <Menu size={20} />
       </button>
 
-      <div className="relative w-full max-w-xl" ref={searchRef}>
-        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setShowResults(true);
-          }}
-          onFocus={() => setShowResults(true)}
-          type="text"
-          placeholder="Search the dashboard"
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:ring-blue-900"
-        />
+      <div className="flex-1"></div>
 
-        {showResults && filteredSuggestions.length > 0 && (
-          <div className="absolute left-0 top-full mt-3 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg ring-1 ring-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:ring-slate-800">
-            <div className="space-y-1 p-3">
-              {filteredSuggestions.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => {
-                    setQuery(item);
-                    setShowResults(false);
-                  }}
-                  className="w-full rounded-2xl px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="ml-auto flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <div className="relative" ref={notificationRef}>
           <button
             type="button"

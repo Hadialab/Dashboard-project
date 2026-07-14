@@ -65,7 +65,7 @@ const SummaryCards = () => {
   ];
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => {
         const Icon = card.icon;
 
@@ -79,7 +79,8 @@ const SummaryCards = () => {
               border
               border-gray-200
               bg-white
-              p-6
+              p-4
+              sm:p-6
               shadow-sm
               transition-all
               duration-300
@@ -91,35 +92,35 @@ const SummaryCards = () => {
           >
             <div className="flex items-center justify-between">
               <div
-                className={`rounded-xl p-3 ${card.bg}`}
+                className={`rounded-xl p-2 sm:p-3 ${card.bg}`}
               >
                 <Icon
                   className={card.iconColor}
-                  size={24}
+                  size={20}
                 />
               </div>
 
-              <div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-600 dark:bg-green-900/30">
-                <ArrowUpRight size={14} />
+              <div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-600 dark:bg-green-900/30">
+                <ArrowUpRight size={12} />
                 {card.trend}
               </div>
             </div>
 
-            <div className="mt-6">
-              <p className="text-sm text-gray-500">
+            <div className="mt-4 sm:mt-6">
+              <p className="text-xs sm:text-sm text-gray-500">
                 {card.title}
               </p>
 
-              <h2 className="mt-2 text-4xl font-bold tracking-tight">
+              <h2 className="mt-1 sm:mt-2 text-2xl sm:text-4xl font-bold tracking-tight">
                 {card.value}
               </h2>
 
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500">
                 {card.subtitle}
               </p>
             </div>
 
-            <div className="mt-6 h-1 w-0 rounded-full bg-blue-600 transition-all duration-500 group-hover:w-full"></div>
+            <div className="mt-4 sm:mt-6 h-1 w-0 rounded-full bg-blue-600 transition-all duration-500 group-hover:w-full"></div>
           </div>
         );
       })}

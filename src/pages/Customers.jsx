@@ -7,18 +7,18 @@ import AddCustomerModal from "../components/customers/AddCustomerModal";
 import { customers as initialCustomers } from "../data/customers";
 import { useState ,useEffect} from "react";
 function Customers(){
-   const [searchTerm,setSearchTerm]= useState("");
-   const [statusFilter,setStatusFilter]= useState("All");
-   const [sortBy,setSortBy] = useState("name");
-   const [sortOrder,setSortOrder]= useState("asc");
-   const [currentPage,setCurrentPage] = useState(1);
-   const [selectedCustomer, setSelectedCustomer] = useState(null);
-   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-   const [isAddModalOpen, setIsAddModalOpen]= useState(false);
-   const [customers,setCustomers] = useState(initialCustomers);
+  const [searchTerm,setSearchTerm]= useState("");
+  const [statusFilter,setStatusFilter]= useState("All");
+  const [sortBy,setSortBy] = useState("name");
+  const [sortOrder,setSortOrder]= useState("asc");
+  const [currentPage,setCurrentPage] = useState(1);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen]= useState(false);
+  const [customers,setCustomers] = useState(initialCustomers);
 
- 
- 
+  
+  
   const customersPerPage = 5;
 
   useEffect(() => {
@@ -48,7 +48,7 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
     }
     return second.localeCompare(first);
 });
-   
+    
   const totalPages = Math.max(
     1,
     Math.ceil (sortedCustomers.length / customersPerPage)
@@ -73,43 +73,41 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
   setCustomers((prev) => [newCustomer, ...prev]);
 };
 
-   return(<div>
-
-<CustomersHeader 
- onAddCustomer={()=>setIsAddModalOpen(true)}
-/>
-<CustomersToolBar 
-  searchTerm={searchTerm}
-  onSearchChange={setSearchTerm}
-  statusFilter={statusFilter}
-  onStatusChange={setStatusFilter}
-  sortBy={sortBy}
-  onSortByChange={setSortBy}
-  sortOrder={sortOrder}
-  onSortOrderChange={setSortOrder}
-
-   />
-<CustomersTable 
-  customers={paginatedCustomers}
-  onView = {handleViewCustomer}
-  />
-<CustomerPagination  
-    currentPage={currentPage}
-    totalPages={totalPages}
-    onPageChange={setCurrentPage}
-/>
-  <CustomerDetailsDrawer
-    customer={selectedCustomer}
-    open={isDrawerOpen}
-    onClose={() => setIsDrawerOpen(false)}
-/>
-    <AddCustomerModal
-       open={isAddModalOpen}
-  onClose={() => setIsAddModalOpen(false)}
-  onAddCustomer={handleAddCustomer}
-
-    />
-
-    </div>);
+   return(
+     <div className="space-y-4 sm:space-y-6">
+       <CustomersHeader 
+         onAddCustomer={()=>setIsAddModalOpen(true)}
+       />
+       <CustomersToolBar 
+         searchTerm={searchTerm}
+         onSearchChange={setSearchTerm}
+         statusFilter={statusFilter}
+         onStatusChange={setStatusFilter}
+         sortBy={sortBy}
+         onSortByChange={setSortBy}
+         sortOrder={sortOrder}
+         onSortOrderChange={setSortOrder}
+       />
+       <CustomersTable 
+         customers={paginatedCustomers}
+         onView = {handleViewCustomer}
+       />
+       <CustomerPagination  
+         currentPage={currentPage}
+         totalPages={totalPages}
+         onPageChange={setCurrentPage}
+       />
+       <CustomerDetailsDrawer
+         customer={selectedCustomer}
+         open={isDrawerOpen}
+         onClose={() => setIsDrawerOpen(false)}
+       />
+       <AddCustomerModal
+         open={isAddModalOpen}
+         onClose={() => setIsAddModalOpen(false)}
+         onAddCustomer={handleAddCustomer}
+       />
+     </div>
+   );
 }
 export default Customers;

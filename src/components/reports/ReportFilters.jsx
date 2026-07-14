@@ -1,21 +1,21 @@
-import { Search, RotateCcw, FileBarChart } from "lucide-react";
+import { Search, RotateCcw } from "lucide-react";
 import useReportStore from "../../store/reportStore";
 
 const ReportFilters = () => {
   const { filters, updateFilters } = useReportStore();
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold">Report Builder</h2>
-        <p className="mt-1 text-sm text-gray-500">
+      <div className="mb-4 sm:mb-6">
+       <h2 className="text-lg sm:text-xl font-semibold">Report Builder</h2>
+       <p className="mt-1 text-xs sm:text-sm text-gray-500">
           Filter and generate custom business reports.
         </p>
       </div>
 
       {/* Search */}
-      <div className="relative mb-6">
+      <div className="relative mb-4 sm:mb-6">
         <Search
           size={18}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -30,15 +30,15 @@ const ReportFilters = () => {
               search: e.target.value,
             })
           }
-          className="w-full rounded-xl border px-4 py-3 pl-10 focus:border-blue-500 focus:outline-none"
+         className="w-full rounded-xl border border-gray-300 px-4 py-2 sm:py-2.5 pl-10 text-xs sm:text-sm focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
         />
       </div>
 
       {/* Filters */}
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {/* Report Type */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label className="mb-1.5 sm:mb-2 block text-xs sm:text-sm font-medium">
             Report Type
           </label>
 
@@ -49,7 +49,7 @@ const ReportFilters = () => {
                 reportType: e.target.value,
               })
             }
-            className="w-full rounded-xl border px-3 py-3"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 sm:py-2.5 text-xs sm:text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           >
             <option value="All">All</option>
             <option value="Sales">Sales</option>
@@ -61,7 +61,7 @@ const ReportFilters = () => {
 
         {/* Status */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label className="mb-1.5 sm:mb-2 block text-xs sm:text-sm font-medium">
             Status
           </label>
 
@@ -72,7 +72,7 @@ const ReportFilters = () => {
                 status: e.target.value,
               })
             }
-            className="w-full rounded-xl border px-3 py-3"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 sm:py-2.5 text-xs sm:text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           >
             <option value="All">All</option>
             <option value="Completed">Completed</option>
@@ -83,7 +83,7 @@ const ReportFilters = () => {
 
         {/* Sort */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label className="mb-1.5 sm:mb-2 block text-xs sm:text-sm font-medium">
             Sort By
           </label>
 
@@ -94,7 +94,7 @@ const ReportFilters = () => {
                 sortBy: e.target.value,
               })
             }
-            className="w-full rounded-xl border px-3 py-3"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 sm:py-2.5 text-xs sm:text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           >
             <option value="none">None</option>
             <option value="customer">Customer</option>
@@ -106,7 +106,7 @@ const ReportFilters = () => {
 
         {/* Date From */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label className="mb-1.5 sm:mb-2 block text-xs sm:text-sm font-medium">
             Date From
           </label>
 
@@ -118,13 +118,13 @@ const ReportFilters = () => {
                 dateFrom: e.target.value,
               })
             }
-            className="w-full rounded-xl border px-3 py-3"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 sm:py-2.5 text-xs sm:text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           />
         </div>
 
         {/* Date To */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label className="mb-1.5 sm:mb-2 block text-xs sm:text-sm font-medium">
             Date To
           </label>
 
@@ -136,21 +136,13 @@ const ReportFilters = () => {
                 dateTo: e.target.value,
               })
             }
-            className="w-full rounded-xl border px-3 py-3"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 sm:py-2.5 text-xs sm:text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           />
-        </div>
-
-        {/* Generate Button */}
-        <div className="flex items-end">
-          <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700">
-            <FileBarChart size={18} />
-            Generate
-          </button>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-6 flex justify-end">
+      <div className="mt-4 sm:mt-6 flex justify-start sm:justify-end">
         <button
           onClick={() =>
             updateFilters({
@@ -162,10 +154,10 @@ const ReportFilters = () => {
               dateTo: "",
             })
           }
-          className="flex items-center gap-2 rounded-xl border px-5 py-3 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+         className="flex items-center gap-2 rounded-xl border border-gray-300 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
         >
-          <RotateCcw size={18} />
-          Reset Filters
+         <RotateCcw size={16} className="sm:w-[18px] sm:h-[18px]" />
+          <span className="whitespace-nowrap">Reset</span>
         </button>
       </div>
     </div>

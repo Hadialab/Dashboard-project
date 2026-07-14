@@ -33,13 +33,13 @@ const ReportsTable = () => {
     <>
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+       <div className="flex flex-col gap-3 border-b border-gray-200 px-4 py-4 sm:px-6 sm:py-5 dark:border-gray-800 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">
+           <h2 className="text-lg sm:text-xl font-semibold">
               Recent Reports
             </h2>
 
-            <p className="mt-1 text-sm text-gray-500">
+           <p className="mt-1 text-xs sm:text-sm text-gray-500">
               Showing {paginatedReports.length} of{" "}
               {filteredReports.length} reports
             </p>
@@ -48,34 +48,34 @@ const ReportsTable = () => {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
+         <table className="w-full min-w-max">
             <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr className="text-left">
-                <th className="px-6 py-4 text-sm font-semibold">
+             <tr className="text-left text-xs sm:text-sm">
+               <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold whitespace-nowrap">
                   Customer
                 </th>
 
-                <th className="px-6 py-4 text-sm font-semibold">
+               <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold whitespace-nowrap">
                   Report Type
                 </th>
 
-                <th className="px-6 py-4 text-sm font-semibold">
+               <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold whitespace-nowrap">
                   Status
                 </th>
 
-                <th className="px-6 py-4 text-sm font-semibold">
+               <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold whitespace-nowrap text-right">
                   Orders
                 </th>
 
-                <th className="px-6 py-4 text-sm font-semibold">
+               <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold whitespace-nowrap text-right">
                   Revenue
                 </th>
 
-                <th className="px-6 py-4 text-sm font-semibold">
+               <th className="hidden px-4 py-3 sm:px-6 sm:py-4 font-semibold whitespace-nowrap sm:table-cell">
                   Date
                 </th>
 
-                <th className="px-6 py-4 text-center text-sm font-semibold">
+               <th className="px-4 py-3 sm:px-6 sm:py-4 text-center font-semibold whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -86,19 +86,19 @@ const ReportsTable = () => {
                 paginatedReports.map((report) => (
                   <tr
                     key={report.id}
-                    className="border-t transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                   className="border-t text-xs sm:text-sm transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                   >
-                    <td className="px-6 py-4 font-medium">
+                   <td className="px-4 py-3 sm:px-6 sm:py-4 font-medium whitespace-nowrap">
                       {report.customer}
                     </td>
 
-                    <td className="px-6 py-4">
+                   <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       {report.reportType}
                     </td>
 
-                    <td className="px-6 py-4">
+                   <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                       className={`rounded-full px-2 py-0.5 text-xs font-semibold inline-block ${
                           statusStyles[report.status]
                         }`}
                       >
@@ -106,19 +106,19 @@ const ReportsTable = () => {
                       </span>
                     </td>
 
-                    <td className="px-6 py-4">
+                   <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right">
                       {report.orders}
                     </td>
 
-                    <td className="px-6 py-4 font-semibold">
+                   <td className="px-4 py-3 sm:px-6 sm:py-4 font-semibold whitespace-nowrap text-right">
                       ${report.amount.toLocaleString()}
                     </td>
 
-                    <td className="px-6 py-4">
+                   <td className="hidden px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap sm:table-cell text-gray-500">
                       {report.date}
                     </td>
 
-                    <td className="px-6 py-4 text-center">
+                   <td className="px-4 py-3 sm:px-6 sm:py-4 text-center">
                       <ReportActions
                         report={report}
                         reports={filteredReports}
@@ -132,10 +132,10 @@ const ReportsTable = () => {
                 ))
               ) : (
                 <tr>
-  <td colSpan="7">
-    <EmptyState />
-  </td>
-</tr>
+                 <td colSpan="7">
+                   <EmptyState />
+                 </td>
+               </tr>
               )}
             </tbody>
           </table>
