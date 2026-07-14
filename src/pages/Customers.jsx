@@ -2,14 +2,23 @@ import CustomerPagination from "../components/customers/CustomerPagination";
 import CustomersHeader from "../components/customers/CustomerHeader";
 import CustomersToolBar from "../components/customers/CustomersToolBar";
 import CustomersTable from "../components/customers/CustomersTable";
-import { customers } from "../data/customers";
+import CustomerDetailsDrawer from "../components/customers/CustomerDetailDrawer";
+import AddCustomerModal from "../components/customers/AddCustomerModal";
+import { customers as initialCustomers } from "../data/customers";
 import { useState ,useEffect} from "react";
 function Customers(){
    const [searchTerm,setSearchTerm]= useState("");
    const [statusFilter,setStatusFilter]= useState("All");
    const [sortBy,setSortBy] = useState("name");
    const [sortOrder,setSortOrder]= useState("asc");
-  const [currentPage,setCurrentPage] = useState(1);
+   const [currentPage,setCurrentPage] = useState(1);
+   const [selectedCustomer, setSelectedCustomer] = useState(null);
+   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+   const [isAddModalOpen, setIsAddModalOpen]= useState(false);
+   const [customers,setCustomers] = useState(initialCustomers);
+
+ 
+ 
   const customersPerPage = 5;
 
   useEffect(() => {
@@ -51,11 +60,24 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
     startIndex+customersPerPage
   );
 
+  const handleViewCustomer = (customer) =>{
+    setSelectedCustomer(customer);
+    setIsDrawerOpen(true);
+  };
+ const handleAddCustomer = (customer) => {
+  const newCustomer = {
+    id: Date.now(),
+    ...customer,
+  };
 
+  setCustomers((prev) => [newCustomer, ...prev]);
+};
 
    return(<div>
 
-<CustomersHeader />
+<CustomersHeader 
+ onAddCustomer={()=>setIsAddModalOpen(true)}
+/>
 <CustomersToolBar 
   searchTerm={searchTerm}
   onSearchChange={setSearchTerm}
@@ -67,13 +89,26 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
   onSortOrderChange={setSortOrder}
 
    />
-<CustomersTable customers={paginatedCustomers}/>
+<CustomersTable 
+  customers={paginatedCustomers}
+  onView = {handleViewCustomer}
+  />
 <CustomerPagination  
     currentPage={currentPage}
     totalPages={totalPages}
     onPageChange={setCurrentPage}
 />
+  <CustomerDetailsDrawer
+    customer={selectedCustomer}
+    open={isDrawerOpen}
+    onClose={() => setIsDrawerOpen(false)}
+/>
+    <AddCustomerModal
+       open={isAddModalOpen}
+  onClose={() => setIsAddModalOpen(false)}
+  onAddCustomer={handleAddCustomer}
 
+    />
 
     </div>);
 }

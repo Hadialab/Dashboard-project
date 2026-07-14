@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 
-function CustomersHeader() {
+function CustomersHeader({onAddCustomer}) {
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div>
@@ -14,6 +14,7 @@ function CustomersHeader() {
       </div>
 
       <button
+        onClick={onAddCustomer}
         className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-white transition hover:bg-blue-700"
       >
         <Plus size={18} />

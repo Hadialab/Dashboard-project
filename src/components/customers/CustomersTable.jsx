@@ -12,7 +12,7 @@ const statusColors = {
     "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
 };
 
-function CustomersTable({ customers}) {
+function CustomersTable({ customers,onView}) {
   return (
     <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <table className="w-full">
@@ -76,7 +76,7 @@ function CustomersTable({ customers}) {
 
               <td className="px-6 py-4">
                 <div className="flex justify-center gap-2">
-                  <button className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800">
+                  <button onClick={()=>onView(customer)} className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800">
                     <Eye size={18} />
                   </button>
 
