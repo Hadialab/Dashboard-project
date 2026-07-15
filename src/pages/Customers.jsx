@@ -8,7 +8,7 @@ import DeleteCustomerModal from "../components/customers/DeleteCustomerModal";
 import { customers as initialCustomers } from "../data/customers";
 import { useState ,useEffect} from "react";
 import { useSearchParams } from "react-router-dom";
-
+import toast from "react-hot-toast";
 
 function Customers(){
  const [editingCustomer, setEditingCustomer] = useState(null);
@@ -123,6 +123,7 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
   };
 
   setCustomers((prev) => [newCustomer, ...prev]);
+  toast.success("Customer added successfully.");
 };
 
   const handleUpdateCustomer = (updatedCustomer) => {
@@ -135,6 +136,7 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
   );
 
   setEditingCustomer(null);
+  toast.success("Customer updated successfully.");
 };
 const handleOpenDeleteModal = (customer) => {
   setCustomerToDelete(customer);
@@ -151,6 +153,7 @@ const handleDeleteCustomer = () => {
 
   setCustomerToDelete(null);
   setIsDeleteModalOpen(false);
+  toast.success("Customer deleted successfully.");
 };
 
    return(
