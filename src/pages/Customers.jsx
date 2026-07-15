@@ -6,20 +6,65 @@ import CustomerDetailsDrawer from "../components/customers/CustomerDetailDrawer"
 import AddCustomerModal from "../components/customers/AddCustomerModal";
 import { customers as initialCustomers } from "../data/customers";
 import { useState ,useEffect} from "react";
+import { useSearchParams } from "react-router-dom";
+
+
 function Customers(){
-  const [searchTerm,setSearchTerm]= useState("");
-  const [statusFilter,setStatusFilter]= useState("All");
-  const [sortBy,setSortBy] = useState("name");
-  const [sortOrder,setSortOrder]= useState("asc");
-  const [currentPage,setCurrentPage] = useState(1);
+ 
+  const [searchParams,setSearchParams] = useSearchParams(); 
+  const [sortBy,setSortBy] = useState(()=> searchParams.get("sort") || "name");
+  const [sortOrder,setSortOrder]= useState(()=> searchParams.get("order") || "asc");
+  const [currentPage,setCurrentPage] = useState(()=> Number(searchParams.get("page")) || 1);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen]= useState(false);
   const [customers,setCustomers] = useState(initialCustomers);
-
-  
-  
+ 
+  const [searchTerm,setSearchTerm]= useState(()=> searchParams.get("search") || "");
   const customersPerPage = 5;
+  const [statusFilter,setStatusFilter]= useState(()=> searchParams.get("status") || "All");
+  
+
+   useEffect(() => {
+  const params = new URLSearchParams();
+
+  // Search
+  if (searchTerm.trim()) {
+    params.set("search", searchTerm);
+  }
+
+  // Status
+  if (statusFilter !== "all") {
+    params.set("status", statusFilter);
+  }
+
+  // Sort
+  if (sortBy !== "name") {
+    params.set("sort", sortBy);
+  }
+
+  // Order
+  if (sortOrder !== "asc") {
+    params.set("order", sortOrder);
+  }
+
+  // Page
+  if (currentPage > 1) {
+    params.set("page", currentPage.toString());
+  }
+
+  setSearchParams(params, { replace: true });
+}, [
+  searchTerm,
+  statusFilter,
+  sortBy,
+  sortOrder,
+  currentPage,
+  setSearchParams,
+]);
+
+
+
 
   useEffect(() => {
   setCurrentPage(1);
