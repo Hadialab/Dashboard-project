@@ -9,6 +9,7 @@ import { customers as initialCustomers } from "../data/customers";
 import { useState ,useEffect} from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import EmptyState from "../components/customers/EmptyState";
 
 function Customers(){
  const [editingCustomer, setEditingCustomer] = useState(null);
@@ -158,30 +159,55 @@ const handleDeleteCustomer = () => {
 
    return(
      <div className="space-y-4 sm:space-y-6">
-       <CustomersHeader 
-         onAddCustomer={()=>setIsAddModalOpen(true)}
-       />
-       <CustomersToolBar 
-         searchTerm={searchTerm}
-         onSearchChange={setSearchTerm}
-         statusFilter={statusFilter}
-         onStatusChange={setStatusFilter}
-         sortBy={sortBy}
-         onSortByChange={setSortBy}
-         sortOrder={sortOrder}
-         onSortOrderChange={setSortOrder}
-       />
-       <CustomersTable 
-         customers={paginatedCustomers}
-         onView = {handleViewCustomer}
-         onEditCustomer={handleEditCustomer}
-         onDeleteCustomer={handleOpenDeleteModal}
-       />
-       <CustomerPagination  
-         currentPage={currentPage}
-         totalPages={totalPages}
-         onPageChange={setCurrentPage}
-       />
+       <CustomersHeader
+  onAddCustomer={() => setIsAddModalOpen(true)}
+  showAddButton={customers.length > 0}
+/>
+      {customers.length > 0 && (
+  <CustomersToolBar
+    searchTerm={searchTerm}
+    onSearchChange={setSearchTerm}
+    statusFilter={statusFilter}
+    onStatusChange={setStatusFilter}
+    sortBy={sortBy}
+    onSortByChange={setSortBy}
+    sortOrder={sortOrder}
+    onSortOrderChange={setSortOrder}
+  />
+)}
+     {customers.length === 0 ? (
+  <EmptyState
+    title="No customers yet"
+    description="You haven't added any customers yet. Start by creating your first customer."
+    buttonText="Add Customer"
+    onClick={() => setIsAddModalOpen(true)}
+  />
+) : filteredCustomers.length === 0 ? (
+  <EmptyState
+    title="No matching customers"
+    description="No customers match your current search or filters. Try adjusting your search or filters."
+    buttonText="Clear Filters"
+    isSearchResult
+    onClick={() => {
+      setSearchTerm("");
+      setStatusFilter("All");
+    }}
+  />
+) : (
+  <CustomersTable
+    customers={paginatedCustomers}
+    onView={handleViewCustomer}
+    onEditCustomer={handleEditCustomer}
+    onDeleteCustomer={handleOpenDeleteModal}
+  />
+)}
+      {filteredCustomers.length > 0 && (
+  <CustomerPagination
+    currentPage={currentPage}
+    totalPages={totalPages}
+    onPageChange={setCurrentPage}
+  />
+)}
        <CustomerDetailsDrawer
          customer={selectedCustomer}
          open={isDrawerOpen}
