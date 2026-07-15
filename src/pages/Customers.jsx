@@ -11,6 +11,10 @@ import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import EmptyState from "../components/customers/EmptyState";
 import CustomerTableSkeleton from "../components/customers/CustomerTableSkeleton";
+import RowsPerPage from "../components/customers/RowsPerPage";
+
+
+
 function Customers(){
  const [editingCustomer, setEditingCustomer] = useState(null);
   const [searchParams,setSearchParams] = useSearchParams(); 
@@ -23,7 +27,9 @@ function Customers(){
   const [customers,setCustomers] = useState(initialCustomers);
  
   const [searchTerm,setSearchTerm]= useState(()=> searchParams.get("search") || "");
-  const customersPerPage = 5;
+  const [customersPerPage, setCustomersPerPage] = useState(
+  () => Number(searchParams.get("rows")) || 10
+);
   const [statusFilter,setStatusFilter]= useState(()=> searchParams.get("status") || "All");
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -35,7 +41,8 @@ function Customers(){
 
   return () => clearTimeout(timer);
 }, []); 
-  useEffect(() => {
+
+ useEffect(() => {
   const params = new URLSearchParams();
 
   // Search
@@ -44,7 +51,7 @@ function Customers(){
   }
 
   // Status
-  if (statusFilter !== "all") {
+  if (statusFilter !== "All") {
     params.set("status", statusFilter);
   }
 
@@ -63,6 +70,11 @@ function Customers(){
     params.set("page", currentPage.toString());
   }
 
+  // Rows Per Page
+  if (customersPerPage !== 10) {
+    params.set("rows", customersPerPage.toString());
+  }
+
   setSearchParams(params, { replace: true });
 }, [
   searchTerm,
@@ -70,6 +82,7 @@ function Customers(){
   sortBy,
   sortOrder,
   currentPage,
+  customersPerPage,
   setSearchParams,
 ]);
 
@@ -83,7 +96,7 @@ function Customers(){
 
   useEffect(() => {
   setCurrentPage(1);
-}, [searchTerm, statusFilter, sortBy, sortOrder]);
+}, [searchTerm, statusFilter, sortBy, sortOrder,customersPerPage]);
 
    const filteredCustomers = customers.filter((customer) => {
   const query = searchTerm.toLowerCase();
@@ -213,11 +226,18 @@ const handleDeleteCustomer = () => {
 )
 )}
       {filteredCustomers.length > 0 && (
+ <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <RowsPerPage
+    value={customersPerPage}
+    onChange={setCustomersPerPage}
+  />
+
   <CustomerPagination
     currentPage={currentPage}
     totalPages={totalPages}
     onPageChange={setCurrentPage}
   />
+</div>
 )}
        <CustomerDetailsDrawer
          customer={selectedCustomer}
