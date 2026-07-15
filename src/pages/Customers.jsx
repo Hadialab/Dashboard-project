@@ -10,7 +10,7 @@ import { useState ,useEffect} from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import EmptyState from "../components/customers/EmptyState";
-
+import CustomerTableSkeleton from "../components/customers/CustomerTableSkeleton";
 function Customers(){
  const [editingCustomer, setEditingCustomer] = useState(null);
   const [searchParams,setSearchParams] = useSearchParams(); 
@@ -26,9 +26,16 @@ function Customers(){
   const customersPerPage = 5;
   const [statusFilter,setStatusFilter]= useState(()=> searchParams.get("status") || "All");
   const [customerToDelete, setCustomerToDelete] = useState(null);
-const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    setIsLoading(false);
+  }, 700);
 
-   useEffect(() => {
+  return () => clearTimeout(timer);
+}, []); 
+  useEffect(() => {
   const params = new URLSearchParams();
 
   // Search
@@ -194,12 +201,16 @@ const handleDeleteCustomer = () => {
     }}
   />
 ) : (
+  isLoading ? (
+  <CustomerTableSkeleton />
+) : (
   <CustomersTable
     customers={paginatedCustomers}
     onView={handleViewCustomer}
     onEditCustomer={handleEditCustomer}
     onDeleteCustomer={handleOpenDeleteModal}
   />
+)
 )}
       {filteredCustomers.length > 0 && (
   <CustomerPagination
