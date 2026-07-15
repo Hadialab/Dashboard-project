@@ -10,7 +10,7 @@ import { useSearchParams } from "react-router-dom";
 
 
 function Customers(){
- 
+ const [editingCustomer, setEditingCustomer] = useState(null);
   const [searchParams,setSearchParams] = useSearchParams(); 
   const [sortBy,setSortBy] = useState(()=> searchParams.get("sort") || "name");
   const [sortOrder,setSortOrder]= useState(()=> searchParams.get("order") || "asc");
@@ -63,6 +63,11 @@ function Customers(){
   setSearchParams,
 ]);
 
+ const handleEditCustomer = (customer)=>{
+
+  setEditingCustomer(customer);
+  setIsAddModalOpen(true);
+ };
 
 
 
@@ -118,6 +123,18 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
   setCustomers((prev) => [newCustomer, ...prev]);
 };
 
+  const handleUpdateCustomer = (updatedCustomer) => {
+  setCustomers((prevCustomers) =>
+    prevCustomers.map((customer) =>
+      customer.id === updatedCustomer.id
+        ? updatedCustomer
+        : customer
+    )
+  );
+
+  setEditingCustomer(null);
+};
+
    return(
      <div className="space-y-4 sm:space-y-6">
        <CustomersHeader 
@@ -136,6 +153,7 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
        <CustomersTable 
          customers={paginatedCustomers}
          onView = {handleViewCustomer}
+         onEditCustomer={handleEditCustomer}
        />
        <CustomerPagination  
          currentPage={currentPage}
@@ -147,11 +165,16 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
          open={isDrawerOpen}
          onClose={() => setIsDrawerOpen(false)}
        />
-       <AddCustomerModal
-         open={isAddModalOpen}
-         onClose={() => setIsAddModalOpen(false)}
-         onAddCustomer={handleAddCustomer}
-       />
+      <AddCustomerModal
+  open={isAddModalOpen}
+  onClose={() => {
+    setIsAddModalOpen(false);
+    setEditingCustomer(null);
+  }}
+  onAddCustomer={handleAddCustomer}
+  onUpdateCustomer={handleUpdateCustomer}
+  customer={editingCustomer}
+/>
      </div>
    );
 }
