@@ -4,6 +4,7 @@ import CustomersToolBar from "../components/customers/CustomersToolBar";
 import CustomersTable from "../components/customers/CustomersTable";
 import CustomerDetailsDrawer from "../components/customers/CustomerDetailDrawer";
 import AddCustomerModal from "../components/customers/AddCustomerModal";
+import DeleteCustomerModal from "../components/customers/DeleteCustomerModal";
 import { customers as initialCustomers } from "../data/customers";
 import { useState ,useEffect} from "react";
 import { useSearchParams } from "react-router-dom";
@@ -23,7 +24,8 @@ function Customers(){
   const [searchTerm,setSearchTerm]= useState(()=> searchParams.get("search") || "");
   const customersPerPage = 5;
   const [statusFilter,setStatusFilter]= useState(()=> searchParams.get("status") || "All");
-  
+  const [customerToDelete, setCustomerToDelete] = useState(null);
+const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
    useEffect(() => {
   const params = new URLSearchParams();
@@ -134,6 +136,22 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
 
   setEditingCustomer(null);
 };
+const handleOpenDeleteModal = (customer) => {
+  setCustomerToDelete(customer);
+  setIsDeleteModalOpen(true);
+};
+const handleDeleteCustomer = () => {
+  if (!customerToDelete) return;
+
+  setCustomers((prevCustomers) =>
+    prevCustomers.filter(
+      (customer) => customer.id !== customerToDelete.id
+    )
+  );
+
+  setCustomerToDelete(null);
+  setIsDeleteModalOpen(false);
+};
 
    return(
      <div className="space-y-4 sm:space-y-6">
@@ -154,6 +172,7 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
          customers={paginatedCustomers}
          onView = {handleViewCustomer}
          onEditCustomer={handleEditCustomer}
+         onDeleteCustomer={handleOpenDeleteModal}
        />
        <CustomerPagination  
          currentPage={currentPage}
@@ -174,6 +193,15 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
   onAddCustomer={handleAddCustomer}
   onUpdateCustomer={handleUpdateCustomer}
   customer={editingCustomer}
+/>
+<DeleteCustomerModal
+  open={isDeleteModalOpen}
+  customer={customerToDelete}
+  onClose={() => {
+    setIsDeleteModalOpen(false);
+    setCustomerToDelete(null);
+  }}
+  onConfirm={handleDeleteCustomer}
 />
      </div>
    );
