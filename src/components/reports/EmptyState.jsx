@@ -10,14 +10,14 @@ const EmptyState = () => {
         />
       </div>
 
-    <h2 className="mt-6 text-2xl font-bold">
-  No matching reports
-</h2>
+      <h2 className="mt-6 text-2xl font-bold">
+        No reports found
+      </h2>
 
-<p className="mt-2 max-w-sm text-center text-gray-500">
-  No reports match the current search or filters.
-  Try changing your criteria or resetting the filters.
-</p>
+      <p className="mt-2 max-w-sm text-center text-slate-500">
+        No CRM reports match your current search or filters.
+        Try adjusting the filters or reset them to view all reports.
+      </p>
     </div>
   );
 };

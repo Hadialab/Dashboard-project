@@ -3,28 +3,35 @@ import {
   EllipsisVertical,
   Eye,
   FileDown,
-  Printer,
   FileText,
+  Printer,
 } from "lucide-react";
 
-import exportPdf from "../../utils/exportPdf";
 import exportCsv from "../../utils/exportCsv";
+import exportPdf from "../../utils/exportPdf";
 
-const ReportActions = ({ report, reports, onView }) => {
+const ReportActions = ({
+  report,
+  filteredData,
+  onView,
+}) => {
   return (
-    <Menu as="div" className="relative inline-block text-left">
-      <Menu.Button className="rounded-lg p-2 transition hover:bg-gray-100 dark:hover:bg-gray-800">
+    <Menu
+      as="div"
+      className="relative inline-block text-left"
+    >
+      <Menu.Button className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800">
         <EllipsisVertical size={18} />
       </Menu.Button>
 
-      <Menu.Items className="absolute right-0 z-50 mt-2 w-48 rounded-xl border bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+      <Menu.Items className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
         <div className="p-2">
           {/* View Details */}
           <Menu.Item>
             {() => (
               <button
                 onClick={() => onView(report)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <Eye size={16} />
                 View Details
@@ -37,7 +44,7 @@ const ReportActions = ({ report, reports, onView }) => {
             {() => (
               <button
                 onClick={() => exportPdf(report)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <FileText size={16} />
                 Export PDF
@@ -49,8 +56,8 @@ const ReportActions = ({ report, reports, onView }) => {
           <Menu.Item>
             {() => (
               <button
-                onClick={() => exportCsv(reports)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={() => exportCsv(filteredData)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <FileDown size={16} />
                 Export CSV
@@ -63,7 +70,7 @@ const ReportActions = ({ report, reports, onView }) => {
             {() => (
               <button
                 onClick={() => window.print()}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <Printer size={16} />
                 Print
