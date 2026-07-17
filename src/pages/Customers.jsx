@@ -5,7 +5,7 @@ import CustomersTable from "../components/customers/CustomersTable";
 import CustomerDetailsDrawer from "../components/customers/CustomerDetailDrawer";
 import AddCustomerModal from "../components/customers/AddCustomerModal";
 import DeleteCustomerModal from "../components/customers/DeleteCustomerModal";
-import { customers as initialCustomers } from "../data/customers";
+import { getCustomers , createCustomer,updateCustomer,deleteCustomer} from "../services/customerService";
 import { useState ,useEffect} from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -24,7 +24,12 @@ function Customers(){
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen]= useState(false);
-  const [customers,setCustomers] = useState(initialCustomers);
+
+  const [customers, setCustomers] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+
  
   const [searchTerm,setSearchTerm]= useState(()=> searchParams.get("search") || "");
   const [customersPerPage, setCustomersPerPage] = useState(
@@ -137,45 +142,82 @@ const sortedCustomers = [...filteredCustomers].sort((a,b)=>{
     setSelectedCustomer(customer);
     setIsDrawerOpen(true);
   };
- const handleAddCustomer = (customer) => {
-  const newCustomer = {
-    id: Date.now(),
-    ...customer,
-  };
+ const handleAddCustomer = async (customer) => {
+  try {
+    await createCustomer(customer);
 
-  setCustomers((prev) => [newCustomer, ...prev]);
-  toast.success("Customer added successfully.");
+    await fetchCustomers();
+
+    toast.success("Customer added successfully.");
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to add customer.");
+  }
 };
 
-  const handleUpdateCustomer = (updatedCustomer) => {
-  setCustomers((prevCustomers) =>
-    prevCustomers.map((customer) =>
-      customer.id === updatedCustomer.id
-        ? updatedCustomer
-        : customer
-    )
-  );
+  const handleUpdateCustomer = async (updatedCustomer) => {
+  try {
+    await updateCustomer(updatedCustomer.id, updatedCustomer);
 
-  setEditingCustomer(null);
-  toast.success("Customer updated successfully.");
+    await fetchCustomers();
+
+    setEditingCustomer(null);
+
+    toast.success("Customer updated successfully.");
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to update customer.");
+  }
 };
 const handleOpenDeleteModal = (customer) => {
   setCustomerToDelete(customer);
   setIsDeleteModalOpen(true);
 };
-const handleDeleteCustomer = () => {
+const handleDeleteCustomer = async () => {
   if (!customerToDelete) return;
 
-  setCustomers((prevCustomers) =>
-    prevCustomers.filter(
-      (customer) => customer.id !== customerToDelete.id
-    )
-  );
+  try {
+    await deleteCustomer(customerToDelete.id);
 
-  setCustomerToDelete(null);
-  setIsDeleteModalOpen(false);
-  toast.success("Customer deleted successfully.");
+    await fetchCustomers();
+
+    setCustomerToDelete(null);
+    setIsDeleteModalOpen(false);
+
+    toast.success("Customer deleted successfully.");
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to delete customer.");
+  }
 };
+
+ useEffect(() => {
+  fetchCustomers();
+}, []);
+
+const fetchCustomers = async () => {
+  try {
+    setLoading(true);
+
+    const response = await getCustomers();
+
+    setCustomers(response.data);
+  } catch (err) {
+    console.error(err);
+    setError("Failed to load customers.");
+  } finally {
+    setLoading(false);
+  }
+};
+   
+if (loading) {
+  return <CustomerTableSkeleton />;
+}
+
+if (error) {
+  return <div>{error}</div>;
+}
+
 
    return(
      <div className="space-y-4 sm:space-y-6">
@@ -195,6 +237,8 @@ const handleDeleteCustomer = () => {
     onSortOrderChange={setSortOrder}
   />
 )}
+
+
      {customers.length === 0 ? (
   <EmptyState
     title="No customers yet"
