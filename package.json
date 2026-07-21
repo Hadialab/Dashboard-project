@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "server": "json-server src/db.json --port 3001"
+    "server": "json-server src/db.json --host 0.0.0.0 --port $PORT"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
