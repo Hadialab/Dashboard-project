@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { deals as dealsData } from "../data/deals";
-
+import {
+  getDeals,
+  createDeal,
+  updateDeal,
+  deleteDeal,
+} from "../services/dealService";
 import DealsHeader from "../components/deals/DealsHeader";
 import DealsToolbar from "../components/deals/DealsToolbar";
 import DealsTable from "../components/deals/DealsTable";
@@ -17,7 +21,7 @@ import EmptyState from "../components/deals/EmptyState";
 function Deals() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [deals, setDeals] = useState(dealsData);
+  const [deals, setDeals] = useState([]);
 
   const [loading] = useState(false);
 
@@ -47,6 +51,18 @@ function Deals() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  useEffect(() => {
+  const fetchDeals = async () => {
+    try {
+      const dealsData = await getDeals();
+      setDeals(dealsData);
+    } catch (error) {
+      console.error("Failed to fetch deals:", error);
+    }
+  };
+
+  fetchDeals();
+}, []);
   useEffect(() => {
     const params = {};
 
@@ -153,34 +169,53 @@ function Deals() {
     }
   }, [currentPage, totalPages]);
 
-  const handleAddDeal = (deal) => {
+ const handleAddDeal = async (deal) => {
+  try {
     const newDeal = {
       ...deal,
-      id: Date.now(),
+      createdDate: new Date().toISOString().split("T")[0],
     };
 
-    setDeals((prev) => [newDeal, ...prev]);
+    const createdDeal = await createDeal(newDeal);
+
+    setDeals((prev) => [createdDeal, ...prev]);
 
     toast.success("Deal added successfully");
-  };
+  } catch (error) {
+    console.error("Failed to add deal:", error);
+    toast.error("Failed to add deal");
+  }
+};
+ const handleUpdateDeal = async (updatedDeal) => {
+  try {
+    const updated = await updateDeal(updatedDeal.id, updatedDeal);
 
-  const handleUpdateDeal = (updatedDeal) => {
     setDeals((prev) =>
       prev.map((deal) =>
-        deal.id === updatedDeal.id ? updatedDeal : deal
+        deal.id === updated.id ? updated : deal
       )
     );
 
     toast.success("Deal updated successfully");
-  };
+  } catch (error) {
+    console.error("Failed to update deal:", error);
+    toast.error("Failed to update deal");
+  }
+};
+ const handleDeleteDeal = async (id) => {
+  try {
+    await deleteDeal(id);
 
-  const handleDeleteDeal = (id) => {
     setDeals((prev) =>
       prev.filter((deal) => deal.id !== id)
     );
 
     toast.success("Deal deleted successfully");
-  };
+  } catch (error) {
+    console.error("Failed to delete deal:", error);
+    toast.error("Failed to delete deal");
+  }
+};
     return (
     <div className="space-y-6">
       <DealsHeader

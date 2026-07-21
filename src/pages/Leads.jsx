@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { leads as leadsData } from "../data/leads";
+import { getLeads,createLead,updateLead,deleteLead } from "../services/leadService";
 
 import LeadsHeader from "../components/leads/LeadsHeader";
 import LeadsToolbar from "../components/leads/LeadsToolbar";
@@ -17,7 +17,7 @@ import EmptyState from "../components/leads/EmptyState";
 function Leads() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [leads, setLeads] = useState(leadsData);
+  const [leads, setLeads] = useState([]);
 
   const [loading] = useState(false);
 
@@ -50,7 +50,25 @@ function Leads() {
   const [leadToDelete, setLeadToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
+useEffect(() => {
+  const fetchLeads = async () => {
+    try {
+      const leadData = await getLeads();
+      setLeads(leadData);
+    } catch (error) {
+      console.error("Failed to fetch leads:", error);
+    }
+  };
 
+  fetchLeads();
+}, []);
+ 
+  
+  
+  
+  
+  
   useEffect(() => {
     const params = {};
 
@@ -161,34 +179,55 @@ function Leads() {
     }
   }, [currentPage, totalPages]);
 
-  const handleAddLead = (lead) => {
+ const handleAddLead = async (lead) => {
+  try {
     const newLead = {
       ...lead,
-      id: Date.now(),
       createdDate: new Date().toISOString().split("T")[0],
     };
 
-    setLeads((prev) => [newLead, ...prev]);
-    toast.success("Lead added successfully");
-  };
+    const createdLead = await createLead(newLead);
 
-  const handleUpdateLead = (updatedLead) => {
+    setLeads((prev) => [createdLead, ...prev]);
+
+    toast.success("Lead added successfully");
+  } catch (error) {
+    console.error("Failed to add lead:", error);
+    toast.error("Failed to add lead");
+  }
+};
+
+ const handleUpdateLead = async (updatedLead) => {
+  try {
+    const updated = await updateLead(updatedLead.id, updatedLead);
+
     setLeads((prev) =>
       prev.map((lead) =>
-        lead.id === updatedLead.id ? updatedLead : lead
+        lead.id === updated.id ? updated : lead
       )
     );
 
     toast.success("Lead updated successfully");
-  };
+  } catch (error) {
+    console.error("Failed to update lead:", error);
+    toast.error("Failed to update lead");
+  }
+};
 
-  const handleDeleteLead = (id) => {
+  const handleDeleteLead = async (id) => {
+  try {
+    await deleteLead(id);
+
     setLeads((prev) =>
       prev.filter((lead) => lead.id !== id)
     );
 
     toast.success("Lead deleted successfully");
-  };
+  } catch (error) {
+    console.error("Failed to delete lead:", error);
+    toast.error("Failed to delete lead");
+  }
+};
 
   return (
     <div className="space-y-6">

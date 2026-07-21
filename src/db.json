@@ -1,0 +1,45 @@
+{
+  "customers": [
+    {
+      "id": "1",
+      "name": "John Smith",
+      "company": "Tech Solutions",
+      "email": "john@techsolutions.com",
+      "status": "Active"
+    },
+    {
+      "name": "Hadi Alab",
+      "company": "Coderaas",
+      "email": "hadialabbassi01@gmail.com",
+      "phone": "+96176976036",
+      "status": "Active",
+      "id": "unKXCveZISE"
+    }
+  ],
+  "deals": [
+    {
+      "expectedClose": "2026-07-23",
+      "owner": "owner1",
+      "stage": "Lead",
+      "value": 10000,
+      "customer": "customer1",
+      "title": "deal1",
+      "createdDate": "2026-07-21",
+      "id": "2ZGsz4lO9H0"
+    }
+  ],
+  "leads": [
+    {
+      "id": "1",
+      "name": "John Smith",
+      "company": "Tech Solutions",
+      "email": "john@techsolutions.com",
+      "phone": "+1 (555) 123-1001",
+      "status": "New",
+      "source": "Website",
+      "assignedRep": "Sarah Wilson",
+      "createdDate": "2026-07-01"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
+}
