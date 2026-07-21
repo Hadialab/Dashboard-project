@@ -1,7 +1,26 @@
 import api from "../api/axios";
 
-export const getCustomers = () => {
-  return api.get("/customers");
+
+export const getCustomers = (params = {}) => {
+  const sortParam =
+    params.sort && params.order === "desc" ? `-${params.sort}` : params.sort;
+
+  return api.get("/customers", {
+    params: {
+      _page: Number(params.page) || 1,
+      _per_page: Number(params.limit) || 10,
+      _sort: sortParam,
+
+      ...(params.status &&
+        params.status !== "All" && {
+          status: params.status,
+        }),
+
+      ...(params.search && {
+        q: params.search,
+      }),
+    },
+  });
 };
 
 export const createCustomer = (customer) => {

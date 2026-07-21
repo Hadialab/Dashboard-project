@@ -1,45 +1,69 @@
 {
   "customers": [
-    {
-      "id": "1",
-      "name": "John Smith",
-      "company": "Tech Solutions",
-      "email": "john@techsolutions.com",
-      "status": "Active"
-    },
-    {
-      "name": "Hadi Alab",
-      "company": "Coderaas",
-      "email": "hadialabbassi01@gmail.com",
-      "phone": "+96176976036",
-      "status": "Active",
-      "id": "unKXCveZISE"
-    }
+    { "id": "c001", "name": "Jad Khoury", "company": "Byblos Tech Solutions", "email": "jad.khoury@byblostech.com", "phone": "+961 3 123 456", "status": "Active" },
+    { "id": "c002", "name": "Rania Fares", "company": "Cedar Logistics", "email": "rania.fares@cedarlogistics.com", "phone": "+961 70 234 567", "status": "Active" },
+    { "id": "c003", "name": "Karim Abou Chakra", "company": "Achrafieh Digital", "email": "karim.chakra@achrafiehdigital.com", "phone": "+961 71 345 678", "status": "Inactive" },
+    { "id": "c004", "name": "Nour El Amine", "company": "Beirut Fintech Group", "email": "nour.elamine@beirutfintech.com", "phone": "+961 76 456 789", "status": "Active" },
+    { "id": "c005", "name": "Elie Sarkis", "company": "Zahle Agro Exports", "email": "elie.sarkis@zahleagro.com", "phone": "+961 81 567 890", "status": "Prospect" },
+    { "id": "c006", "name": "Layal Haddad", "company": "Tripoli Textiles Co.", "email": "layal.haddad@tripolitextiles.com", "phone": "+961 3 678 901", "status": "Active" },
+    { "id": "c007", "name": "Fadi Boutros", "company": "Jounieh Marine Supplies", "email": "fadi.boutros@jouniehmarine.com", "phone": "+961 70 789 012", "status": "Active" },
+    { "id": "c008", "name": "Maya Chidiac", "company": "Batroun Software House", "email": "maya.chidiac@batrounsoft.com", "phone": "+961 71 890 123", "status": "Inactive" },
+    { "id": "c009", "name": "Tarek Nassar", "company": "Saida Construction Group", "email": "tarek.nassar@saidaconstruction.com", "phone": "+961 76 901 234", "status": "Active" },
+    { "id": "c010", "name": "Joelle Abou Jaoude", "company": "Metn Media House", "email": "joelle.aj@metnmedia.com", "phone": "+961 81 012 345", "status": "Prospect" },
+    { "id": "c011", "name": "Charbel Rahme", "company": "Keserwan Solar Energy", "email": "charbel.rahme@keserwansolar.com", "phone": "+961 3 112 233", "status": "Active" },
+    { "id": "c012", "name": "Dima Aad", "company": "Hamra Retail Group", "email": "dima.aad@hamraretail.com", "phone": "+961 70 223 344", "status": "Active" },
+    { "id": "c013", "name": "Georges Melki", "company": "Nabatieh Farms Cooperative", "email": "georges.melki@nabatiehfarms.com", "phone": "+961 71 334 455", "status": "Inactive" },
+    { "id": "c014", "name": "Sarah Daou", "company": "Verdun Consulting", "email": "sarah.daou@verdunconsulting.com", "phone": "+961 76 445 566", "status": "Active" },
+    { "id": "c015", "name": "Wissam Achkar", "company": "Aley Real Estate", "email": "wissam.achkar@aleyrealestate.com", "phone": "+961 81 556 677", "status": "Prospect" },
+    { "id": "c016", "name": "Christelle Nehme", "company": "Baabda Printing House", "email": "christelle.nehme@baabdaprinting.com", "phone": "+961 3 667 788", "status": "Active" },
+    { "id": "c017", "name": "Ramy Abdallah", "company": "Zouk Mikael Auto Parts", "email": "ramy.abdallah@zoukauto.com", "phone": "+961 70 778 899", "status": "Active" },
+    { "id": "c018", "name": "Yara Ghosn", "company": "Mount Lebanon Pharma", "email": "yara.ghosn@mlpharma.com", "phone": "+961 71 889 900", "status": "Inactive" },
+    { "id": "c019", "name": "Antoine Karam", "company": "Dbayeh IT Services", "email": "antoine.karam@dbayehit.com", "phone": "+961 76 990 011", "status": "Active" },
+    { "id": "c020", "name": "Lea Frangieh", "company": "Broummana Hospitality Group", "email": "lea.frangieh@broummanahg.com", "phone": "+961 81 001 122", "status": "Active" }
   ],
   "deals": [
-    {
-      "expectedClose": "2026-07-23",
-      "owner": "owner1",
-      "stage": "Lead",
-      "value": 10000,
-      "customer": "customer1",
-      "title": "deal1",
-      "createdDate": "2026-07-21",
-      "id": "2ZGsz4lO9H0"
-    }
+    { "id": "d001", "title": "ERP Rollout", "customer": "Jad Khoury", "owner": "Sarah Wilson", "stage": "Won", "value": 24500, "createdDate": "2026-06-01", "expectedClose": "2026-06-20" },
+    { "id": "d002", "title": "Fleet Tracking Contract", "customer": "Rania Fares", "owner": "Rami Mansour", "stage": "Negotiation", "value": 18200, "createdDate": "2026-06-03", "expectedClose": "2026-07-15" },
+    { "id": "d003", "title": "Website Revamp", "customer": "Karim Abou Chakra", "owner": "Sarah Wilson", "stage": "Lost", "value": 6000, "createdDate": "2026-06-04", "expectedClose": "2026-06-25" },
+    { "id": "d004", "title": "Payments Integration", "customer": "Nour El Amine", "owner": "Nadine Saade", "stage": "Proposal", "value": 32000, "createdDate": "2026-06-05", "expectedClose": "2026-07-30" },
+    { "id": "d005", "title": "Export Licensing Deal", "customer": "Elie Sarkis", "owner": "Rami Mansour", "stage": "Lead", "value": 9800, "createdDate": "2026-06-06", "expectedClose": "2026-08-10" },
+    { "id": "d006", "title": "Textile Supply Agreement", "customer": "Layal Haddad", "owner": "Nadine Saade", "stage": "Won", "value": 15400, "createdDate": "2026-06-07", "expectedClose": "2026-06-28" },
+    { "id": "d007", "title": "Marine Equipment Order", "customer": "Fadi Boutros", "owner": "Sarah Wilson", "stage": "Qualified", "value": 21000, "createdDate": "2026-06-08", "expectedClose": "2026-08-01" },
+    { "id": "d008", "title": "Custom CRM Build", "customer": "Maya Chidiac", "owner": "Rami Mansour", "stage": "Lost", "value": 12500, "createdDate": "2026-06-09", "expectedClose": "2026-06-30" },
+    { "id": "d009", "title": "Site Construction Phase 1", "customer": "Tarek Nassar", "owner": "Nadine Saade", "stage": "Negotiation", "value": 58000, "createdDate": "2026-06-10", "expectedClose": "2026-08-15" },
+    { "id": "d010", "title": "Media Production Package", "customer": "Joelle Abou Jaoude", "owner": "Sarah Wilson", "stage": "Proposal", "value": 14300, "createdDate": "2026-06-11", "expectedClose": "2026-07-20" },
+    { "id": "d011", "title": "Solar Panel Installation", "customer": "Charbel Rahme", "owner": "Rami Mansour", "stage": "Won", "value": 27600, "createdDate": "2026-06-12", "expectedClose": "2026-07-05" },
+    { "id": "d012", "title": "Retail POS Rollout", "customer": "Dima Aad", "owner": "Nadine Saade", "stage": "Qualified", "value": 11200, "createdDate": "2026-06-13", "expectedClose": "2026-08-05" },
+    { "id": "d013", "title": "Cooperative Equipment Order", "customer": "Georges Melki", "owner": "Sarah Wilson", "stage": "Lead", "value": 7600, "createdDate": "2026-06-14", "expectedClose": "2026-08-20" },
+    { "id": "d014", "title": "Advisory Retainer", "customer": "Sarah Daou", "owner": "Rami Mansour", "stage": "Won", "value": 9400, "createdDate": "2026-06-15", "expectedClose": "2026-06-29" },
+    { "id": "d015", "title": "Property Listing Package", "customer": "Wissam Achkar", "owner": "Nadine Saade", "stage": "Proposal", "value": 16800, "createdDate": "2026-06-16", "expectedClose": "2026-07-25" },
+    { "id": "d016", "title": "Print Equipment Upgrade", "customer": "Christelle Nehme", "owner": "Sarah Wilson", "stage": "Negotiation", "value": 13100, "createdDate": "2026-06-17", "expectedClose": "2026-08-02" },
+    { "id": "d017", "title": "Auto Parts Bulk Order", "customer": "Ramy Abdallah", "owner": "Rami Mansour", "stage": "Won", "value": 19700, "createdDate": "2026-06-18", "expectedClose": "2026-07-10" },
+    { "id": "d018", "title": "Pharma Distribution Deal", "customer": "Yara Ghosn", "owner": "Nadine Saade", "stage": "Lost", "value": 22300, "createdDate": "2026-06-19", "expectedClose": "2026-06-27" },
+    { "id": "d019", "title": "IT Support Contract", "customer": "Antoine Karam", "owner": "Sarah Wilson", "stage": "Qualified", "value": 8700, "createdDate": "2026-06-20", "expectedClose": "2026-08-08" },
+    { "id": "d020", "title": "Hospitality Booking System", "customer": "Lea Frangieh", "owner": "Rami Mansour", "stage": "Lead", "value": 26400, "createdDate": "2026-06-21", "expectedClose": "2026-08-18" }
   ],
   "leads": [
-    {
-      "id": "1",
-      "name": "John Smith",
-      "company": "Tech Solutions",
-      "email": "john@techsolutions.com",
-      "phone": "+1 (555) 123-1001",
-      "status": "New",
-      "source": "Website",
-      "assignedRep": "Sarah Wilson",
-      "createdDate": "2026-07-01"
-    }
+    { "id": "l001", "name": "Hadi Zeidan", "company": "Baalbek Renewables", "email": "hadi.zeidan@baalbekrenewables.com", "phone": "+961 3 111 222", "status": "New", "source": "Website", "assignedRep": "Sarah Wilson", "createdDate": "2026-07-01" },
+    { "id": "l002", "name": "Rita Assaf", "company": "Tyre Seafood Exports", "email": "rita.assaf@tyreseafood.com", "phone": "+961 70 222 333", "status": "Contacted", "source": "Referral", "assignedRep": "Rami Mansour", "createdDate": "2026-07-02" },
+    { "id": "l003", "name": "Marwan Yazbek", "company": "Bekaa Valley Dairy", "email": "marwan.yazbek@bekaadairy.com", "phone": "+961 71 333 444", "status": "Qualified", "source": "Trade Show", "assignedRep": "Nadine Saade", "createdDate": "2026-07-03" },
+    { "id": "l004", "name": "Nadia Chami", "company": "Achrafieh Boutique Hotels", "email": "nadia.chami@achrafiehhotels.com", "phone": "+961 76 444 555", "status": "New", "source": "Website", "assignedRep": "Sarah Wilson", "createdDate": "2026-07-04" },
+    { "id": "l005", "name": "Michel Abi Rached", "company": "Kfarhbab Steel Works", "email": "michel.ar@kfarhbabsteel.com", "phone": "+961 81 555 666", "status": "Lost", "source": "Cold Call", "assignedRep": "Rami Mansour", "createdDate": "2026-07-05" },
+    { "id": "l006", "name": "Sandra Matar", "company": "Achrafieh Wellness Clinic", "email": "sandra.matar@achrafiehwellness.com", "phone": "+961 3 666 777", "status": "Contacted", "source": "Social Media", "assignedRep": "Nadine Saade", "createdDate": "2026-07-06" },
+    { "id": "l007", "name": "Elias Torbey", "company": "Jbeil Marine Charters", "email": "elias.torbey@jbeilmarine.com", "phone": "+961 70 777 888", "status": "New", "source": "Referral", "assignedRep": "Sarah Wilson", "createdDate": "2026-07-07" },
+    { "id": "l008", "name": "Grace Abillama", "company": "Ehden Craft Breweries", "email": "grace.abillama@ehdenbrew.com", "phone": "+961 71 888 999", "status": "Qualified", "source": "Website", "assignedRep": "Rami Mansour", "createdDate": "2026-07-08" },
+    { "id": "l009", "name": "Peter Nakhle", "company": "Sin El Fil Auto Garage", "email": "peter.nakhle@sinelfilgarage.com", "phone": "+961 76 999 000", "status": "New", "source": "Trade Show", "assignedRep": "Nadine Saade", "createdDate": "2026-07-09" },
+    { "id": "l010", "name": "Carine Feghali", "company": "Mansourieh Furniture Co.", "email": "carine.feghali@mansourieffurniture.com", "phone": "+961 81 000 111", "status": "Contacted", "source": "Cold Call", "assignedRep": "Sarah Wilson", "createdDate": "2026-07-10" },
+    { "id": "l011", "name": "Toni Saad", "company": "Antelias Print & Design", "email": "toni.saad@antelaisprint.com", "phone": "+961 3 121 232", "status": "Lost", "source": "Website", "assignedRep": "Rami Mansour", "createdDate": "2026-07-11" },
+    { "id": "l012", "name": "Rasha Douaihy", "company": "Zgharta Olive Oil Co.", "email": "rasha.douaihy@zghartaoliveoil.com", "phone": "+961 70 232 343", "status": "New", "source": "Referral", "assignedRep": "Nadine Saade", "createdDate": "2026-07-12" },
+    { "id": "l013", "name": "Bassam Khalil", "company": "Choueifat Logistics Hub", "email": "bassam.khalil@choueifatlogistics.com", "phone": "+961 71 343 454", "status": "Qualified", "source": "Social Media", "assignedRep": "Sarah Wilson", "createdDate": "2026-07-13" },
+    { "id": "l014", "name": "Diala Rizk", "company": "Broummana Spa Retreats", "email": "diala.rizk@broummanaspa.com", "phone": "+961 76 454 565", "status": "New", "source": "Website", "assignedRep": "Rami Mansour", "createdDate": "2026-07-14" },
+    { "id": "l015", "name": "Fouad Estephan", "company": "Chekka Cement Traders", "email": "fouad.estephan@chekkacement.com", "phone": "+961 81 565 676", "status": "Contacted", "source": "Trade Show", "assignedRep": "Nadine Saade", "createdDate": "2026-07-15" },
+    { "id": "l016", "name": "Mireille Khoreich", "company": "Jounieh Event Planners", "email": "mireille.khoreich@jouniehevents.com", "phone": "+961 3 676 787", "status": "New", "source": "Referral", "assignedRep": "Sarah Wilson", "createdDate": "2026-07-16" },
+    { "id": "l017", "name": "Walid Abou Khalil", "company": "Rabieh Renewable Systems", "email": "walid.aboukhalil@rabiehrenewable.com", "phone": "+961 70 787 898", "status": "Lost", "source": "Cold Call", "assignedRep": "Rami Mansour", "createdDate": "2026-07-17" },
+    { "id": "l018", "name": "Hiba Salameh", "company": "Kaslik Digital Marketing", "email": "hiba.salameh@kaslikdigital.com", "phone": "+961 71 898 909", "status": "Qualified", "source": "Website", "assignedRep": "Nadine Saade", "createdDate": "2026-07-18" },
+    { "id": "l019", "name": "Nabil Chaaya", "company": "Ras Beirut Import Export", "email": "nabil.chaaya@rasbeirutimportexport.com", "phone": "+961 76 909 010", "status": "New", "source": "Social Media", "assignedRep": "Sarah Wilson", "createdDate": "2026-07-19" },
+    { "id": "l020", "name": "Zeina Abou Zeid", "company": "Ain Saade Landscaping", "email": "zeina.abouzeid@ainsaadelandscaping.com", "phone": "+961 81 010 121", "status": "Contacted", "source": "Referral", "assignedRep": "Rami Mansour", "createdDate": "2026-07-20" }
   ],
   "$schema": "./node_modules/json-server/schema.json"
 }
