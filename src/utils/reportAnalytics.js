@@ -1,21 +1,12 @@
-import { customers } from "../data/customers";
-import { leads } from "../data/leads";
-import { deals } from "../data/deals";
-
-export const getSummaryMetrics = () => {
+export const getSummaryMetrics = (customers = [], leads = [], deals = []) => {
   const totalCustomers = customers.length;
   const totalLeads = leads.length;
   const totalDeals = deals.length;
 
-  const totalRevenue = deals.reduce(
-    (sum, deal) => sum + deal.value,
-    0
-  );
+  const totalRevenue = deals.reduce((sum, deal) => sum + deal.value, 0);
 
   const averageDealValue =
-    totalDeals === 0
-      ? 0
-      : totalRevenue / totalDeals;
+    totalDeals === 0 ? 0 : totalRevenue / totalDeals;
 
   const leadConversionRate =
     totalLeads === 0
@@ -32,7 +23,7 @@ export const getSummaryMetrics = () => {
   };
 };
 
-export const getRevenueTrend = () => {
+export const getRevenueTrend = (deals = []) => {
   const months = {};
 
   deals.forEach((deal) => {
@@ -53,55 +44,47 @@ export const getRevenueTrend = () => {
   return Object.values(months);
 };
 
-export const getDealsByStage = () => {
+export const getDealsByStage = (deals = []) => {
   const stages = {};
 
   deals.forEach((deal) => {
-    stages[deal.stage] =
-      (stages[deal.stage] || 0) + 1;
+    stages[deal.stage] = (stages[deal.stage] || 0) + 1;
   });
 
-  return Object.entries(stages).map(
-    ([stage, count]) => ({
-      stage,
-      count,
-    })
-  );
+  return Object.entries(stages).map(([stage, count]) => ({
+    stage,
+    count,
+  }));
 };
 
-export const getLeadsByStatus = () => {
+export const getLeadsByStatus = (leads = []) => {
   const statuses = {};
 
   leads.forEach((lead) => {
-    statuses[lead.status] =
-      (statuses[lead.status] || 0) + 1;
+    statuses[lead.status] = (statuses[lead.status] || 0) + 1;
   });
 
-  return Object.entries(statuses).map(
-    ([status, count]) => ({
-      status,
-      count,
-    })
-  );
+  return Object.entries(statuses).map(([status, count]) => ({
+    status,
+    count,
+  }));
 };
 
-export const getRecentDeals = () => {
+export const getRecentDeals = (deals = []) => {
   return [...deals]
     .sort(
       (a, b) =>
-        new Date(b.expectedClose) -
-        new Date(a.expectedClose)
+        new Date(b.expectedClose) - new Date(a.expectedClose)
     )
     .slice(0, 10);
 };
 
-export const getTopCustomers = () => {
+export const getTopCustomers = (deals = []) => {
   const revenueMap = {};
 
   deals.forEach((deal) => {
     revenueMap[deal.customer] =
-      (revenueMap[deal.customer] || 0) +
-      deal.value;
+      (revenueMap[deal.customer] || 0) + deal.value;
   });
 
   return Object.entries(revenueMap)

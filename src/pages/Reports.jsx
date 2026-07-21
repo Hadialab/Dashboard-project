@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import axios from "axios";
 
 import SummaryCards from "../components/reports/SummaryCards";
 import ReportsCharts from "../components/reports/ReportsCharts";
@@ -14,9 +15,15 @@ import {
   getLeadsByStatus,
 } from "../utils/reportAnalytics";
 
+const API_URL = "http://localhost:3001";
+
 const Reports = () => {
-  const [searchParams, setSearchParams] =
-    useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [customers, setCustomers] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState({
     search: searchParams.get("search") || "",
@@ -30,6 +37,28 @@ const Reports = () => {
   const [currentPage, setCurrentPage] = useState(
     Number(searchParams.get("page")) || 1
   );
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [customersRes, leadsRes, dealsRes] = await Promise.all([
+          axios.get(`${API_URL}/customers`),
+          axios.get(`${API_URL}/leads`),
+          axios.get(`${API_URL}/deals`),
+        ]);
+
+        setCustomers(customersRes.data);
+        setLeads(leadsRes.data);
+        setDeals(dealsRes.data);
+      } catch (error) {
+        console.error("Error loading reports data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -65,17 +94,21 @@ const Reports = () => {
     setSearchParams(params, { replace: true });
   }, [filters, currentPage, setSearchParams]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
   const itemsPerPage = 5;
 
-  const summary = getSummaryMetrics();
+  const summary = getSummaryMetrics(customers, leads, deals);
 
-  const revenueData = getRevenueTrend();
+  const revenueData = getRevenueTrend(deals);
 
-  const dealsStageData = getDealsByStage();
+  const dealsStageData = getDealsByStage(deals);
 
-  const leadsStatusData = getLeadsByStatus();
+  const leadsStatusData = getLeadsByStatus(leads);
 
-  const reports = getRecentDeals();
+  const reports = getRecentDeals(deals);
 
   const filteredReports = reports.filter((deal) => {
     const query = filters.search.toLowerCase();
@@ -92,52 +125,45 @@ const Reports = () => {
     return matchesSearch && matchesStage;
   });
 
-  const sortedReports = [...filteredReports].sort(
-    (a, b) => {
-      if (filters.sortBy === "none") return 0;
+  const sortedReports = [...filteredReports].sort((a, b) => {
+    if (filters.sortBy === "none") return 0;
 
-      const first = String(
-        a[filters.sortBy]
-      ).toLowerCase();
+    const first = String(a[filters.sortBy]).toLowerCase();
+    const second = String(b[filters.sortBy]).toLowerCase();
 
-      const second = String(
-        b[filters.sortBy]
-      ).toLowerCase();
-
-      return first.localeCompare(second);
-    }
-  );
+    return first.localeCompare(second);
+  });
 
   const totalPages = Math.max(
     1,
-    Math.ceil(
-      sortedReports.length / itemsPerPage
-    )
+    Math.ceil(sortedReports.length / itemsPerPage)
   );
 
-  const startIndex =
-    (currentPage - 1) * itemsPerPage;
+  const startIndex = (currentPage - 1) * itemsPerPage;
 
   const paginatedReports = sortedReports.slice(
     startIndex,
     startIndex + itemsPerPage
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filters]);
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        Loading reports...
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 px-4 sm:space-y-6 sm:px-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold sm:text-3xl">
           CRM Reports & Analytics
         </h1>
 
         <p className="mt-1 max-w-2xl text-sm text-slate-500">
-          Analyze customers, leads, deals, and revenue
-          with real-time CRM insights.
+          Analyze customers, leads, deals, and revenue with real-time CRM
+          insights.
         </p>
       </div>
 
