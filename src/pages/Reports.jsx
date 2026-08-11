@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axios";
 
 import SummaryCards from "../components/reports/SummaryCards";
 import ReportsCharts from "../components/reports/ReportsCharts";
@@ -15,7 +15,7 @@ import {
   getLeadsByStatus,
 } from "../utils/reportAnalytics";
 
-const API_URL = "http://localhost:3001";
+
 
 const Reports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,10 +42,10 @@ const Reports = () => {
     const fetchData = async () => {
       try {
         const [customersRes, leadsRes, dealsRes] = await Promise.all([
-          axios.get(`${API_URL}/customers`),
-          axios.get(`${API_URL}/leads`),
-          axios.get(`${API_URL}/deals`),
-        ]);
+  api.get("/customers"),
+  api.get("/leads"),
+  api.get("/deals"),
+]);
 
         setCustomers(customersRes.data);
         setLeads(leadsRes.data);

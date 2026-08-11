@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
@@ -50,7 +51,7 @@ function App() {
 
         {/* Public Route */}
         <Route path="/login" element={<Login />} />
-
+        <Route path="/register" element={<Register />} />
         {/* Protected Routes */}
         <Route
           element={

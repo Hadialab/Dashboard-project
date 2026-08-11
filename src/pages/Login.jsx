@@ -48,23 +48,44 @@ function Login() {
   }
 
   async function handleLogin(event) {
-    event.preventDefault();
+  event.preventDefault();
 
-    if (!(await validate())) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    if (email === mockUser.email && password === mockUser.password) {
-      login(mockUser);
-      navigate("/dashboard", { replace: true });
-      return;
-    }
-
-    setError("Invalid email or password");
-    setIsSubmitting(false);
+  if (!(await validate())) {
+    return;
   }
+
+  setIsSubmitting(true);
+  setError("");
+
+  // Default demo account
+  if (email === mockUser.email && password === mockUser.password) {
+    login(mockUser);
+    navigate("/dashboard", { replace: true });
+    return;
+  }
+
+  // Check for a registered account
+  const registeredUser = JSON.parse(
+    localStorage.getItem("registeredUser")
+  );
+
+  if (
+    registeredUser &&
+    email.toLowerCase() === registeredUser.email.toLowerCase() &&
+    password === registeredUser.password
+  ) {
+    login({
+      name: registeredUser.name,
+      email: registeredUser.email,
+    });
+
+    navigate("/dashboard", { replace: true });
+    return;
+  }
+
+  setError("Invalid email or password");
+  setIsSubmitting(false);
+}
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-10 dark:bg-slate-950 sm:px-6">
@@ -127,9 +148,17 @@ function Login() {
           </button>
         </form>
 
-        <div className="mt-6 rounded-3xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-          Use <span className="font-semibold text-slate-900 dark:text-white">admin@example.com</span> / <span className="font-semibold text-slate-900 dark:text-white">admin123</span>
-        </div>
+        <div className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+  Don't have an account?{" "}
+  <button
+    type="button"
+    onClick={() => navigate("/register")}
+    className="font-semibold text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+  >
+    Create an account
+  </button>
+</div>
+
       </div>
     </div>
   );
