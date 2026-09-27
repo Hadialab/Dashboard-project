@@ -1,5 +1,6 @@
-import { Search } from "lucide-react";
+import { Search, Upload } from "lucide-react";
 import Select from "../ui/Select";
+import { CUSTOMER_STATUSES } from "../../utils/crmConstants";
 
 const CustomersToolbar = ({
   searchTerm,
@@ -10,6 +11,8 @@ const CustomersToolbar = ({
   onSortByChange,
   sortOrder,
   onSortOrderChange,
+  onImport,
+  canImport = false,
 }) => {
   return (
     <div className="mt-4 flex flex-col gap-3 sm:mt-6 lg:flex-row lg:items-center lg:justify-between">
@@ -31,7 +34,7 @@ const CustomersToolbar = ({
       </div>
 
       {/* Filters stack full-width on mobile, then sit in a row from sm up. */}
-      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <Select
           name="statusFilter"
           value={statusFilter}
@@ -39,9 +42,11 @@ const CustomersToolbar = ({
           aria-label="Filter by status"
         >
           <option value="All">All statuses</option>
-          <option value="Active">Active</option>
-          <option value="Pending">Pending</option>
-          <option value="Inactive">Inactive</option>
+          {CUSTOMER_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
         </Select>
 
         <Select
@@ -64,6 +69,17 @@ const CustomersToolbar = ({
           <option value="asc">Ascending</option>
           <option value="desc">Descending</option>
         </Select>
+
+        {canImport && (
+          <button
+            type="button"
+            onClick={onImport}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+          >
+            <Upload size={16} />
+            Import CSV
+          </button>
+        )}
       </div>
     </div>
   );

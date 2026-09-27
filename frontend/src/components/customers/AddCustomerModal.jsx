@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { customerSchema } from "../../validation/customerSchema";
 import Modal from "../ui/Modal";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
+import { CUSTOMER_STATUSES } from "../../utils/crmConstants";
 
 const initialFormData = {
   name: "",
@@ -19,6 +21,7 @@ function AddCustomerModal({
   onAddCustomer,
   onUpdateCustomer,
   customer,
+  existingEmails = [],
 }) {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
@@ -38,6 +41,18 @@ function AddCustomerModal({
 
     setErrors({});
   }, [customer, open]);
+
+  // A warning, not a block. The same person can legitimately hold two records,
+  // and the API does not enforce email uniqueness, so refusing here would invent
+  // a rule the rest of the app does not follow.
+  const duplicateMatch = useMemo(() => {
+    const email = formData.email.trim().toLowerCase();
+    if (!email) return null;
+
+    return existingEmails.find(
+      (value) => String(value).toLowerCase() === email,
+    );
+  }, [formData.email, existingEmails]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -155,11 +170,25 @@ function AddCustomerModal({
           error={errors.status}
           containerClassName="md:col-span-2"
         >
-          <option>Active</option>
-          <option>Pending</option>
-          <option>Inactive</option>
+          {CUSTOMER_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
         </Select>
       </div>
+
+      {/* Only on create: editing an existing customer will obviously match its
+          own email. */}
+      {duplicateMatch && !customer && (
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>
+            Another customer already uses this email address. Saving will create
+            a second record for the same person.
+          </span>
+        </p>
+      )}
     </Modal>
   );
 }

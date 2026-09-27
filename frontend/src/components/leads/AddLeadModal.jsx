@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { leadSchema } from "../../validation/leadSchema";
 import Modal from "../ui/Modal";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
+import { LEAD_STATUSES, LEAD_SOURCES } from "../../utils/crmConstants";
 import OwnerSelect from "../ui/OwnerSelect";
 
 // No rep is pre-selected. A real account is chosen from the company team, or the
@@ -19,9 +21,17 @@ const initialFormData = {
   ownerId: "",
 };
 
-function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
+function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead, existingEmails = [] }) {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
+
+  // A warning, not a block — see the note in AddCustomerModal.
+  const duplicateMatch = useMemo(() => {
+    const email = formData.email.trim().toLowerCase();
+    if (!email) return null;
+
+    return existingEmails.find((value) => String(value).toLowerCase() === email);
+  }, [formData.email, existingEmails]);
 
   useEffect(() => {
     if (lead) {
@@ -160,11 +170,11 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
           value={formData.status}
           onChange={handleChange}
         >
-          <option>New</option>
-          <option>Contacted</option>
-          <option>Qualified</option>
-          <option>Proposal</option>
-          <option>Lost</option>
+          {LEAD_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
         </Select>
 
         <Select
@@ -173,12 +183,11 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
           value={formData.source}
           onChange={handleChange}
         >
-          <option>Website</option>
-          <option>Referral</option>
-          <option>LinkedIn</option>
-          <option>Facebook</option>
-          <option>Google Ads</option>
-          <option>Cold Call</option>
+          {LEAD_SOURCES.map((source) => (
+            <option key={source} value={source}>
+              {source}
+            </option>
+          ))}
         </Select>
 
         <OwnerSelect
@@ -188,6 +197,17 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
           containerClassName="md:col-span-2"
         />
       </div>
+
+      {/* Only on create: editing a lead will obviously match its own email. */}
+      {duplicateMatch && !lead && (
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>
+            Another lead or customer already uses this email address. Saving
+            will create a second record for the same person.
+          </span>
+        </p>
+      )}
     </Modal>
   );
 }
