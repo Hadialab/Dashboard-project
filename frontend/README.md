@@ -29,7 +29,8 @@ data to load — see `../backend/README.md`.
 
 ## API
 
-`src/api/axios.js` holds the base URL. All requests go through it:
+`src/api/axios.js` holds the base URL and attaches the session token to every
+request. All requests go through it:
 
 | Service                        | Endpoints                                    |
 | ------------------------------ | -------------------------------------------- |
@@ -56,8 +57,23 @@ filter is a plain `status=Active` query param.
 
 ## Auth
 
-Login and register are client-side only for now — credentials are checked in
-`pages/Login.jsx` against a demo account and `localStorage`, then stored as
-cookies by `store/authStore.js`. `routes/ProtectedRoute.jsx` gates routes on that
-cookie. There is no real authentication on the API yet; treat it as read/write
-access to demo data.
+Authentication is real and enforced by the API. `pages/Login.jsx` and
+`pages/Register.jsx` post to `/auth/login` and `/auth/register`; the API hashes
+the password, returns a JWT, and rejects unauthenticated requests to the CRM
+data. Nothing credential-related is kept in `localStorage` or cookies.
+
+- `services/authService.js` — the three auth calls
+- `store/authStore.js` — session state, holds the token
+- `routes/ProtectedRoute.jsx` — validates the stored token on load, then gates routes
+
+On startup `ProtectedRoute` calls `/auth/me` to confirm the token is still
+valid, rather than trusting whatever is in storage. If any request comes back
+401, the axios interceptor clears the token and dispatches an event that logs
+the user out, so an expired session lands on `/login` instead of looping on
+failed requests.
+
+Demo account: `admin@example.com` / `admin123`.
+
+The token lives in `localStorage` under `crm_token`. That is readable by any
+script on the page, so it is vulnerable to token theft through XSS; an httpOnly
+cookie is the stronger choice and would need the dev server proxy set up.
