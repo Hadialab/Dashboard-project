@@ -11,7 +11,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "promote": "node scripts/promote-user.js"
+    "promote": "node scripts/promote-user.js",
+    "seed:demo": "node scripts/seed-demo.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
