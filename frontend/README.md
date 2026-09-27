@@ -77,3 +77,40 @@ Demo account: `admin@example.com` / `admin123`.
 The token lives in `localStorage` under `crm_token`. That is readable by any
 script on the page, so it is vulnerable to token theft through XSS; an httpOnly
 cookie is the stronger choice and would need the dev server proxy set up.
+
+## Roles
+
+The signed-in user's role comes from `/auth/me` and drives the UI.
+
+- **Admin** — sees all customers, leads and deals. The Team page lets them add
+  sales reps, change roles and remove people.
+- **Sales rep** — sees every customer (shared) but only the leads and deals they
+  own. The Team link is hidden and `/team` explains that it is admin-only. The
+  API enforces this independently with a `403`, so the hidden link is a
+  convenience rather than the protection.
+
+Reps own anything they create, so a new lead shows up in their list immediately.
+
+## Activity and follow-ups
+
+Both hang off a customer or a deal and appear in its detail drawer.
+
+- **Activity** (`components/ui/NotesTimeline.jsx`) — a note timeline. Authors
+  can delete their own notes; admins can delete any.
+- **Follow-ups** (`components/ui/FollowUpsPanel.jsx`) — scheduled work with a
+  type, due date and done state. Overdue items are flagged.
+
+`/followups` lists everything the signed-in user can see, already filtered by
+what the API allows.
+
+### Calendar and email
+
+Both work with no server configuration and no third-party account:
+
+- **Calendar** writes an `.ics` file, which the user's own calendar opens.
+  Generated client-side in `utils/calendar.js`.
+- **Email** opens a `mailto:` link, which hands off to the user's mail client.
+
+If the backend has an email provider configured, the Email button asks the server
+to send instead and falls back to `mailto:` if that is not possible. It never
+fails silently: the toast says which path was taken.
