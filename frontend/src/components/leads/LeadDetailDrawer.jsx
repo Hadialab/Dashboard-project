@@ -1,14 +1,10 @@
 import { Building2, Mail, Phone, User, Calendar } from "lucide-react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
-
-const statusColors = {
-  New: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
-  Contacted: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
-  Qualified: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
-  Proposal: "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400",
-  Lost: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
-};
+import FollowUpsPanel from "../ui/FollowUpsPanel";
+import NotesTimeline from "../ui/NotesTimeline";
+import { leadStatusBadge } from "../../utils/crmConstants";
+import { formatRelative } from "../../utils/time";
 
 function LeadDetailDrawer({ open, onClose, lead }) {
   if (!open || !lead) return null;
@@ -19,7 +15,8 @@ function LeadDetailDrawer({ open, onClose, lead }) {
     { icon: Phone, label: "Phone", value: lead.phone },
     { icon: User, label: "Assigned Rep", value: lead.assignedRep },
     { icon: User, label: "Lead Source", value: lead.source },
-    { icon: Calendar, label: "Created Date", value: lead.createdDate },
+    { icon: Calendar, label: "Created", value: formatRelative(lead.createdDate) },
+    { icon: Calendar, label: "Last updated", value: formatRelative(lead.updatedAt) },
   ];
 
   return (
@@ -43,7 +40,7 @@ function LeadDetailDrawer({ open, onClose, lead }) {
         </h3>
 
         <span
-          className={`mt-2 rounded-full px-3 py-1 text-xs font-medium ${statusColors[lead.status] ?? statusColors.Lost}`}
+          className={`mt-2 rounded-full px-3 py-1 text-xs font-medium ${leadStatusBadge(lead.status)}`}
         >
           {lead.status}
         </span>
@@ -66,6 +63,16 @@ function LeadDetailDrawer({ open, onClose, lead }) {
           </div>
         ))}
       </div>
+
+      {/* Follow-ups and the activity timeline, matching the customer and deal
+          drawers. */}
+      <FollowUpsPanel
+        entityType="lead"
+        entityId={lead.id}
+        contact={{ name: lead.name, email: lead.email }}
+      />
+
+      <NotesTimeline entityType="lead" entityId={lead.id} />
     </Drawer>
   );
 }

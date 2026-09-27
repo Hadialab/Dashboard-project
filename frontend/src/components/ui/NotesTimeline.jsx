@@ -1,11 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Activity, Trash2 } from "lucide-react";
 import { createNote, deleteNote, getNotes } from "../../services/noteService";
 import useAuthStore from "../../store/authStore";
 import Button from "./Button";
+import { formatRelative } from "../../utils/time";
 
-// The activity timeline. One component used in both the customer and deal
-// drawers, since a note is a note either way — only the parent record differs.
+/**
+ * The activity timeline for a record.
+ *
+ * One component used in the customer, lead and deal drawers, since a note is a
+ * note either way — only the parent record differs.
+ *
+ * Two kinds of entry share the list:
+ *   note  — typed by a person, deletable by its author
+ *   event — written by the server when the record was created or a tracked
+ *           field changed, shown with an icon and not deletable
+ *
+ * They are interleaved chronologically rather than separated, because the story
+ * of a record is the combination: "stage moved to Negotiation" only makes sense
+ * next to the note written just before it.
+ */
 function NotesTimeline({ entityType, entityId }) {
   const currentUser = useAuthStore((state) => state.user);
   const [notes, setNotes] = useState([]);
@@ -41,12 +55,15 @@ function NotesTimeline({ entityType, entityId }) {
     try {
       setSaving(true);
       const created = await createNote({ entityType, entityId, body: trimmed });
-      // Newest first, matching the server order.
       setNotes((prev) => [created, ...prev]);
       setBody("");
       setError("");
     } catch (err) {
-      setError(err.response?.data?.details?.body ?? err.response?.data?.error ?? "Could not save note.");
+      setError(
+        err.response?.data?.details?.body ??
+          err.response?.data?.error ??
+          "Could not save note.",
+      );
     } finally {
       setSaving(false);
     }
@@ -90,29 +107,53 @@ function NotesTimeline({ entityType, entityId }) {
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
 
       {loading ? (
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Loading activity...</p>
+        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+          Loading activity...
+        </p>
       ) : notes.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          No notes yet. Anything logged here is visible to your team.
+          No activity yet. Anything logged here is visible to your team.
         </p>
       ) : (
         <ol className="mt-3 space-y-2">
           {notes.map((note) => {
-            const canDelete = currentUser?.role === "admin" || note.authorId === currentUser?.id;
+            const isEvent = note.kind === "event";
+            const canDelete =
+              !isEvent &&
+              (currentUser?.role === "admin" || note.authorId === currentUser?.id);
 
             return (
               <li
                 key={note.id}
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900"
+                className={[
+                  "rounded-lg border p-3",
+                  isEvent
+                    ? "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60"
+                    : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+                ].join(" ")}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-sm text-slate-800 dark:text-slate-100">
+                    {isEvent && (
+                      <p className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <Activity size={12} aria-hidden="true" />
+                        Change
+                      </p>
+                    )}
+
+                    <p
+                      className={[
+                        "break-words text-sm",
+                        isEvent
+                          ? "text-slate-600 dark:text-slate-300"
+                          : "text-slate-800 dark:text-slate-100",
+                      ].join(" ")}
+                    >
                       {note.body}
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {note.authorName} · {formatWhen(note.createdAt)}
+                      {note.authorName} · {formatRelative(note.createdAt)}
                     </p>
                   </div>
 
@@ -134,26 +175,6 @@ function NotesTimeline({ entityType, entityId }) {
       )}
     </section>
   );
-}
-
-// Relative for recent entries, absolute once "x days ago" stops being useful.
-function formatWhen(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.round(diffMs / 60000);
-
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.round(hours / 24);
-  if (days < 7) return `${days}d ago`;
-
-  return date.toLocaleDateString();
 }
 
 export default NotesTimeline;
