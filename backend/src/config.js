@@ -1,8 +1,10 @@
+import "dotenv/config";
+
 // Central config so the JWT secret is read in one place and a missing secret
 // fails loudly at boot rather than silently signing tokens with "undefined".
-
-// Imported here as well as in server.js so config works no matter which entry
-// point loads it first.
+//
+// dotenv is imported here as well as in server.js so config works no matter
+// which entry point loads it first.
 import "dotenv/config";
 
 const DEV_SECRET = "dev-only-insecure-secret-change-me";
@@ -28,6 +30,10 @@ if (!secret) {
   );
 }
 
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set. Copy backend/.env.example to backend/.env");
+}
+
 export const config = {
   jwtSecret: secret || DEV_SECRET,
   // Long enough for a normal work session, short enough to limit the damage
@@ -39,4 +45,12 @@ export const config = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   isProduction: process.env.NODE_ENV === "production",
+
+  // PostgreSQL. Holds every tenant's data, so treat the credentials as
+  // production secrets.
+  databaseUrl: process.env.DATABASE_URL,
+  databasePoolSize: Number(process.env.DATABASE_POOL_SIZE) || 10,
+  // Run the idempotent schema on boot. Convenient locally; turn it off if you
+  // would rather apply migrations yourself.
+  runMigrationsOnBoot: process.env.RUN_MIGRATIONS !== "false",
 };

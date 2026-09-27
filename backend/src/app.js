@@ -7,6 +7,7 @@ import notesRoutes from "./routes/notes.routes.js";
 import followUpsRoutes from "./routes/followUps.routes.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { config } from "./config.js";
+import { ping } from "./db/migrate.js";
 import { HttpError, notFound } from "./utils/httpError.js";
 
 export function createApp() {
@@ -19,8 +20,16 @@ export function createApp() {
   );
   app.use(express.json());
 
-  app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+  // Reports whether the API is up *and* whether it can reach PostgreSQL, so a
+  // deployment that started but cannot talk to the database is visibly broken
+  // rather than silently 500ing on every request.
+  app.get("/health", async (_req, res) => {
+    try {
+      await ping();
+      res.json({ status: "ok", database: "up" });
+    } catch {
+      res.status(503).json({ status: "degraded", database: "down" });
+    }
   });
 
   app.use("/auth", authRoutes);
