@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+npm-debug.log*
+
+# Local database file is generated from the seed data.
+data/db.json
