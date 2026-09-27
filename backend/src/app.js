@@ -3,6 +3,8 @@ import cors from "cors";
 import { createResourceRouter } from "./routes/factory.js";
 import { resources } from "./validation/resources.js";
 import authRoutes from "./routes/auth.routes.js";
+import notesRoutes from "./routes/notes.routes.js";
+import followUpsRoutes from "./routes/followUps.routes.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { config } from "./config.js";
 import { HttpError, notFound } from "./utils/httpError.js";
@@ -22,6 +24,11 @@ export function createApp() {
   });
 
   app.use("/auth", authRoutes);
+
+  // Notes and follow-ups hang off a customer or a deal, and inherit its access
+  // rules, so they get their own routers rather than the resource factory.
+  app.use("/notes", notesRoutes);
+  app.use("/followups", followUpsRoutes);
 
   // Every CRM collection sits behind requireAuth. This is the guard that makes
   // the API useless to anyone without a valid token, regardless of whether they
