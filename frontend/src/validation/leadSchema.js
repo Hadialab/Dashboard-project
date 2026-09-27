@@ -30,8 +30,9 @@ export const leadSchema = yup.object({
   source: yup
     .string()
     .required("Source is required"),
-
-  assignedRep: yup
-    .string()
-    .required("Assigned representative is required"),
 });
+
+// assignedRep is not validated here. The server derives it from the record's
+// owner, so whatever the browser sends is ignored — requiring it would only
+// produce a confusing "required" error on a field the user cannot meaningfully
+// fill in.

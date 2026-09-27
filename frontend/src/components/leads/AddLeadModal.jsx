@@ -4,7 +4,10 @@ import Modal from "../ui/Modal";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
+import OwnerSelect from "../ui/OwnerSelect";
 
+// No rep is pre-selected. A real account is chosen from the company team, or the
+// record is left for the person creating it.
 const initialFormData = {
   name: "",
   company: "",
@@ -12,7 +15,8 @@ const initialFormData = {
   phone: "",
   status: "New",
   source: "Website",
-  assignedRep: "Sarah Wilson",
+  // Which team member owns it. The display name is derived server-side.
+  ownerId: "",
 };
 
 function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
@@ -28,7 +32,7 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
         phone: lead.phone,
         status: lead.status,
         source: lead.source,
-        assignedRep: lead.assignedRep,
+        ownerId: lead.ownerId ?? "",
       });
     } else {
       setFormData(initialFormData);
@@ -59,13 +63,22 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
 
       setErrors({});
 
+      // Built explicitly rather than from the form state, so nothing the user
+      // cannot see or change is sent.
+      const payload = {
+        name: formData.name,
+        company: formData.company,
+        email: formData.email,
+        phone: formData.phone,
+        status: formData.status,
+        source: formData.source,
+        ownerId: formData.ownerId,
+      };
+
       if (lead) {
-        onUpdateLead({
-          ...lead,
-          ...formData,
-        });
+        onUpdateLead({ ...lead, ...payload });
       } else {
-        onAddLead(formData);
+        onAddLead(payload);
       }
 
       setFormData(initialFormData);
@@ -168,18 +181,12 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead }) {
           <option>Cold Call</option>
         </Select>
 
-        <Select
+        <OwnerSelect
           label="Assigned Representative"
-          name="assignedRep"
-          value={formData.assignedRep}
+          value={formData.ownerId}
           onChange={handleChange}
           containerClassName="md:col-span-2"
-        >
-          <option>Sarah Wilson</option>
-          <option>David Brown</option>
-          <option>James Carter</option>
-          <option>Emma Taylor</option>
-        </Select>
+        />
       </div>
     </Modal>
   );

@@ -4,6 +4,7 @@ import Modal from "../ui/Modal";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
+import OwnerSelect from "../ui/OwnerSelect";
 
 const dealSchema = yup.object({
   title: yup.string().required("Deal title is required"),
@@ -14,8 +15,9 @@ const dealSchema = yup.object({
     .positive("Deal value must be greater than 0")
     .required("Deal value is required"),
   stage: yup.string().required("Stage is required"),
-  owner: yup.string().required("Owner is required"),
   expectedClose: yup.string().required("Expected close date is required"),
+  // `owner` is not validated: the server derives it from `ownerId`, so the
+  // browser's value is ignored. See the comment in validation/resources.js.
 });
 
 const initialFormData = {
@@ -23,7 +25,7 @@ const initialFormData = {
   customer: "",
   value: "",
   stage: "Lead",
-  owner: "",
+  ownerId: "",
   expectedClose: "",
 };
 
@@ -59,17 +61,25 @@ function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal }) {
 
   const handleSubmit = async () => {
     try {
-      const validatedData = await dealSchema.validate(formData, {
+      await dealSchema.validate(formData, {
         abortEarly: false,
       });
 
+      // Built explicitly rather than from the yup result: `ownerId` is not in
+      // the schema, and dropping it would silently reset the owner on every save.
+      const payload = {
+        title: formData.title,
+        customer: formData.customer,
+        value: Number(formData.value),
+        stage: formData.stage,
+        ownerId: formData.ownerId,
+        expectedClose: formData.expectedClose,
+      };
+
       if (deal) {
-        onUpdateDeal({
-          ...validatedData,
-          id: deal.id,
-        });
+        onUpdateDeal({ ...deal, ...payload });
       } else {
-        onAddDeal(validatedData);
+        onAddDeal(payload);
       }
 
       onClose();
@@ -150,13 +160,11 @@ function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal }) {
           <option>Lost</option>
         </Select>
 
-        <Input
+        <OwnerSelect
           label="Deal Owner"
-          name="owner"
-          value={formData.owner}
+          value={formData.ownerId}
           onChange={handleChange}
-          placeholder="Enter owner"
-          error={errors.owner}
+          error={errors.ownerId}
         />
 
         <Input
