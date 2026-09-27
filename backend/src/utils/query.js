@@ -1,16 +1,18 @@
-// Query helpers that reproduce the response shapes the frontend expects from
-// json-server, so swapping this API in requires no frontend changes.
+// Query helpers for filtering, searching, sorting and paginating a collection.
+//
+// The parameter names (`_page`, `_per_page`, `_sort`, `q`) are kept from the
+// json-server mock the app was originally built against, so the existing
+// services and pages work unchanged.
 
-// json-server only wraps results in pagination metadata when pagination was
-// actually requested. Without _page/_per_page it returns a bare array, which is
-// what Reports.jsx and the deals/leads services expect.
+// Pagination metadata is only wrapped up when pagination was actually asked for.
+// Without _page/_per_page the response is a bare array, which is what
+// Reports.jsx and the deals/leads services expect.
 export function wantsPagination(query) {
   return query._page !== undefined || query._per_page !== undefined;
 }
 
 // Filters on exact field matches (status=Active, stage=Won, ...). Any query key
-// that is not a reserved control param is treated as an equality filter, which
-// matches json-server's behaviour.
+// that is not a reserved control param is treated as an equality filter.
 const RESERVED = new Set([
   "_page", "_per_page", "_sort", "_order", "_start", "_end", "_limit", "q", "search",
 ]);
@@ -34,9 +36,8 @@ export function applyFilters(rows, query, allowedFields) {
   return result;
 }
 
-// Free-text search across the given fields. json-server ignores a `q` param
-// entirely, so the frontend's search box silently did nothing before; this
-// actually filters.
+// Free-text search across the given fields. The old mock ignored a `q` param
+// entirely, so the search box silently did nothing; this actually filters.
 export function applySearch(rows, query, fields) {
   const term = (query.q ?? query.search ?? "").toString().trim().toLowerCase();
   if (!term) return rows;
