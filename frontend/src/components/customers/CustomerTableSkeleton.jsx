@@ -1,31 +1,37 @@
+import Skeleton, { SkeletonTable } from "../ui/Skeleton";
+
+// Skeleton matching the real table above md, and the mobile card list below it,
+// so nothing shifts when the data arrives.
 function CustomerTableSkeleton() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-      {/* Table Header */}
-      <div className="grid grid-cols-4 gap-4 border-b border-slate-200 p-4 dark:border-slate-700 md:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-4 animate-pulse rounded bg-slate-200 dark:bg-slate-700"
-          />
-        ))}
+    <>
+      <div className="mt-4 hidden md:block">
+        <SkeletonTable rows={5} columns={5} />
       </div>
 
-      {/* Table Rows */}
-      {Array.from({ length: 5 }).map((_, row) => (
-        <div
-          key={row}
-          className="grid grid-cols-4 gap-4 border-b border-slate-100 p-4 last:border-0 dark:border-slate-800 md:grid-cols-5"
-        >
-          {Array.from({ length: 5 }).map((_, col) => (
-            <div
-              key={col}
-              className="h-4 animate-pulse rounded bg-slate-200 dark:bg-slate-700"
-            />
-          ))}
-        </div>
-      ))}
-    </div>
+      <div className="mt-4 space-y-3 md:hidden">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 

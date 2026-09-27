@@ -1,107 +1,181 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
-
+import DetailRow from "../ui/DataCard";
 
 const statusColors = {
-  Active:
-    "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
-
-  Pending:
-    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
-
-  Inactive:
-    "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
+  Active: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
+  Pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
+  Inactive: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
 };
 
-function CustomersTable({ customers,onView,onEditCustomer,onDeleteCustomer}) {
+function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer }) {
   return (
-    <div className="mt-4 sm:mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max">
-          <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
-            <tr className="text-xs sm:text-sm">
-              <th className="px-3 py-3 sm:px-6 sm:py-4 text-left font-semibold whitespace-nowrap">
-                Customer
-              </th>
+    <>
+      {/* Desktop and tablet: a real table that scrolls inside its own
+          container, so it never pushes the page sideways. */}
+      <div className="mt-4 hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block dark:border-slate-800 dark:bg-slate-950">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-max">
+            <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
+              <tr className="text-xs sm:text-sm">
+                <th className="whitespace-nowrap px-4 py-3 text-left font-semibold lg:px-6 lg:py-4">
+                  Customer
+                </th>
 
-              <th className="px-3 py-3 sm:px-6 sm:py-4 text-left font-semibold whitespace-nowrap">
-                Company
-              </th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-semibold lg:px-6 lg:py-4">
+                  Company
+                </th>
 
-              <th className="hidden px-3 py-3 sm:px-6 sm:py-4 text-left font-semibold whitespace-nowrap md:table-cell">
-                Email
-              </th>
+                <th className="hidden whitespace-nowrap px-4 py-3 text-left font-semibold lg:table-cell lg:px-6 lg:py-4">
+                  Email
+                </th>
 
-              <th className="px-3 py-3 sm:px-6 sm:py-4 text-left font-semibold whitespace-nowrap">
-                Status
-              </th>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-semibold lg:px-6 lg:py-4">
+                  Status
+                </th>
 
-              <th className="px-3 py-3 sm:px-6 sm:py-4 text-center font-semibold whitespace-nowrap">
-                Actions
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {customers.map((customer) => (
-              <tr
-                key={customer.id}
-                className="border-b border-slate-200 transition text-xs sm:text-sm hover:bg-slate-50 last:border-none dark:border-slate-800 dark:hover:bg-slate-900"
-              >
-                <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-white text-xs sm:text-sm flex-shrink-0">
-                      {customer.name.charAt(0)}
-                    </div>
-
-                    <span className="font-medium text-slate-900 dark:text-white truncate">
-                      {customer.name}
-                    </span>
-                  </div>
-                </td>
-
-                <td className="px-3 py-3 sm:px-6 sm:py-4 text-slate-600 dark:text-slate-300 truncate">
-                  {customer.company}
-                </td>
-
-                <td className="hidden px-3 py-3 sm:px-6 sm:py-4 text-slate-600 dark:text-slate-300 truncate md:table-cell text-xs">
-                  {customer.email}
-                </td>
-
-                <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
-                  <span
-                    className={`rounded-full px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold inline-block ${statusColors[customer.status]}`}
-                  >
-                    {customer.status}
-                  </span>
-                </td>
-
-                <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
-                  <div className="flex justify-center gap-1 sm:gap-2">
-                    <button onClick={()=>onView(customer)} className="rounded-lg p-1.5 sm:p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800">
-                      <Eye size={16} className="sm:w-[18px] sm:h-[18px]" />
-                    </button>
-
-                   <button
-  onClick={() => onEditCustomer(customer)}
-  className="rounded-lg p-1.5 sm:p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800"
->
-  <Pencil size={16} className="sm:w-[18px] sm:h-[18px]" />
-</button>
-
-                   <button
-  onClick={() => onDeleteCustomer(customer)}
-  className="rounded-lg p-1.5 transition hover:bg-red-50 dark:hover:bg-red-900/20"
->
-  <Trash2 size={16} />
-</button>
-                  </div>
-                </td>
+                <th className="whitespace-nowrap px-4 py-3 text-center font-semibold lg:px-6 lg:py-4">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {customers.map((customer) => (
+                <tr
+                  key={customer.id}
+                  className="border-b border-slate-200 text-sm transition last:border-none hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
+                >
+                  <td className="whitespace-nowrap px-4 py-3 lg:px-6 lg:py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+                        {customer.name.charAt(0)}
+                      </div>
+
+                      <span className="truncate font-medium text-slate-900 dark:text-white">
+                        {customer.name}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="truncate px-4 py-3 text-slate-600 lg:px-6 lg:py-4 dark:text-slate-300">
+                    {customer.company}
+                  </td>
+
+                  <td className="hidden truncate px-4 py-3 text-slate-600 lg:table-cell lg:px-6 lg:py-4 dark:text-slate-300">
+                    {customer.email}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 lg:px-6 lg:py-4">
+                    <span
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[customer.status]}`}
+                    >
+                      {customer.status}
+                    </span>
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 lg:px-6 lg:py-4">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onView(customer)}
+                        aria-label={`View ${customer.name}`}
+                        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                      >
+                        <Eye size={16} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onEditCustomer(customer)}
+                        aria-label={`Edit ${customer.name}`}
+                        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                      >
+                        <Pencil size={16} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCustomer(customer)}
+                        aria-label={`Delete ${customer.name}`}
+                        className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      {/* Mobile: the same data as a stacked card list, so nothing is cut off
+          and every action is a full-width tap target. */}
+      <div className="mt-4 space-y-3 md:hidden">
+        {customers.map((customer) => (
+          <div
+            key={customer.id}
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
+                {customer.name.charAt(0)}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-slate-900 dark:text-white">
+                  {customer.name}
+                </p>
+                <p className="truncate text-sm text-slate-500 dark:text-slate-400">
+                  {customer.company}
+                </p>
+              </div>
+
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[customer.status]}`}
+              >
+                {customer.status}
+              </span>
+            </div>
+
+            <dl className="mt-3 border-t border-slate-100 pt-1 dark:border-slate-800">
+              <DetailRow label="Email" value={customer.email} />
+              <DetailRow label="Phone" value={customer.phone} />
+            </dl>
+
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => onView(customer)}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                <Eye size={16} />
+                View
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onEditCustomer(customer)}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                <Pencil size={16} />
+                Edit
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onDeleteCustomer(customer)}
+                className="flex min-h-11 items-center justify-center rounded-lg border border-red-200 px-4 text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                aria-label={`Delete ${customer.name}`}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
