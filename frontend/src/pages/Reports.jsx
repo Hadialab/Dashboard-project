@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 
+import PageHeader from "../components/ui/PageHeader";
 import SummaryCards from "../components/reports/SummaryCards";
 import ReportsCharts from "../components/reports/ReportsCharts";
 import ReportsTable from "../components/reports/ReportsTable";
@@ -155,17 +156,12 @@ const Reports = () => {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-5 px-4 sm:space-y-6 sm:px-6">
-      <div>
-        <h1 className="text-2xl font-bold sm:text-3xl">
-          CRM Reports & Analytics
-        </h1>
-
-        <p className="mt-1 max-w-2xl text-sm text-slate-500">
-          Analyze customers, leads, deals, and revenue with real-time CRM
-          insights.
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-7xl space-y-6">
+      <PageHeader
+        eyebrow="Analytics"
+        title="CRM Reports & Analytics"
+        description="Analyze customers, leads, deals, and revenue with real-time CRM insights."
+      />
 
       <SummaryCards summary={summary} />
 
