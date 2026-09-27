@@ -22,6 +22,8 @@ function UserMenu() {
   }, []);
 
   function handleLogout() {
+    // Tokens are stateless, so clearing it client-side is enough to end the
+    // session. Revoking it server-side would need a token blacklist.
     logout();
     navigate("/login", { replace: true });
   }
@@ -31,9 +33,10 @@ function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm transition hover:border-blue-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-blue-500 dark:hover:bg-slate-900"
+        aria-expanded={open}
+        className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-900 transition hover:border-blue-300 hover:bg-slate-50 sm:gap-3 sm:px-3 sm:py-2 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-blue-500 dark:hover:bg-slate-900"
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
           {user?.name?.[0] ?? "U"}
         </div>
 
@@ -48,16 +51,16 @@ function UserMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-3 w-56 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:ring-slate-800">
+        <div className="fixed inset-x-3 top-16 z-10 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-56 dark:border-slate-800 dark:bg-slate-950">
           <button
             type="button"
             onClick={() => {
               navigate("/profile");
               setOpen(false);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+            className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
           >
-            <UserIcon size={16} />
+            <UserIcon size={16} className="shrink-0" />
             Profile
           </button>
           <button
@@ -66,17 +69,17 @@ function UserMenu() {
               navigate("/settings");
               setOpen(false);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+            className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
           >
-            <Settings size={16} />
+            <Settings size={16} className="shrink-0" />
             Settings
           </button>
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 border-t border-slate-200 px-4 py-3 text-left text-sm text-rose-600 transition hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-900"
+            className="flex min-h-11 w-full items-center gap-3 border-t border-slate-200 px-4 py-3 text-left text-sm text-rose-600 transition hover:bg-slate-100 dark:border-slate-800 dark:text-rose-400 dark:hover:bg-slate-900"
           >
-            <LogOut size={16} />
+            <LogOut size={16} className="shrink-0" />
             Log out
           </button>
         </div>

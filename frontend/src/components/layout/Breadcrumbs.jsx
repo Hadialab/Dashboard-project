@@ -16,7 +16,7 @@ function Breadcrumbs() {
   }
 
   return (
-    <nav className="mb-6 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+    <nav className="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
       <ol className="flex flex-wrap items-center gap-2">
         <li>
           <Link

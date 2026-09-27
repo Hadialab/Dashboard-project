@@ -40,11 +40,11 @@ function Navbar({ onToggleSidebar }) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 w-full flex-shrink-0 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm transition dark:border-slate-800 dark:bg-slate-950 md:px-6">
+    <header className="sticky top-0 z-30 flex w-full flex-shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 transition dark:border-slate-800 dark:bg-slate-950 sm:gap-3 sm:px-6">
       <button
         type="button"
         onClick={onToggleSidebar}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:border-blue-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-900 md:hidden"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-blue-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-900 md:hidden"
         aria-label="Toggle navigation"
       >
         <Menu size={20} />
@@ -52,12 +52,12 @@ function Navbar({ onToggleSidebar }) {
 
       <div className="flex-1"></div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <div className="relative" ref={notificationRef}>
           <button
             type="button"
             onClick={() => setShowNotifications((prev) => !prev)}
-            className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:border-blue-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-900"
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-blue-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-900"
             aria-label="Open notifications"
           >
             <Bell size={20} />
@@ -65,14 +65,14 @@ function Navbar({ onToggleSidebar }) {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-3 w-80 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg ring-1 ring-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:ring-slate-800">
+            <div className="fixed inset-x-3 top-16 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-80 dark:border-slate-800 dark:bg-slate-950">
               <div className="border-b border-slate-200 px-4 py-4 text-sm font-semibold text-slate-900 dark:border-slate-800 dark:text-slate-100">
                 Notifications
               </div>
-              <div className="space-y-2 p-4">
+              <div className="max-h-80 space-y-2 overflow-y-auto p-4">
                 {notifications.map((notification) => (
-                  <div key={notification.title} className="rounded-3xl px-4 py-3 transition hover:bg-slate-100 dark:hover:bg-slate-900">
-                    <p className="font-medium text-slate-900 dark:text-white">{notification.title}</p>
+                  <div key={notification.title} className="rounded-lg px-3 py-3 transition hover:bg-slate-100 dark:hover:bg-slate-900">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{notification.title}</p>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{notification.subtitle}</p>
                     <span className="mt-2 inline-block text-xs text-slate-400 dark:text-slate-500">{notification.time}</span>
                   </div>
