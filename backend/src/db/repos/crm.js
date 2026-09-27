@@ -20,6 +20,16 @@ const numeric = (column, alias = column) => ({ column, alias, type: "numeric" })
 const date = (column, alias = column) => ({ column, alias, type: "date" });
 const timestamp = (column, alias = column) => ({ column, alias, type: "timestamp" });
 
+// Written by the server on every update, so a client sending `updatedAt` is
+// ignored rather than trusted. A forged timestamp would make a stale record look
+// freshly worked on, which is exactly the signal the dashboard reads.
+const serverStamp = (column, alias) => ({
+  column,
+  alias,
+  type: "timestamp",
+  readOnly: true,
+});
+
 export const CRM_TABLES = {
   customers: {
     prefix: "c",
@@ -32,6 +42,7 @@ export const CRM_TABLES = {
       text("phone"),
       text("status"),
       timestamp("created_at", "createdAt"),
+      serverStamp("updated_at", "updatedAt"),
     ],
   },
 
@@ -51,6 +62,7 @@ export const CRM_TABLES = {
       text("assigned_rep", "assignedRep"),
       numeric("owner_id", "ownerId"),
       date("created_at", "createdDate"),
+      serverStamp("updated_at", "updatedAt"),
     ],
   },
 
@@ -68,6 +80,7 @@ export const CRM_TABLES = {
       numeric("value"),
       date("created_at", "createdDate"),
       date("expected_close", "expectedClose"),
+      serverStamp("updated_at", "updatedAt"),
     ],
   },
 };
@@ -124,6 +137,9 @@ function toRow(spec, doc) {
   const out = {};
 
   for (const field of spec.fields) {
+    // Server-owned fields are stamped below, never taken from the payload.
+    if (field.readOnly) continue;
+
     const value = doc[field.alias];
     if (value === undefined) continue;
 
@@ -187,6 +203,12 @@ export function repo(table) {
 
       const sets = keys.map((column, index) => `${column} = $${index + 3}`);
       const values = [organizationId, String(id), ...Object.values(data)];
+
+      // Every update stamps updated_at, which is what "last updated" in the
+      // tables and the stale-lead check both read. now() is a SQL expression
+      // rather than a bound value, so it is appended to the SET list and never
+      // enters `values` — binding the string "now()" would fail the cast.
+      sets.push("updated_at = now()");
 
       const { rows } = await run.query(
         `UPDATE ${table} SET ${sets.join(", ")}

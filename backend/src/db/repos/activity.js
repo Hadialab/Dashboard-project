@@ -5,7 +5,7 @@ import { toDateString, toTimestampString } from "../dates.js";
 // shape: organization_id, an entity reference, and their own payload.
 
 const NOTES_SELECT =
-  "id, entity_type, entity_id, body, author_id, author_name, created_at";
+  "id, entity_type, entity_id, body, kind, author_id, author_name, created_at";
 const FOLLOWUPS_SELECT =
   "id, entity_type, entity_id, title, type, due_at, details, status, created_by, created_by_name, created_at, completed_at";
 
@@ -51,14 +51,16 @@ export const notesRepo = {
     return rows.map(toCamel);
   },
 
-  async insert(organizationId, { entityType, entityId, body, authorId, authorName }) {
+  // `kind` defaults to 'note'. The server passes 'event' for the entries it
+  // writes itself when a record is created or a tracked field changes.
+  async insert(organizationId, { entityType, entityId, body, authorId, authorName, kind = "note" }) {
     const id = await nextId("notes_id_seq", "n");
 
     const { rows } = await query(
-      `INSERT INTO notes (id, organization_id, entity_type, entity_id, body, author_id, author_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO notes (id, organization_id, entity_type, entity_id, body, kind, author_id, author_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING ${NOTES_SELECT}`,
-      [id, organizationId, entityType, String(entityId), body, authorId, authorName],
+      [id, organizationId, entityType, String(entityId), body, kind, authorId, authorName],
     );
 
     return toCamel(rows[0]);
