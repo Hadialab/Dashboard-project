@@ -1,11 +1,26 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import { all, insert, remove, update } from "../db/store.js";
+import {
+  createOrganizationWithOwner,
+  deleteUser,
+  findOrganizationById,
+  findUserByEmail,
+  findUserById,
+  insertUser,
+  listUsers,
+  updateUser,
+} from "../db/repos/users.js";
+import { releaseCreator } from "../db/repos/activity.js";
 import { signToken } from "../auth/tokens.js";
 import { requireAuth } from "../auth/requireAuth.js";
 import { ROLES, requireRole } from "../auth/roles.js";
-import { validateLogin, validateRegistration } from "../validation/userSchema.js";
-import { badRequest, conflict, notFound, unauthorized } from "../utils/httpError.js";
+import {
+  DEFAULT_PERMISSIONS,
+  normalizePermissions,
+  validatePermissions,
+} from "../auth/permissions.js";
+import { validateLogin, validateNewUser, validateRegistration } from "../validation/userSchema.js";
+import { asyncHandler, badRequest, conflict, notFound, unauthorized } from "../utils/asyncHandler.js";
 
 const router = express.Router();
 
@@ -13,145 +28,244 @@ const router = express.Router();
 // unknown keeps login responses uniform in both message and timing.
 const DUMMY_HASH = bcrypt.hashSync("no-such-account", 10);
 
-function findByEmail(email) {
-  return all("users").find((user) => user.email === String(email).toLowerCase()) ?? null;
-}
-
-// The shape returned to the client. Deliberately no passwordHash.
+// What the client is allowed to see. Deliberately no password_hash.
 function publicUser(user) {
-  return { id: user.id, name: user.name, email: user.email, role: user.role ?? "rep" };
+  return {
+    id: user.id,
+    organizationId: user.organization_id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    // Normalized on the way out, so the client always receives a complete set.
+    permissions: normalizePermissions(user.permissions),
+  };
 }
 
-router.post("/register", (req, res) => {
-  const { value, errors } = validateRegistration(req.body);
-  if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+/**
+ * Creates a company and its first admin.
+ *
+ * There is no seeded account and no way to promote yourself into an existing
+ * company, so every signup is a new tenant. The person registering becomes that
+ * company's admin and can then add their own team.
+ */
+// Every handler below is wrapped in asyncHandler. Express 4 only catches
+// synchronous throws, so an unwrapped async route turns a handled 404 into an
+// unhandled rejection that takes the whole API process down with it.
+router.post(
+  "/register",
+  asyncHandler(async (req, res) => {
+    const { value, errors } = validateRegistration(req.body);
+    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
 
-  if (findByEmail(value.email)) {
-    throw conflict("An account with this email already exists", { email: "Email is already registered" });
-  }
+    if (await findUserByEmail(value.email)) {
+      throw conflict("An account with this email already exists", {
+        email: "Email is already registered",
+      });
+    }
 
-  const user = insert("users", {
-    name: value.name,
-    email: value.email,
-    passwordHash: bcrypt.hashSync(value.password, 10),
-    // Self-registration can only ever produce a rep. Admins are created from
-    // the Team page, so nobody can promote themselves by signing up.
-    role: "rep",
-    createdAt: new Date().toISOString(),
-  });
+    const { user } = await createOrganizationWithOwner({
+      organizationName: value.organizationName,
+      name: value.name,
+      email: value.email,
+      passwordHash: bcrypt.hashSync(value.password, 10),
+      // An admin ignores permissions, but storing the defaults keeps the shape
+      // uniform if they are ever demoted.
+      permissions: DEFAULT_PERMISSIONS,
+    });
 
-  res.status(201).json({ token: signToken(user), user: publicUser(user) });
-});
+    res.status(201).json({
+      token: signToken(user),
+      user: publicUser(user),
+      // Returned so the UI can show which workspace the user just joined.
+      organization: { id: user.organization_id, name: value.organizationName },
+    });
+  }),
+);
 
-router.post("/login", (req, res) => {
-  const { value, errors } = validateLogin(req.body);
-  if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+router.post(
+  "/login",
+  asyncHandler(async (req, res) => {
+    const { value, errors } = validateLogin(req.body);
+    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
 
-  const user = findByEmail(value.email);
+    const user = await findUserByEmail(value.email);
 
-  // Same message and a real bcrypt comparison either way, so the response does
-  // not reveal whether an email is registered. A throwaway hash stands in for
-  // the missing user to keep the timing similar.
-  const passwordMatches = bcrypt.compareSync(
-    value.password,
-    user?.passwordHash ?? DUMMY_HASH,
-  );
+    // Same message and a real bcrypt comparison either way, so the response does
+    // not reveal whether an email is registered.
+    const passwordMatches = bcrypt.compareSync(
+      value.password,
+      user?.password_hash ?? DUMMY_HASH,
+    );
 
-  if (!user || !passwordMatches) {
-    throw unauthorized("Invalid email or password");
-  }
+    if (!user || !passwordMatches) {
+      throw unauthorized("Invalid email or password");
+    }
 
-  res.json({ token: signToken(user), user: publicUser(user) });
-});
+    res.json({ token: signToken(user), user: publicUser(user) });
+  }),
+);
 
 // Lets the frontend confirm a stored token is still valid on page load,
-// instead of trusting a cookie it cannot verify.
-router.get("/me", requireAuth, (req, res) => {
-  res.json({ user: req.user });
-});
+// instead of trusting whatever is in localStorage.
+router.get(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const organization = await findOrganizationById(req.organizationId);
+    res.json({
+      user: publicUser(req.user),
+      organization: organization ? { id: organization.id, name: organization.name } : null,
+    });
+  }),
+);
 
-// ===== Admin-only: team management =====
-// These live under /auth because they act on the users collection.
+// ===== Admin-only: team management, scoped to the caller's own company =====
 
-router.get("/users", requireAuth, requireRole("admin"), (_req, res) => {
-  res.json(all("users").map(publicUser));
-});
+router.get(
+  "/users",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    res.json((await listUsers(req.organizationId)).map(publicUser));
+  }),
+);
 
-// Admin creates a rep. The only way to make another admin, which is why it is
-// behind the admin gate.
-router.post("/users", requireAuth, requireRole("admin"), (req, res) => {
-  const { value, errors } = validateRegistration(req.body);
-  if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+// Admin creates a rep inside their own company. The only way to make another
+// admin, which is why it sits behind the admin gate.
+router.post(
+  "/users",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const { value, errors } = validateNewUser(req.body);
+    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
 
-  if (findByEmail(value.email)) {
-    throw conflict("An account with this email already exists", { email: "Email is already registered" });
-  }
-
-  const requestedRole = req.body?.role;
-  if (requestedRole && !ROLES.includes(requestedRole)) {
-    throw badRequest("Validation failed", { role: `Role must be one of: ${ROLES.join(", ")}` });
-  }
-
-  const user = insert("users", {
-    name: value.name,
-    email: value.email,
-    passwordHash: bcrypt.hashSync(value.password, 10),
-    role: requestedRole ?? "rep",
-    createdAt: new Date().toISOString(),
-  });
-
-  res.status(201).json(publicUser(user));
-});
-
-router.patch("/users/:id/role", requireAuth, requireRole("admin"), (req, res) => {
-  const target = all("users").find((u) => u.id === req.params.id);
-  if (!target) throw notFound("User not found");
-
-  const { role } = req.body ?? {};
-
-  if (!ROLES.includes(role)) {
-    throw badRequest("Validation failed", { role: `Role must be one of: ${ROLES.join(", ")}` });
-  }
-
-  // Guard against removing the last admin, which would lock everyone out of
-  // the team page with no way to recover.
-  if (target.role === "admin" && role !== "admin") {
-    const admins = all("users").filter((u) => u.role === "admin");
-    if (admins.length <= 1) {
-      throw conflict("Cannot demote the last administrator");
+    if (await findUserByEmail(value.email)) {
+      throw conflict("An account with this email already exists", {
+        email: "Email is already registered",
+      });
     }
-  }
 
-  res.json(publicUser(update("users", target.id, { role })));
-});
-
-router.delete("/users/:id", requireAuth, requireRole("admin"), (req, res) => {
-  const target = all("users").find((u) => u.id === req.params.id);
-  if (!target) throw notFound("User not found");
-
-  if (target.id === req.user.id) {
-    throw conflict("You cannot delete your own account");
-  }
-
-  if (target.role === "admin") {
-    const admins = all("users").filter((u) => u.role === "admin");
-    if (admins.length <= 1) {
-      throw conflict("Cannot delete the last administrator");
+    const requestedRole = req.body?.role;
+    if (requestedRole && !ROLES.includes(requestedRole)) {
+      throw badRequest("Validation failed", {
+        role: `Role must be one of: ${ROLES.join(", ")}`,
+      });
     }
-  }
 
-  // Records owned by this user fall back to unassigned rather than being
-  // deleted. They stop being visible to the departing rep and become the
-  // admin's to reassign.
-  for (const [name, ownerField] of [["leads", "ownerId"], ["deals", "ownerId"]]) {
-    for (const row of all(name)) {
-      if (row[ownerField] === target.id) {
-        update(name, row.id, { [ownerField]: null });
-      }
+    const created = await insertUser(req.organizationId, {
+      name: value.name,
+      email: value.email,
+      passwordHash: bcrypt.hashSync(value.password, 10),
+      role: requestedRole ?? "rep",
+      // The admin can hand over a specific set, or omit it for the defaults.
+      permissions: req.body?.permissions
+        ? normalizePermissions(req.body.permissions)
+        : DEFAULT_PERMISSIONS,
+    });
+
+    res.status(201).json(publicUser(created));
+  }),
+);
+
+router.patch(
+  "/users/:id/role",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const { role } = req.body ?? {};
+
+    if (!ROLES.includes(role)) {
+      throw badRequest("Validation failed", {
+        role: `Role must be one of: ${ROLES.join(", ")}`,
+      });
     }
-  }
 
-  res.json(publicUser(remove("users", target.id)));
-});
+    // Scoped to the caller's own company, so this is a 404 for anyone outside it
+    // rather than a way to edit another company's team.
+    const target = await findUserById(req.organizationId, req.params.id);
+    if (!target) throw notFound("User not found");
+
+    // Guard against removing the last admin, which would lock the company out of
+    // its own team page.
+    if (target.role === "admin" && role !== "admin") {
+      const admins = (await listUsers(req.organizationId)).filter((u) => u.role === "admin");
+      if (admins.length <= 1) throw conflict("Cannot demote the last administrator");
+    }
+
+    res.json(publicUser(await updateUser(req.organizationId, target.id, { role })));
+  }),
+);
+
+router.patch(
+  "/users/:id/permissions",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const target = await findUserById(req.organizationId, req.params.id);
+    if (!target) throw notFound("User not found");
+
+    if (target.role === "admin") {
+      throw conflict("Administrators always have full access, so there is nothing to change");
+    }
+
+    const { value, errors } = validatePermissions(req.body?.permissions);
+    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+
+    // Merge over the current set so a partial update only changes what was sent.
+    const merged = normalizePermissions({
+      ...normalizePermissions(target.permissions),
+      ...value,
+    });
+
+    res.json(
+      publicUser(await updateUser(req.organizationId, target.id, { permissions: merged })),
+    );
+  }),
+);
+
+router.post(
+  "/users/:id/permissions/reset",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const target = await findUserById(req.organizationId, req.params.id);
+    if (!target) throw notFound("User not found");
+
+    if (target.role === "admin") {
+      throw conflict("Administrators always have full access, so there is nothing to reset");
+    }
+
+    res.json(
+      publicUser(
+        await updateUser(req.organizationId, target.id, { permissions: DEFAULT_PERMISSIONS }),
+      ),
+    );
+  }),
+);
+
+router.delete(
+  "/users/:id",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const target = await findUserById(req.organizationId, req.params.id);
+    if (!target) throw notFound("User not found");
+
+    if (target.id === req.user.id) {
+      throw conflict("You cannot delete your own account");
+    }
+
+    if (target.role === "admin") {
+      const admins = (await listUsers(req.organizationId)).filter((u) => u.role === "admin");
+      if (admins.length <= 1) throw conflict("Cannot delete the last administrator");
+    }
+
+    // Their follow-ups become unowned rather than being removed.
+    await releaseCreator(req.organizationId, target.id);
+
+    res.json(publicUser(await deleteUser(req.organizationId, target.id)));
+  }),
+);
 
 export default router;

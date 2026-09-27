@@ -2,34 +2,22 @@
 // enforces, so bad data is rejected at the API too. The frontend remains the
 // primary source of user-facing messages; these guard the data.
 //
-// Each resource may also declare access rules:
-//   visibleTo(user, row)  — can this user see the record at all
-//   editableBy(user, row) — can this user change or delete it
-// Customers are shared, so they have no rules and every signed-in user sees
-// them. Leads and deals are scoped to their owner, with unassigned records
-// visible to everyone but editable only by an admin.
+// Each resource also declares its permission name, which is how a sales rep's
+// access is looked up in `auth/permissions.js`:
+//   permissionName — key in the user's permissions object
+//   owned         — whether records have an owner, so "own" scope means anything
+//
+// Admins bypass all of it.
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+?[0-9\s\-()]{7,20}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-const isAdmin = (user) => user?.role === "admin";
-
-// Shared by leads and deals.
-//
-// A rep sees strictly their own records. Anything without an owner is
-// admin-only, because "team members see only their own leads and deals" is
-// meaningless if unassigned records are also visible to everyone — that would
-// leave a rep seeing most of the pipeline anyway. Reps always own what they
-// create, so their own work is never hidden from them.
-const ownedRules = {
-  visibleTo: (user, row) => isAdmin(user) || row.ownerId === user.id,
-  editableBy: (user, row) => isAdmin(user) || row.ownerId === user.id,
-};
-
 export const resources = {
   customers: {
     prefix: "c",
+    permissionName: "customers",
+    owned: false,
     fields: ["name", "company", "email", "phone", "status"],
     searchFields: ["name", "company", "email", "phone"],
     // `status` drives the Customers toolbar filter.
@@ -40,42 +28,45 @@ export const resources = {
     },
     // The frontend omits the id when creating and sends the whole row on update.
     sanitize: (body) => pick(body, ["name", "company", "email", "phone", "status"]),
-    // Shared across the team: no ownership rules.
-    owned: false,
   },
 
   deals: {
     prefix: "d",
+    permissionName: "deals",
+    owned: true,
     fields: ["title", "customer", "owner", "ownerId", "stage", "value", "createdDate", "expectedClose"],
     searchFields: ["title", "customer", "owner"],
-    required: ["title", "customer", "owner", "stage", "value", "expectedClose"],
+    // `owner` is excluded: it is the display name of `ownerId`, which the
+    // server always sets. Requiring it would reject a perfectly valid request
+    // just because the browser left it out.
+    required: ["title", "customer", "stage", "value", "expectedClose"],
     check: (row, errors) => {
       if (!Number.isFinite(Number(row.value))) errors.value = "Value must be a number";
       if (row.expectedClose && !ISO_DATE.test(String(row.expectedClose))) {
         errors.expectedClose = "Use YYYY-MM-DD format";
       }
     },
-    // `createdDate` and `ownerId` are server-assigned; see applyOwnership.
-    sanitize: (body) => pick(body, ["title", "customer", "owner", "stage", "value", "expectedClose"]),
-    ...ownedRules,
-    owned: true,
+    // `createdDate`, `ownerId` and `owner` are server-assigned; see
+    // applyOwnership in routes/factory.js.
+    sanitize: (body) => pick(body, ["title", "customer", "stage", "value", "expectedClose"]),
     ownerField: "ownerId",
     ownerLabelField: "owner",
   },
 
   leads: {
     prefix: "l",
+    permissionName: "leads",
+    owned: true,
     fields: ["name", "company", "email", "phone", "status", "source", "assignedRep", "ownerId", "createdDate"],
     searchFields: ["name", "company", "email", "assignedRep"],
-    required: ["name", "company", "email", "phone", "status", "source", "assignedRep"],
+    // `assignedRep` is excluded for the same reason as a deal's `owner`.
+    required: ["name", "company", "email", "phone", "status", "source"],
     check: (row, errors) => {
       if (!EMAIL.test(String(row.email))) errors.email = "Invalid email address";
       if (!PHONE.test(String(row.phone))) errors.phone = "Invalid phone number";
     },
-    // `createdDate` and `ownerId` are server-assigned.
-    sanitize: (body) => pick(body, ["name", "company", "email", "phone", "status", "source", "assignedRep"]),
-    ...ownedRules,
-    owned: true,
+    // `createdDate`, `ownerId` and `assignedRep` are server-assigned.
+    sanitize: (body) => pick(body, ["name", "company", "email", "phone", "status", "source"]),
     ownerField: "ownerId",
     ownerLabelField: "assignedRep",
   },

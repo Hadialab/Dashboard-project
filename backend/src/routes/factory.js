@@ -1,119 +1,187 @@
 import express from "express";
-import * as store from "../db/store.js";
+import { repo } from "../db/repos/crm.js";
+import { findUserById } from "../db/repos/users.js";
 import { runQuery } from "../utils/query.js";
-import { badRequest, forbidden, notFound } from "../utils/httpError.js";
+import { asyncHandler, badRequest, forbidden, notFound } from "../utils/asyncHandler.js";
 import { validate } from "../validation/resources.js";
-import { isAdmin } from "../auth/roles.js";
+import { can, canViewRow, isAdmin } from "../auth/permissions.js";
 
-// Builds CRUD routes for one collection. The three resources differ only in
-// their fields, validation and access rules, so they share this implementation.
+// Builds CRUD routes for one collection. Two independent gates apply to every
+// request: the tenant (which company's data this is) and the caller's
+// permissions for this resource, which admins bypass.
 export function createResourceRouter(name, config) {
   const router = express.Router();
-  const visibleTo = config.visibleTo ?? (() => true);
-  const editableBy = config.editableBy ?? (() => true);
+  const permissionName = config.permissionName;
+  const records = repo(name);
 
-  // Filters the collection down to what this user is allowed to see.
-  const visibleRows = (rows, user) => rows.filter((row) => visibleTo(user, row));
+  // Filters the collection down to what this user is allowed to see. The rows
+  // arrive already restricted to their own organization.
+  const visibleRows = (rows, user) =>
+    can(user, permissionName, "view")
+      ? rows.filter((row) => canViewRow(user, permissionName, row))
+      : [];
 
   // Resolves a record for reading, or throws 404. A record the user cannot see
   // is reported as missing rather than forbidden, so the API does not confirm
   // the existence of records someone has no access to.
-  const findVisible = (id, user) => {
-    const row = store.findById(name, id);
-    if (!row || !visibleTo(user, row)) throw notFound(`${singular(name)} not found`);
+  const findVisible = async (id, req) => {
+    if (!can(req.user, permissionName, "view")) {
+      throw forbidden("You do not have access to this section");
+    }
+
+    const row = await records.findById(req.organizationId, id);
+    if (!row || !canViewRow(req.user, permissionName, row)) {
+      throw notFound(`${singular(name)} not found`);
+    }
+
     return row;
   };
 
-  // Resolves a record for writing. 403 here, because the user already knows
-  // the record exists — they were just sent to it by a list they can see.
-  const findEditable = (id, user) => {
-    const row = findVisible(id, user);
-    if (!editableBy(user, row)) throw forbidden();
+  // Resolves a record for writing. 403 rather than 404, because the user could
+  // already see the record — they were sent to it by a list they can read.
+  const findEditable = async (id, req, action) => {
+    const row = await findVisible(id, req);
+
+    if (!can(req.user, permissionName, action)) {
+      throw forbidden(`You do not have permission to ${action} this ${singular(name)}`);
+    }
+
     return row;
   };
 
-  router.get("/", (req, res) => {
-    res.json(runQuery(visibleRows(store.all(name), req.user), req.query, config));
-  });
+  router.get(
+    "/",
+    asyncHandler(async (req, res) => {
+      // Refuse the whole section rather than answering with an empty list. An
+      // empty 200 is indistinguishable from "no records yet", which hides a
+      // misconfigured permission behind what looks like a normal empty state.
+      if (!can(req.user, permissionName, "view")) {
+        throw forbidden("You do not have access to this section");
+      }
 
-  router.get("/:id", (req, res) => {
-    res.json(findVisible(req.params.id, req.user));
-  });
+      const rows = await records.all(req.organizationId);
+      res.json(runQuery(visibleRows(rows, req.user), req.query, config));
+    }),
+  );
 
-  router.post("/", (req, res) => {
-    const { value, errors } = validate(config, req.body, { partial: false });
-    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+  router.get(
+    "/:id",
+    asyncHandler(async (req, res) => {
+      res.json(await findVisible(req.params.id, req));
+    }),
+  );
 
-    // A rep creating a record owns it from the start, so it shows up in their
-    // list immediately. An admin may set the owner explicitly.
-    const ownership = applyOwnership(config, null, req);
+  router.post(
+    "/",
+    asyncHandler(async (req, res) => {
+      if (!can(req.user, permissionName, "create")) {
+        throw forbidden(`You do not have permission to create a ${singular(name)}`);
+      }
 
-    const created = store.insert(name, {
-      ...withDefaults(config, value, req),
-      ...ownership,
-    });
+      const { value, errors } = validate(config, req.body, { partial: false });
+      if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
 
-    res.status(201).json(created);
-  });
+      // A sales user owns what they create, so it is inside their "own" scope.
+      const ownership = await applyOwnership(config, null, req);
+
+      const created = await records.insert(req.organizationId, {
+        ...withDefaults(config, value),
+        ...ownership,
+      });
+
+      res.status(201).json(created);
+    }),
+  );
 
   // PUT is treated as a full replace, matching what the frontend sends (it
   // always submits the whole row). id and server-owned fields stay fixed.
-  router.put("/:id", (req, res) => {
-    const existing = findEditable(req.params.id, req.user);
+  router.put(
+    "/:id",
+    asyncHandler(async (req, res) => {
+      const existing = await findEditable(req.params.id, req, "edit");
 
-    const { value, errors } = validate(config, req.body, { partial: false });
-    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+      const { value, errors } = validate(config, req.body, { partial: false });
+      if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
 
-    const ownership = applyOwnership(config, existing, req);
+      const ownership = await applyOwnership(config, existing, req);
 
-    res.json(
-      store.update(name, req.params.id, { ...withDefaults(config, value, req), ...ownership }),
-    );
-  });
+      res.json(
+        await records.update(req.organizationId, existing.id, {
+          ...withDefaults(config, value),
+          ...ownership,
+        }),
+      );
+    }),
+  );
 
-  router.delete("/:id", (req, res) => {
-    const row = findEditable(req.params.id, req.user);
-    res.json(store.remove(name, row.id));
-  });
+  router.delete(
+    "/:id",
+    asyncHandler(async (req, res) => {
+      const row = await findEditable(req.params.id, req, "delete");
+      res.json(await records.remove(req.organizationId, row.id));
+    }),
+  );
 
   return router;
 }
 
 // Works out the owner fields for a write.
 //
-// Reps always own what they create, and cannot hand a record to someone else —
-// otherwise "see only your own records" would be trivially bypassable. Only an
-// admin can reassign, and reassignment also updates the display name so the
-// two never disagree.
-function applyOwnership(config, existing, req) {
+// The owner is always a real user in the caller's own organization — the
+// display name is derived from that user rather than accepted from the client,
+// so the two can never disagree and "own records only" cannot be bypassed by
+// typing someone else's name.
+//
+// Nobody can hand a record to another company: the lookup is organization
+// scoped, so an id from elsewhere is rejected as an unknown user.
+//
+// Rules:
+//   - Creating, no ownerId given  -> you own it
+//   - Creating, ownerId: null     -> left unassigned (admin only; visible to
+//                                   admins alone, since there is no owner to
+//                                   match a sales user against)
+//   - Creating, ownerId: <id>    -> that user, admins only
+//   - Editing                    -> unchanged unless an admin reassigns
+async function applyOwnership(config, existing, req) {
   if (!config.owned) return {};
 
   const idField = config.ownerField;
   const labelField = config.ownerLabelField;
   const { user } = req;
 
-  if (isAdmin(user)) {
-    const requested = req.body?.ownerId;
-    const newOwnerId = requested === undefined ? (existing?.ownerId ?? null) : requested;
+  if (!isAdmin(user)) {
+    // A sales user owns what they create and keeps the current owner on edit,
+    // otherwise an "own records only" scope would be trivially bypassable.
+    if (!existing) return { [idField]: user.id, [labelField]: user.name };
 
-    const owner = newOwnerId ? store.findById("users", newOwnerId) : null;
-
-    // Guard against pointing a record at a user that does not exist.
-    if (newOwnerId && !owner) throw badRequest("Validation failed", { ownerId: "Unknown user" });
-
-    return { [idField]: owner?.id ?? null, [labelField]: owner?.name ?? "Unassigned" };
+    return {
+      [idField]: existing[idField] ?? user.id,
+      [labelField]: existing[labelField] ?? user.name,
+    };
   }
 
-  // A rep creating a record owns it; a rep editing keeps the current owner.
-  if (!existing) return { [idField]: user.id, [labelField]: user.name };
+  const requested = req.body?.ownerId;
 
-  return { [idField]: existing[idField] ?? user.id, [labelField]: existing[labelField] ?? user.name };
+  // Absent means "same as before", and on create that resolves to the admin.
+  const newOwnerId = requested === undefined ? (existing?.[idField] ?? user.id) : requested;
+
+  const owner = newOwnerId ? await findUserById(req.organizationId, newOwnerId) : null;
+
+  // Guard against pointing a record at a user that does not exist, including
+  // one belonging to a different company.
+  if (newOwnerId && !owner) {
+    throw badRequest("Validation failed", { ownerId: "Unknown user" });
+  }
+
+  return { [idField]: owner?.id ?? null, [labelField]: owner?.name ?? "Unassigned" };
 }
 
-function withDefaults(config, value, req) {
+function withDefaults(config, value) {
   const row = { ...value };
 
-  // Only deals and leads carry a createdDate, and clients never set it.
+  // Only deals and leads carry a createdDate, and clients never set it. The
+  // column itself defaults to now(), so this only covers the case where the
+  // frontend sends a full row on update and omits it.
   if (config.fields.includes("createdDate") && !row.createdDate) {
     row.createdDate = new Date().toISOString().slice(0, 10);
   }
