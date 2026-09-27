@@ -43,6 +43,9 @@ valid token — knowing the API URL is not enough to read or change anything.
 | `POST` | `/auth/login`   | Returns a token; `401` on bad credentials |
 | `GET`  | `/auth/me`      | Current user, for validating a token    |
 
+Self-registration always creates a **rep**. Admins are only created from the Team
+page, so nobody can promote themselves by signing up.
+
 | Status | When                                              |
 | ------ | ------------------------------------------------- |
 | 400    | Validation failure or malformed JSON              |
@@ -63,6 +66,85 @@ Notes on the implementation:
 - Tokens are stateless, so logging out clears the client copy but cannot revoke
   an already-issued token before it expires. A blacklist is the fix if that
   matters.
+
+## Roles and record visibility
+
+Two roles. **admin** sees everything; **rep** is a sales rep.
+
+| Resource            | Who can see it                                  |
+| ------------------- | ----------------------------------------------- |
+| `/customers`        | Everyone. Customers are shared across the team. |
+| `/leads`, `/deals`  | Records where `ownerId` is the caller, plus all of them for an admin. |
+
+- A rep **owns** anything they create, so their own work is never hidden.
+- A rep cannot set `ownerId`. Reassignment is admin-only, otherwise "see only
+  your own records" would be trivially bypassable.
+- A record with no owner is **admin-only**. Visible to nobody else, so unassigned
+  work does not leak across the team.
+- Reading a record you cannot see returns `404`, not `403`, so the API does not
+  confirm that records you have no access to exist.
+- The display name (`assignedRep` / `owner`) is written by the server alongside
+  `ownerId`, so the two can never disagree.
+
+### Team management (admin only)
+
+| Method   | Path                       | Notes                                        |
+| -------- | -------------------------- | -------------------------------------------- |
+| `GET`    | `/auth/users`              | All users, no password hashes                 |
+| `POST`   | `/auth/users`              | Create a rep or another admin                 |
+| `PATCH`  | `/auth/users/:id/role`     | Change a role                                 |
+| `DELETE` | `/auth/users/:id`          | Remove; their records become unassigned       |
+
+The last admin cannot be demoted or deleted (`409`), and you cannot delete your
+own account, so the team page can never be locked out of.
+
+## Notes and follow-ups
+
+Two collections hang off a customer or a deal. Both inherit the parent's access
+rules, so guessing a deal id cannot leak its timeline or schedule. Deleting a
+record deletes its notes and follow-ups.
+
+### Notes — the activity timeline
+
+| Method   | Path       | Notes                                    |
+| -------- | ---------- | ---------------------------------------- |
+| `GET`    | `/notes?entityType=customer&entityId=c001` | Newest first   |
+| `POST`   | `/notes`   | `{ entityType, entityId, body }`          |
+| `DELETE` | `/notes/:id` | Own notes, or any if admin             |
+
+Each note records `authorId` and `authorName` at the time it was written.
+
+### Follow-ups — scheduled work
+
+| Method   | Path                    | Notes                                        |
+| -------- | ----------------------- | -------------------------------------------- |
+| `GET`    | `/followups`            | Everything visible to the caller, due date ascending |
+| `GET`    | `/followups?entityType=customer&entityId=c001` | One record          |
+| `GET`    | `/followups?status=pending` | `pending` or `done`                          |
+| `POST`   | `/followups`            | `{ entityType, entityId, title, type, dueAt, details }` |
+| `PATCH`  | `/followups/:id`        | Reschedule, retitle, or flip `status`         |
+| `DELETE` | `/followups/:id`        | Own follow-ups, or any if admin               |
+| `POST`   | `/followups/:id/notify` | Send the reminder email                      |
+
+`type` is one of `call`, `email`, `meeting`, `task`. Marking a follow-up done
+stamps `completedAt`; reopening clears it.
+
+### Email
+
+`POST /followups/:id/notify` returns `{ sent, reason, mailto, providerConfigured }`.
+
+With no provider configured it returns `sent: false` and a `mailto:` link rather
+than an error, and the frontend opens the user's own mail client. Set
+`EMAIL_API_KEY` and `EMAIL_FROM` to send server-side through Resend:
+
+```
+EMAIL_PROVIDER=resend
+EMAIL_API_KEY=re_...
+EMAIL_FROM="CRM <crm@yourdomain.com>"
+```
+
+A deal has no contact email of its own — it references a customer by name — so a
+deal follow-up reports that rather than guessing a recipient.
 
 ## Scripts
 
@@ -152,13 +234,20 @@ src/
   config.js              env config; fails fast on a missing JWT secret
   auth/
     requireAuth.js       route guard for the data endpoints
+    roles.js             role checks and the admin-only gate
     tokens.js            sign, verify, and extract bearer tokens
   routes/
-    auth.routes.js       register, login, me
+    auth.routes.js       register, login, me, and admin team management
+    notes.routes.js      activity timeline, scoped to the parent record
+    followUps.routes.js  scheduled work and reminder email
     factory.js           CRUD routes shared by all three collections
   validation/
     userSchema.js        registration and login rules
-    resources.js         per-collection fields, search fields, validators
+    noteSchema.js        note rules and the entity map
+    followUpSchema.js    follow-up rules
+    resources.js         per-collection fields, search fields, validators, access rules
+  services/
+    email.js             pluggable email sender; no-op without an API key
   db/
     store.js             read/write helpers (swap these for MongoDB)
     seed.js              writes data/db.json on first run, seeds the demo user
@@ -180,6 +269,6 @@ are, so nothing else needs to change.
 ## Notes
 
 - CORS is restricted to `CORS_ORIGIN` (default `http://localhost:5173`).
-- Every registered user can read and write all CRM data. There are no roles or
-  per-record ownership rules yet, so `role` is informational for now.
+- Customers are shared; scoping applies to leads and deals. See
+  [Roles and record visibility](#roles-and-record-visibility).
 - Tokens do not expire early on logout; see the auth notes above.
