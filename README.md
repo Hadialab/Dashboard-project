@@ -40,11 +40,20 @@ is no database to install or configure.
 
 Both services read a `.env` file; each has a committed `.env.example` to copy.
 
-| Service   | Variable       | Default                 |
-| --------- | -------------- | ----------------------- |
-| `backend` | `PORT`         | `5000`                  |
-| `backend` | `CORS_ORIGIN`  | `http://localhost:5173` |
-| `frontend`| `VITE_API_URL` | `http://localhost:5000` |
+| Service   | Variable          | Default                 |
+| --------- | ----------------- | ----------------------- |
+| `backend` | `PORT`            | `5000`                  |
+| `backend` | `CORS_ORIGIN`     | `http://localhost:5173` |
+| `backend` | `JWT_SECRET`      | none — required in production |
+| `backend` | `JWT_EXPIRES_IN`  | `12h`                   |
+| `frontend`| `VITE_API_URL`    | `http://localhost:5000` |
+
+`JWT_SECRET` is blank in `backend/.env.example`. The API refuses to start with
+`NODE_ENV=production` unless it is set. Generate one with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
 
 ## Layout
 
@@ -53,13 +62,23 @@ Both services read a `.env` file; each has a committed `.env.example` to copy.
 
 ## Deploying
 
-The frontend is set up for Vercel (`frontend/vercel.json` handles SPA
-routing). Set `VITE_API_URL` to your deployed API. The backend runs on any
-Node host; Render works, and expects `npm start` with the repo root set to
-`backend/`.
+Not set up yet — deployment comes after the backend work. `frontend/vercel.json`
+handles SPA routing if the frontend goes to Vercel, and `VITE_API_URL` will
+point at whatever host the API ends up on.
+
+## Auth
+
+Sign-in is enforced by the API, not just hidden in the UI. Passwords are hashed
+with bcrypt, login returns a JWT, and every `/customers`, `/deals` and `/leads`
+request without a valid token gets a `401`. See
+[`backend/README.md`](backend/README.md#authentication).
 
 ## Before going live
 
-The API has **no authentication** — login and register are client-side only, and
-every endpoint is publicly writable. Add real auth and authorization before
-putting this on the internet.
+Two things are still open:
+
+- **Any registered user can read and write all CRM data.** There are no roles or
+  ownership rules yet.
+- **Logout does not revoke an issued token.** Tokens are stateless, so clearing
+  the client copy ends the session in the browser but a captured token stays
+  valid until it expires.
