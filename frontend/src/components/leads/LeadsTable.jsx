@@ -1,13 +1,23 @@
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2, UserCheck } from "lucide-react";
 import DetailRow from "../ui/DataCard";
 import usePermissions from "../../hooks/usePermissions";
-import { leadStatusBadge, leadSourceBadge } from "../../utils/crmConstants";
+import { leadStatusBadge, leadSourceBadge, CONVERTED_STATUS } from "../../utils/crmConstants";
 import { formatRelative, formatRelativeShort } from "../../utils/time";
 
-function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
+function LeadsTable({
+  leads,
+  onViewLead,
+  onEditLead,
+  onDeleteLead,
+  onConvertLead,
+}) {
   const { can } = usePermissions();
   const canEdit = can("leads", "edit");
   const canDelete = can("leads", "delete");
+
+  // Converting writes to two resources, so both permissions are needed before
+  // the action is worth offering.
+  const canConvert = canEdit && can("customers", "create");
 
   return (
     <>
@@ -134,6 +144,21 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
                         </button>
                       )}
 
+                      {/* Not offered on an already-converted lead: the server
+                          refuses, and a second customer for the same person is
+                          not something to enable by accident. */}
+                      {canConvert && lead.status !== CONVERTED_STATUS && (
+                        <button
+                          type="button"
+                          onClick={() => onConvertLead(lead)}
+                          aria-label={`Convert ${lead.name} to a customer`}
+                          title="Convert to customer"
+                          className="rounded-lg p-2 text-slate-500 transition hover:bg-teal-50 hover:text-teal-600 dark:text-slate-400 dark:hover:bg-teal-900/20 dark:hover:text-teal-400"
+                        >
+                          <UserCheck size={16} />
+                        </button>
+                      )}
+
                       {canDelete && (
                         <button
                           type="button"
@@ -207,6 +232,17 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
                 >
                   <Pencil size={16} />
                   Edit
+                </button>
+              )}
+
+              {canConvert && lead.status !== CONVERTED_STATUS && (
+                <button
+                  type="button"
+                  onClick={() => onConvertLead(lead)}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                >
+                  <UserCheck size={16} />
+                  Convert
                 </button>
               )}
 

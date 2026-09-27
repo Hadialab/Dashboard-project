@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import Select from "../ui/Select";
+import { LEAD_STATUSES, LEAD_SOURCES } from "../../utils/crmConstants";
 
 function LeadsToolbar({
   searchTerm,
@@ -10,6 +11,8 @@ function LeadsToolbar({
   onSourceChange,
   sortBy,
   onSortChange,
+  convertedFilter,
+  onConvertedFilterChange,
 }) {
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
@@ -32,7 +35,7 @@ function LeadsToolbar({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:flex xl:flex-1">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-1">
           <Select
             name="statusFilter"
             value={statusFilter}
@@ -40,11 +43,11 @@ function LeadsToolbar({
             aria-label="Filter by status"
           >
             <option value="All">All Statuses</option>
-            <option value="New">New</option>
-            <option value="Contacted">Contacted</option>
-            <option value="Qualified">Qualified</option>
-            <option value="Proposal">Proposal</option>
-            <option value="Lost">Lost</option>
+            {LEAD_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
           </Select>
 
           <Select
@@ -54,12 +57,24 @@ function LeadsToolbar({
             aria-label="Filter by source"
           >
             <option value="All">All Sources</option>
-            <option value="Website">Website</option>
-            <option value="Referral">Referral</option>
-            <option value="LinkedIn">LinkedIn</option>
-            <option value="Facebook">Facebook</option>
-            <option value="Google Ads">Google Ads</option>
-            <option value="Cold Call">Cold Call</option>
+            {LEAD_SOURCES.map((source) => (
+              <option key={source} value={source}>
+                {source}
+              </option>
+            ))}
+          </Select>
+
+          {/* Converted leads are kept rather than deleted, so this is how the
+              conversion history is reviewed — or kept out of the working list. */}
+          <Select
+            name="convertedFilter"
+            value={convertedFilter}
+            onChange={(e) => onConvertedFilterChange(e.target.value)}
+            aria-label="Filter converted leads"
+          >
+            <option value="include">Include converted</option>
+            <option value="all">Hide converted</option>
+            <option value="only">Only converted</option>
           </Select>
 
           <Select

@@ -1,12 +1,22 @@
-import { Building2, Mail, Phone, User, Calendar } from "lucide-react";
+import { Building2, Mail, Phone, User, Calendar, UserCheck } from "lucide-react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
 import NotesTimeline from "../ui/NotesTimeline";
-import { leadStatusBadge } from "../../utils/crmConstants";
+import usePermissions from "../../hooks/usePermissions";
+import { leadStatusBadge, CONVERTED_STATUS } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
 
-function LeadDetailDrawer({ open, onClose, lead }) {
+function LeadDetailDrawer({ open, onClose, lead, onConvertLead }) {
+  const { can } = usePermissions();
+
+  // Converting writes to two resources, so both permissions are needed. An
+  // already-converted lead is not offered it again.
+  const canConvert =
+    can("leads", "edit") &&
+    can("customers", "create") &&
+    lead?.status !== CONVERTED_STATUS;
+
   if (!open || !lead) return null;
 
   const details = [
@@ -25,9 +35,22 @@ function LeadDetailDrawer({ open, onClose, lead }) {
       onClose={onClose}
       title="Lead Details"
       footer={
-        <Button fullWidth onClick={onClose}>
-          Close
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {canConvert && onConvertLead && (
+            <Button
+              variant="secondary"
+              icon={UserCheck}
+              onClick={() => onConvertLead(lead)}
+              className="sm:flex-1"
+            >
+              Convert to customer
+            </Button>
+          )}
+
+          <Button onClick={onClose} className="sm:flex-1">
+            Close
+          </Button>
+        </div>
       }
     >
       <div className="flex flex-col items-center pb-2">
@@ -45,6 +68,15 @@ function LeadDetailDrawer({ open, onClose, lead }) {
           {lead.status}
         </span>
       </div>
+
+      {/* The customer this lead became, so the conversion history is readable
+          from the lead rather than only from a database column. */}
+      {lead.convertedCustomerId && (
+        <p className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-200">
+          Converted to customer{" "}
+          <span className="font-semibold">#{lead.convertedCustomerId}</span>
+        </p>
+      )}
 
       <div className="mt-4 space-y-2">
         {details.map(({ icon: Icon, label, value }) => (
