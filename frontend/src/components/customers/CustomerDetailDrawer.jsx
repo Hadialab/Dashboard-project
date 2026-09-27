@@ -1,14 +1,10 @@
-import { Mail, Building2, Phone, CircleUser } from "lucide-react";
+import { Mail, Building2, Phone, CircleUser, Calendar } from "lucide-react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
 import NotesTimeline from "../ui/NotesTimeline";
-
-const statusColors = {
-  Active: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
-  Pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
-  Inactive: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
-};
+import { customerStatusBadge } from "../../utils/crmConstants";
+import { formatRelative } from "../../utils/time";
 
 function CustomerDetailsDrawer({ customer, open, onClose }) {
   if (!open || !customer) return null;
@@ -18,6 +14,7 @@ function CustomerDetailsDrawer({ customer, open, onClose }) {
     { icon: Mail, label: "Email", value: customer.email },
     { icon: Phone, label: "Phone", value: customer.phone || "+961 00 000 000" },
     { icon: CircleUser, label: "Customer ID", value: `#${customer.id}` },
+    { icon: Calendar, label: "Last updated", value: formatRelative(customer.updatedAt) },
   ];
 
   return (
@@ -41,7 +38,7 @@ function CustomerDetailsDrawer({ customer, open, onClose }) {
         </h3>
 
         <span
-          className={`mt-2 rounded-full px-3 py-1 text-xs font-medium ${statusColors[customer.status]}`}
+          className={`mt-2 rounded-full px-3 py-1 text-xs font-medium ${customerStatusBadge(customer.status)}`}
         >
           {customer.status}
         </span>

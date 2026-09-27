@@ -1,23 +1,8 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import DetailRow from "../ui/DataCard";
 import usePermissions from "../../hooks/usePermissions";
-
-const statusColors = {
-  New: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
-  Contacted: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
-  Qualified: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
-  Proposal: "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400",
-  Lost: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
-};
-
-const sourceColors = {
-  Website: "bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400",
-  Referral: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400",
-  LinkedIn: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
-  Facebook: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400",
-  "Google Ads": "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400",
-  "Cold Call": "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-};
+import { leadStatusBadge, leadSourceBadge } from "../../utils/crmConstants";
+import { formatRelative, formatRelativeShort } from "../../utils/time";
 
 function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
   const { can } = usePermissions();
@@ -54,6 +39,13 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
 
                 <th className="hidden whitespace-nowrap px-4 py-3 text-left font-semibold xl:table-cell">
                   Assigned Rep
+                </th>
+
+                <th
+                  title="Last updated"
+                  className="hidden whitespace-nowrap px-4 py-3 text-left font-semibold lg:table-cell"
+                >
+                  Updated
                 </th>
 
                 <th className="whitespace-nowrap px-4 py-3 text-center font-semibold">
@@ -95,7 +87,7 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
 
                   <td className="whitespace-nowrap px-4 py-3">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[lead.status]}`}
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${leadStatusBadge(lead.status)}`}
                     >
                       {lead.status}
                     </span>
@@ -103,7 +95,7 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
 
                   <td className="hidden whitespace-nowrap px-4 py-3 xl:table-cell">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${sourceColors[lead.source]}`}
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${leadSourceBadge(lead.source)}`}
                     >
                       {lead.source}
                     </span>
@@ -111,6 +103,13 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
 
                   <td className="hidden whitespace-nowrap px-4 py-3 text-slate-600 xl:table-cell dark:text-slate-300">
                     {lead.assignedRep}
+                  </td>
+
+                  <td
+                    title={formatRelative(lead.updatedAt)}
+                    className="hidden whitespace-nowrap px-4 py-3 text-slate-500 lg:table-cell dark:text-slate-400"
+                  >
+                    {formatRelativeShort(lead.updatedAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3">
@@ -176,7 +175,7 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
               </div>
 
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[lead.status]}`}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${leadStatusBadge(lead.status)}`}
               >
                 {lead.status}
               </span>
@@ -187,6 +186,7 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
               <DetailRow label="Phone" value={lead.phone} />
               <DetailRow label="Source" value={lead.source} />
               <DetailRow label="Assigned Rep" value={lead.assignedRep} />
+              <DetailRow label="Last updated" value={formatRelative(lead.updatedAt)} />
             </dl>
 
             <div className="mt-3 flex gap-2">

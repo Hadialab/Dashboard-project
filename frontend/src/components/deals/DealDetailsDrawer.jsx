@@ -3,15 +3,8 @@ import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
 import NotesTimeline from "../ui/NotesTimeline";
-
-const stageColors = {
-  Lead: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
-  Qualified: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
-  Proposal: "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400",
-  Negotiation: "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400",
-  Won: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
-  Lost: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
-};
+import { stageBadge } from "../../utils/crmConstants";
+import { formatRelative } from "../../utils/time";
 
 function DealDetailsDrawer({ deal, open, onClose }) {
   if (!open || !deal) return null;
@@ -26,6 +19,7 @@ function DealDetailsDrawer({ deal, open, onClose }) {
     { icon: User, label: "Deal Owner", value: deal.owner },
     { icon: Calendar, label: "Expected Close", value: deal.expectedClose },
     { icon: Briefcase, label: "Stage", value: deal.stage },
+    { icon: Calendar, label: "Last updated", value: formatRelative(deal.updatedAt) },
   ];
 
   return (
@@ -49,7 +43,7 @@ function DealDetailsDrawer({ deal, open, onClose }) {
         </h3>
 
         <span
-          className={`mt-2 rounded-full px-3 py-1 text-xs font-medium ${stageColors[deal.stage]}`}
+          className={`mt-2 rounded-full px-3 py-1 text-xs font-medium ${stageBadge(deal.stage)}`}
         >
           {deal.stage}
         </span>

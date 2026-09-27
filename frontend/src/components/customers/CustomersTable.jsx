@@ -1,12 +1,8 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import DetailRow from "../ui/DataCard";
 import usePermissions from "../../hooks/usePermissions";
-
-const statusColors = {
-  Active: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
-  Pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
-  Inactive: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
-};
+import { customerStatusBadge } from "../../utils/crmConstants";
+import { formatRelative, formatRelativeShort } from "../../utils/time";
 
 function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer }) {
   const { can } = usePermissions();
@@ -36,6 +32,13 @@ function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer })
 
                 <th className="whitespace-nowrap px-4 py-3 text-left font-semibold lg:px-6 lg:py-4">
                   Status
+                </th>
+
+                <th
+                  title="Last updated"
+                  className="hidden whitespace-nowrap px-4 py-3 text-left font-semibold xl:table-cell lg:px-6 lg:py-4"
+                >
+                  Updated
                 </th>
 
                 <th className="whitespace-nowrap px-4 py-3 text-center font-semibold lg:px-6 lg:py-4">
@@ -72,10 +75,17 @@ function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer })
 
                   <td className="whitespace-nowrap px-4 py-3 lg:px-6 lg:py-4">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[customer.status]}`}
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${customerStatusBadge(customer.status)}`}
                     >
                       {customer.status}
                     </span>
+                  </td>
+
+                  <td
+                    title={formatRelative(customer.updatedAt)}
+                    className="hidden whitespace-nowrap px-4 py-3 text-slate-500 xl:table-cell lg:px-6 lg:py-4 dark:text-slate-400"
+                  >
+                    {formatRelativeShort(customer.updatedAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 lg:px-6 lg:py-4">
@@ -142,7 +152,7 @@ function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer })
               </div>
 
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[customer.status]}`}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${customerStatusBadge(customer.status)}`}
               >
                 {customer.status}
               </span>
@@ -151,6 +161,10 @@ function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer })
             <dl className="mt-3 border-t border-slate-100 pt-1 dark:border-slate-800">
               <DetailRow label="Email" value={customer.email} />
               <DetailRow label="Phone" value={customer.phone} />
+              <DetailRow
+                label="Last updated"
+                value={formatRelative(customer.updatedAt)}
+              />
             </dl>
 
             <div className="mt-3 flex gap-2">
