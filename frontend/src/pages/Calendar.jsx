@@ -1,4 +1,7 @@
-function Calendar(){
-    return(<h1>Calendar</h1>);
+﻿import PagePlaceholder from "../components/ui/PagePlaceholder";
+
+function Calendar() {
+  return <PagePlaceholder title="Calendar" description="Meetings, follow-ups and scheduled tasks." />;
 }
+
 export default Calendar;
