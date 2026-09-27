@@ -85,14 +85,32 @@ export function update(name, id, changes) {
   return store[name][index];
 }
 
+// Records that hang off a customer or a deal. Removed with their parent so a
+// deleted deal does not leave an orphan timeline behind.
+const CASCADE = {
+  customers: ["notes", "followups"],
+  deals: ["notes", "followups"],
+};
+
 export function remove(name, id) {
   const store = load();
   const index = store[name].findIndex((row) => String(row.id) === String(id));
   if (index === -1) return null;
 
   const [removed] = store[name].splice(index, 1);
+
+  for (const child of CASCADE[name] ?? []) {
+    store[child] = store[child].filter(
+      (row) => !(row.entityType === singular(name) && row.entityId === String(id)),
+    );
+  }
+
   persist();
   return removed;
+}
+
+function singular(name) {
+  return name === "deals" ? "deal" : name === "customers" ? "customer" : name;
 }
 
 export function reset() {
