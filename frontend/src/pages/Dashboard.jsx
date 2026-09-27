@@ -5,8 +5,10 @@ import StatsCards from "../components/dashboard/StatsCards";
 import ChartsSection from "../components/dashboard/ChartsSection";
 import QuickActions from "../components/dashboard/QuickActions";
 import RecentActivity from "../components/dashboard/RecentActivity";
+import MyWorkPanel from "../components/dashboard/MyWorkPanel";
 import Skeleton from "../components/ui/Skeleton";
 import usePermissions from "../hooks/usePermissions";
+import useAuthStore from "../store/authStore";
 
 // Dashboard figures come from the API, not hardcoded placeholders. The same
 // analytics helpers the Reports page uses are reused so both screens agree.
@@ -19,6 +21,7 @@ import {
 
 function Dashboard() {
   const { can } = usePermissions();
+  const currentUser = useAuthStore((state) => state.user);
   const [customers, setCustomers] = useState([]);
   const [leads, setLeads] = useState([]);
   const [deals, setDeals] = useState([]);
@@ -143,6 +146,14 @@ function Dashboard() {
       </div>
 
       <StatsCards summary={summary} />
+
+      <MyWorkPanel
+        deals={deals}
+        leads={leads}
+        user={currentUser}
+        canSeeDeals={canSeeDeals}
+        canSeeLeads={canSeeLeads}
+      />
 
       <ChartsSection
         revenueData={revenueData}
