@@ -27,6 +27,9 @@ data to load — see `../backend/README.md`.
 | `npm run lint`  | Lint with oxlint                 |
 | `npm run preview` | Serve the production build     |
 
+There is no `npm run server`. The app used to read a local `src/db.json` through
+`json-server`; both are gone, and all data comes from the API.
+
 ## API
 
 `src/api/axios.js` holds the base URL and attaches the session token to every
@@ -78,18 +81,42 @@ The token lives in `localStorage` under `crm_token`. That is readable by any
 script on the page, so it is vulnerable to token theft through XSS; an httpOnly
 cookie is the stronger choice and would need the dev server proxy set up.
 
-## Roles
+## Roles and permissions
 
-The signed-in user's role comes from `/auth/me` and drives the UI.
+The signed-in user's role and permissions come from `/auth/me` and drive the UI.
 
-- **Admin** — sees all customers, leads and deals. The Team page lets them add
-  sales reps, change roles and remove people.
-- **Sales rep** — sees every customer (shared) but only the leads and deals they
-  own. The Team link is hidden and `/team` explains that it is admin-only. The
-  API enforces this independently with a `403`, so the hidden link is a
-  convenience rather than the protection.
+- **Admin** — always full access. The Team page lets them add people, change
+  roles, and set exactly what each Sales user can see and do.
+- **Sales** — access is per person, not one-size-fits-all. An admin chooses, per
+  resource, whether they can view it (`none` / `own records` / `all records` where
+  relevant) and whether they can create, edit and delete.
 
-Reps own anything they create, so a new lead shows up in their list immediately.
+Everything a Sales user cannot do is hidden: nav links, routes, the Add button,
+and the edit/delete buttons in every table. The API enforces the same rules
+independently, so hiding a control is a convenience rather than the protection.
+
+Read access in `hooks/usePermissions.js`:
+
+```js
+const { can, isAdmin } = usePermissions();
+if (can("leads", "create")) { /* ... */ }
+```
+
+`ProtectedRoute` takes a `permission` prop to gate a whole page:
+
+```jsx
+<Route
+  path="/leads"
+  element={<ProtectedRoute permission="leads"><Leads /></ProtectedRoute>}
+/>
+```
+
+A Sales user who navigates to a section they cannot see gets a "No access to
+this section" page rather than a blank screen.
+
+Defaults for a new Sales account: all customers visible (no delete), own leads
+and deals with full CRUD on them, and no access to Reports. Adjust from the Team
+page's **Access** button.
 
 ## Activity and follow-ups
 

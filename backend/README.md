@@ -1,274 +1,278 @@
 # CRM Dashboard API
 
-Express REST API for the CRM dashboard, serving customers, deals and leads to
-the frontend in `../frontend`.
-
-Replaces the `json-server` mock the frontend previously pointed at, and is
-response-compatible with it — see [Compatibility](#compatibility).
+Express + PostgreSQL REST API for the CRM dashboard, serving customers, deals,
+leads, notes and follow-ups to the frontend in `../frontend`.
 
 ## Setup
 
 ```bash
 npm install
 cp .env.example .env
-npm run dev
 ```
 
-Runs on http://localhost:5000. `data/db.json` is created from the seed data on
-first start, so there is nothing else to set up.
-
-`JWT_SECRET` is blank in `.env.example` and the API will not start in
-production without it. Generate one before deploying:
+Then set at least `DATABASE_URL` and `JWT_SECRET` in `.env`:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-## Authentication
-
-Sign in with the seeded demo account:
-
-```
-admin@example.com / admin123
+```bash
+npm run dev
 ```
 
-`POST /auth/register` and `POST /auth/login` both return a signed JWT. Send it
-as `Authorization: Bearer <token>` on every other request. `/customers`,
-`/deals` and `/leads` are all behind `requireAuth` and answer `401` without a
-valid token — knowing the API URL is not enough to read or change anything.
+Runs on http://localhost:5000.
 
-| Method | Path            | Notes                                    |
-| ------ | --------------- | ---------------------------------------- |
-| `POST` | `/auth/register`| Returns a token; `409` if the email is taken |
-| `POST` | `/auth/login`   | Returns a token; `401` on bad credentials |
-| `GET`  | `/auth/me`      | Current user, for validating a token    |
+The schema is created on boot from `src/db/schema.sql`. It is idempotent — it
+only ever creates what is missing, never drops. A fresh clone against an empty
+database needs no manual setup. Set `RUN_MIGRATIONS=false` to manage the schema
+yourself.
 
-Self-registration always creates a **rep**. Admins are only created from the Team
-page, so nobody can promote themselves by signing up.
+**There is no seed script and no demo account.** An empty database stays empty
+until someone registers, and the first account creates its own company.
 
-| Status | When                                              |
-| ------ | ------------------------------------------------- |
-| 400    | Validation failure or malformed JSON              |
-| 401    | Missing, invalid or expired token; bad credentials |
-| 404    | Unknown route or missing record                   |
-| 409    | Email already registered                          |
-| 500    | Unexpected server error                           |
+## Database
 
-Notes on the implementation:
+One PostgreSQL database holds every tenant's data. Every row in every table
+carries an `organization_id`, and the API adds that to every read and write. A
+user therefore only ever sees their own company's records — the database can
+host several unrelated companies without any of them seeing each other.
 
-- Passwords are hashed with bcrypt (cost 10) and never stored or returned in
-  plaintext. No response includes the hash.
-- Login returns the same message for an unknown email and a wrong password, and
-  runs a bcrypt comparison either way, so it does not reveal which accounts
-  exist.
-- Tokens carry only the user id. Name and email are re-read per request, so a
-  deleted account loses access immediately rather than at token expiry.
-- Tokens are stateless, so logging out clears the client copy but cannot revoke
-  an already-issued token before it expires. A blacklist is the fix if that
-  matters.
+| Table            | Holds                                              |
+| ---------------- | -------------------------------------------------- |
+| `organizations`  | One row per company                                 |
+| `users`          | Team members, each belonging to one organization    |
+| `customers`      | Shared across the company, no owner                 |
+| `leads`          | Owned by a user; unassigned records are admin-only  |
+| `deals`          | Owned by a user; unassigned records are admin-only  |
+| `notes`          | Activity timeline entries on a customer or deal     |
+| `followups`      | Scheduled work on a customer or deal                |
 
-## Roles and record visibility
+Ids are text with a per-table prefix (`c001`, `l002`, `d003`, `n004`, `f005`) to
+stay readable, backed by a Postgres sequence.
 
-Two roles. **admin** sees everything; **rep** is a sales rep.
+### `DATABASE_URL`
 
-| Resource            | Who can see it                                  |
-| ------------------- | ----------------------------------------------- |
-| `/customers`        | Everyone. Customers are shared across the team. |
-| `/leads`, `/deals`  | Records where `ownerId` is the caller, plus all of them for an admin. |
+```
+postgresql://USER:PASSWORD@HOST:5432/DATABASE
+```
 
-- A rep **owns** anything they create, so their own work is never hidden.
-- A rep cannot set `ownerId`. Reassignment is admin-only, otherwise "see only
-  your own records" would be trivially bypassable.
-- A record with no owner is **admin-only**. Visible to nobody else, so unassigned
-  work does not leak across the team.
+If the password contains `@ / : # ?` or spaces, percent-encode them or Postgres
+will parse the wrong password. `.env` is gitignored — never commit it.
+
+## Companies and sign-up
+
+**Every registration creates a new company, and the person registering becomes
+that company's admin.** There is no shared signup pool and no way to join an
+existing company, so this is what keeps tenants separate.
+
+`POST /auth/register` requires a `organizationName`, creates the organization
+and its first admin in a single transaction, and returns a token. If either
+half fails, neither is written.
+
+An admin then adds their own team from the Team page. Adding a teammate does
+**not** ask for a company name — they are joining the caller's existing company,
+and the API ignores any `organizationName` in that request.
+
+Email is the login name and is unique across the whole install, so the same
+address cannot register twice (including into a second company).
+
+| Method | Path             | Notes                                        |
+| ------ | ---------------- | -------------------------------------------- |
+| `POST` | `/auth/register` | New company + its first admin                |
+| `POST` | `/auth/login`    | `401` on bad credentials, same message either way |
+| `GET`  | `/auth/me`       | Current user, for validating a token         |
+
+## Roles and permissions
+
+Two roles. **admin** always has full access. **Sales** (stored as `rep`) is
+limited to a permissions object the admin controls per person.
+
+Each resource has a `view` setting plus create/edit/delete:
+
+| Setting  | Values                              | Meaning                          |
+| -------- | ----------------------------------- | -------------------------------- |
+| `view`   | `false`, `true`, `"own"`, `"all"`   | No access / all / own records    |
+| others   | `true` / `false`                    | Whether they may do it           |
+
+`customers` and `reports` only accept `true`/`false` for `view`, because they
+have no owner to scope by. `leads` and `deals` also accept `"own"` and `"all"`.
+
+### Defaults for a new Sales account
+
+```json
+{
+  "customers": { "view": true,  "create": true,  "edit": true,  "delete": false },
+  "leads":     { "view": "own", "create": true,  "edit": true,  "delete": true },
+  "deals":     { "view": "own", "create": true,  "edit": true,  "delete": true },
+  "reports":   { "view": false }
+}
+```
+
+A working salesperson with no visibility of team-wide revenue. Change any of it
+from the Team page.
+
+### Rules
+
+- A Sales user **owns** anything they create, so their own work is never hidden.
+- A Sales user **cannot set `ownerId`**. Reassignment is admin-only, otherwise an
+  `"own"` scope would be trivially bypassable.
+- The owner display name (`assignedRep` / `owner`) is derived from `ownerId`, not
+  accepted from the client, so the two can never disagree. The owner is always
+  resolved inside the caller's own organization.
+- A record with no owner is **admin-only**, so unassigned work does not leak.
 - Reading a record you cannot see returns `404`, not `403`, so the API does not
   confirm that records you have no access to exist.
-- The display name (`assignedRep` / `owner`) is written by the server alongside
-  `ownerId`, so the two can never disagree.
+- A section you have no `view` permission for returns `403` on the list as well,
+  rather than an empty array that would look like "no records yet".
+- An action you are not permitted to do returns `403` naming the action.
+- `reports` is a read-only page with no records of its own, so its permission is
+  enforced in the UI. The data it aggregates is already scoped by the other three.
+- Admin permissions cannot be edited (`409`) — admins are always full access.
+- The last admin cannot be demoted or deleted, and you cannot delete yourself.
 
-### Team management (admin only)
+Permissions are normalized on every request, so a partial or tampered stored
+value cannot widen access.
 
-| Method   | Path                       | Notes                                        |
-| -------- | -------------------------- | -------------------------------------------- |
-| `GET`    | `/auth/users`              | All users, no password hashes                 |
-| `POST`   | `/auth/users`              | Create a rep or another admin                 |
-| `PATCH`  | `/auth/users/:id/role`     | Change a role                                 |
-| `DELETE` | `/auth/users/:id`          | Remove; their records become unassigned       |
+### Team management (admin only, own company only)
 
-The last admin cannot be demoted or deleted (`409`), and you cannot delete your
-own account, so the team page can never be locked out of.
+| Method   | Path                              | Notes                                 |
+| -------- | --------------------------------- | ------------------------------------- |
+| `GET`    | `/auth/users`                     | All users in your company             |
+| `POST`   | `/auth/users`                     | Create a user; optional `permissions` |
+| `PATCH`  | `/auth/users/:id/role`            | Change a role                         |
+| `PATCH`  | `/auth/users/:id/permissions`     | Merge a partial permissions object    |
+| `POST`   | `/auth/users/:id/permissions/reset` | Back to defaults                    |
+| `DELETE` | `/auth/users/:id`                 | Remove; their records become unassigned |
+
+All of these are scoped to `req.organizationId`, so an id from another company
+is a `404` rather than a way to edit someone else's team.
+
+`PATCH .../permissions` merges over the current set, so a partial body only
+changes the keys it sends.
+
+### Permission changes and the UI
+
+The server re-reads the user on every request, so a permission change takes
+effect on the caller's **next** request immediately. The browser caches the
+session's user object, so a Sales user's interface reflects an admin's change on
+their next page load. Enforcement is never delayed — only the display is.
+
+## Command line
+
+```bash
+npm run promote                    # list every account and company
+npm run promote -- you@example.com admin
+npm run promote -- you@example.com rep
+```
+
+Edits the database directly, for when you cannot reach the Team page. Every
+signup is an admin already, so this is only needed to change someone's role.
 
 ## Notes and follow-ups
 
-Two collections hang off a customer or a deal. Both inherit the parent's access
-rules, so guessing a deal id cannot leak its timeline or schedule. Deleting a
-record deletes its notes and follow-ups.
+Both hang off a customer or a deal and inherit its visibility, for the same
+reason: otherwise guessing a deal id would leak its notes or its schedule.
 
-### Notes — the activity timeline
+| Method   | Path                            | Notes                              |
+| -------- | ------------------------------- | ---------------------------------- |
+| `GET`    | `/notes?entityType=customer&entityId=c001` | Notes on one record     |
+| `POST`   | `/notes`                        |                                    |
+| `DELETE` | `/notes/:id`                    | Own notes, or any as an admin      |
+| `GET`    | `/followups?entityType=…&entityId=…` | Follow-ups on one record  |
+| `GET`    | `/followups`                    | Everything you are allowed to see  |
+| `POST`   | `/followups`                    |                                    |
+| `PATCH`  | `/followups/:id`                | Reschedule, or mark done           |
+| `DELETE` | `/followups/:id`                | Own follow-ups, or any as an admin |
+| `POST`   | `/followups/:id/notify`         | Send the reminder email            |
 
-| Method   | Path       | Notes                                    |
-| -------- | ---------- | ---------------------------------------- |
-| `GET`    | `/notes?entityType=customer&entityId=c001` | Newest first   |
-| `POST`   | `/notes`   | `{ entityType, entityId, body }`          |
-| `DELETE` | `/notes/:id` | Own notes, or any if admin             |
+Deleting a customer or a deal deletes its notes and follow-ups with it, so they
+cannot outlive the thing they describe.
 
-Each note records `authorId` and `authorName` at the time it was written.
+## Date and number handling
 
-### Follow-ups — scheduled work
+Two conversions that are easy to get wrong, both handled in `src/db/dates.js`
+and the repo layer:
 
-| Method   | Path                    | Notes                                        |
-| -------- | ----------------------- | -------------------------------------------- |
-| `GET`    | `/followups`            | Everything visible to the caller, due date ascending |
-| `GET`    | `/followups?entityType=customer&entityId=c001` | One record          |
-| `GET`    | `/followups?status=pending` | `pending` or `done`                          |
-| `POST`   | `/followups`            | `{ entityType, entityId, title, type, dueAt, details }` |
-| `PATCH`  | `/followups/:id`        | Reschedule, retitle, or flip `status`         |
-| `DELETE` | `/followups/:id`        | Own follow-ups, or any if admin               |
-| `POST`   | `/followups/:id/notify` | Send the reminder email                      |
+- **DATE columns are never routed through UTC.** The `pg` driver builds a `Date`
+  at *local* midnight, so on a UTC+3 server an October 5th due date arrives as
+  `2026-10-04T21:00Z` and `toISOString()` would report the 4th. Dates are
+  formatted from local calendar components instead.
+- **NUMERIC arrives as a string** (`"25000.00"`) to preserve precision for large
+  money values, and is converted to a number on the way out, because the reports
+  page sums `deal.value` directly and a string would concatenate.
 
-`type` is one of `call`, `email`, `meeting`, `task`. Marking a follow-up done
-stamps `completedAt`; reopening clears it.
+## Email
 
-### Email
+Optional and pluggable. With no provider configured, `POST /followups/:id/notify`
+answers `200` with `sent: false` and a `mailto:` link, and the UI falls back to
+opening the user's own mail client. A `.ics` download and the `mailto:` link work
+with no configuration at all.
 
-`POST /followups/:id/notify` returns `{ sent, reason, mailto, providerConfigured }`.
+## Errors
 
-With no provider configured it returns `sent: false` and a `mailto:` link rather
-than an error, and the frontend opens the user's own mail client. Set
-`EMAIL_API_KEY` and `EMAIL_FROM` to send server-side through Resend:
+| Status | When                                                          |
+| ------ | ------------------------------------------------------------- |
+| `400`  | Validation failed; `details` names the offending field         |
+| `401`  | Missing, invalid or expired token; or bad login                |
+| `403`  | Authenticated but not permitted                                |
+| `404`  | Not found, or not visible to you                               |
+| `409`  | Email taken, last admin, or admin permissions are fixed        |
 
-```
-EMAIL_PROVIDER=resend
-EMAIL_API_KEY=re_...
-EMAIL_FROM="CRM <crm@yourdomain.com>"
-```
+All JSON: `{ "error": "…", "details": { "field": "…" } }`. The frontend reads
+`src/utils/apiError.js` to turn these into a single readable line.
 
-A deal has no contact email of its own — it references a customer by name — so a
-deal follow-up reports that rather than guessing a recipient.
+Every route handler is wrapped in `asyncHandler` (`src/utils/asyncHandler.js`).
+Express 4 only catches synchronous throws, and every handler is async because the
+database is — without the wrapper a failed query becomes an unhandled rejection
+that takes the whole process down.
 
-## Scripts
+## Query parameters
 
-| Script        | Purpose                                    |
-| ------------- | ------------------------------------------ |
-| `npm run dev` | Start with auto-reload (`node --watch`)    |
-| `npm start`   | Start normally                             |
-| `npm run seed`| Rewrite `data/db.json` from the seed data, discarding local changes |
-
-## Endpoints
-
-Full CRUD on three collections:
-
-| Method   | Path                  |
-| -------- | --------------------- |
-| `GET`    | `/customers`          |
-| `POST`   | `/customers`          |
-| `GET`    | `/customers/:id`      |
-| `PUT`    | `/customers/:id`      |
-| `DELETE` | `/customers/:id`      |
-
-`/deals` and `/leads` expose the same set. `GET /health` is a liveness check.
-
-### List query parameters
-
-| Param        | Example          | Notes                                        |
-| ------------ | ---------------- | -------------------------------------------- |
-| `_page`      | `_page=2`        | 1-based page number                          |
-| `_per_page`  | `_per_page=25`   | Page size, default 10                        |
-| `_sort`      | `_sort=-name`    | Prefix with `-` for descending               |
-| `q`          | `q=cedar`        | Case-insensitive search across key fields    |
-| any field    | `status=Active`  | Exact-match filter, e.g. `stage=Won`         |
-
-Filter, search and sort all compose, and apply before pagination.
-
-### Response shapes
-
-`GET /customers` returns a **bare array** by default, but a **pagination
-envelope** when `_page` or `_per_page` is present:
-
-```json
-{ "first": 1, "prev": null, "next": 2, "last": 7, "pages": 7, "items": 20, "data": [] }
-```
-
-`items` is the total matching the filter, not the page length. This mirrors
-json-server, and the frontend relies on it: `Customers.jsx` reads
-`.data`/`.pages`/`.items`, while the deals, leads and reports callers expect a
-plain array. Handle both when adding new callers.
-
-### IDs
-
-Server-generated and sequential, continuing the seeded format: `c020` → `c021`,
-`d020` → `d021`, `l020` → `l021`. Client-supplied `id` values are ignored, as is
-`createdDate` on deals and leads.
-
-### Errors
-
-`{ "error": "message", "details": { "field": "why" } }`
-
-| Status | When                                            |
-| ------ | ----------------------------------------------- |
-| 400    | Validation failure or malformed JSON            |
-| 404    | Unknown route or missing record                 |
-| 500    | Unexpected server error                         |
-
-Validation mirrors the frontend Yup schemas. Errors are also caught client-side
-first, so the API checks are a backstop rather than the primary UX.
-
-## Compatibility with json-server
-
-Response shapes and query semantics match, with two deliberate differences:
-
-- **`q` now filters.** json-server ignored `q`, so the customers search box
-  silently returned unfiltered results. Searching now works.
-- **Operator-style filters are ignored.** Express parses `?status[$gt]=x` into
-  an object; non-scalar filter values are skipped rather than stringified.
-
-Everything else — bare array vs. envelope, `items` semantics, `-field` sorting,
-`c###` id format, `{ "error": "Not Found" }` on 404 — is unchanged.
+`?q=` free-text search, `?status=` / `?stage=` exact matches, `?_sort=field` or
+`?_sort=-field` with optional `?_order=asc|desc`, and `?_page=` with
+`?_per_page=` for a paginated envelope. Unknown sort fields are ignored rather
+than throwing. See `src/utils/query.js`.
 
 ## Layout
 
 ```
 src/
-  server.js              entry point
-  app.js                 express app, CORS, error handling, route wiring
-  config.js              env config; fails fast on a missing JWT secret
+  app.js              express app, CORS, error handler
+  server.js           boot: migrate, ping the database, listen
+  config.js           env -> config, fails loudly on a missing secret
   auth/
-    requireAuth.js       route guard for the data endpoints
-    roles.js             role checks and the admin-only gate
-    tokens.js            sign, verify, and extract bearer tokens
-  routes/
-    auth.routes.js       register, login, me, and admin team management
-    notes.routes.js      activity timeline, scoped to the parent record
-    followUps.routes.js  scheduled work and reminder email
-    factory.js           CRUD routes shared by all three collections
-  validation/
-    userSchema.js        registration and login rules
-    noteSchema.js        note rules and the entity map
-    followUpSchema.js    follow-up rules
-    resources.js         per-collection fields, search fields, validators, access rules
-  services/
-    email.js             pluggable email sender; no-op without an API key
+    requireAuth.js    verifies the token, sets req.user and req.organizationId
+    permissions.js    the permission model: defaults, normalize, can()
+    roles.js          requireRole()
+    tokens.js         sign / verify
   db/
-    store.js             read/write helpers (swap these for MongoDB)
-    seed.js              writes data/db.json on first run, seeds the demo user
-    seedData.js          the seed rows
-  utils/
-    query.js             filter, search, sort, paginate
-    httpError.js         HttpError + helpers
+    schema.sql        the whole schema, idempotent
+    pool.js           connection pool and transaction helper
+    migrate.js        runs schema.sql, plus a ping for /health
+    dates.js          DATE and NUMERIC conversions
+    repos/            queries, one file per group of tables
+  routes/             auth, resource factory, notes, follow-ups
+  validation/         server-side mirrors of the frontend schemas
+  services/email.js   pluggable email provider
+  utils/              query helpers, HTTP errors, asyncHandler
+scripts/promote-user.js
 ```
 
-## Storage
+## Scripts
 
-Rows live in `data/db.json`, cached in memory and flushed on every write (via a
-temp file and rename, so an interrupted write cannot corrupt it).
+| Command             | Does                                              |
+| ------------------- | ------------------------------------------------- |
+| `npm run dev`       | Start with file watching                          |
+| `npm start`         | Start                                             |
+| `npm run promote`   | Change a role from the command line               |
 
-To move to MongoDB, replace the read/write helpers in `src/db/store.js` with
-Mongoose calls. The route handlers, validation and query helpers stay as they
-are, so nothing else needs to change.
+## Response shape
 
-## Notes
+Field names are camelCase, and the mapping from Postgres is declared in
+`src/db/repos/crm.js`. Two deliberate inconsistencies:
 
-- CORS is restricted to `CORS_ORIGIN` (default `http://localhost:5173`).
-- Customers are shared; scoping applies to leads and deals. See
-  [Roles and record visibility](#roles-and-record-visibility).
-- Tokens do not expire early on logout; see the auth notes above.
+- leads and deals expose `createdDate` (the name the app has always used)
+- customers expose `createdAt` (a timestamp, unused by the UI)
+
+Aliases in SQL are double-quoted, because Postgres lowercases unquoted
+identifiers — `AS ownerId` would otherwise come back as `ownerid`.
