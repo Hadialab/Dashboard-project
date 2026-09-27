@@ -1,5 +1,6 @@
-import { Search } from "lucide-react";
+import { Search, Upload } from "lucide-react";
 import Select from "../ui/Select";
+import ScopeToggle from "../ui/ScopeToggle";
 import { LEAD_STATUSES, LEAD_SOURCES } from "../../utils/crmConstants";
 
 function LeadsToolbar({
@@ -13,11 +14,17 @@ function LeadsToolbar({
   onSortChange,
   convertedFilter,
   onConvertedFilterChange,
+  scope,
+  onScopeChange,
+  onImport,
+  canImport = false,
 }) {
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <ScopeToggle scope={scope} onScopeChange={onScopeChange} noun="Leads" />
+
       {/* Stacks on mobile and tablet, becomes a single row at xl. */}
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+      <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center">
         <div className="relative w-full xl:max-w-xs">
           <Search
             size={16}
@@ -90,6 +97,17 @@ function LeadsToolbar({
             <option value="company-asc">Company (A-Z)</option>
             <option value="company-desc">Company (Z-A)</option>
           </Select>
+
+          {canImport && (
+            <button
+              type="button"
+              onClick={onImport}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              <Upload size={16} />
+              Import CSV
+            </button>
+          )}
         </div>
       </div>
     </div>

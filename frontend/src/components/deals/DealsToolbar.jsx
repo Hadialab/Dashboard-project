@@ -1,5 +1,7 @@
 import { Search } from "lucide-react";
 import Select from "../ui/Select";
+import ScopeToggle from "../ui/ScopeToggle";
+import { DEAL_STAGES } from "../../utils/crmConstants";
 
 function DealsToolbar({
   searchTerm,
@@ -8,10 +10,14 @@ function DealsToolbar({
   onStageChange,
   sortBy,
   onSortChange,
+  scope,
+  onScopeChange,
 }) {
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <ScopeToggle scope={scope} onScopeChange={onScopeChange} noun="Deals" />
+
+      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
         <div className="relative">
           <Search
             size={16}
@@ -36,12 +42,11 @@ function DealsToolbar({
           aria-label="Filter by stage"
         >
           <option value="All">All Stages</option>
-          <option value="Lead">Lead</option>
-          <option value="Qualified">Qualified</option>
-          <option value="Proposal">Proposal</option>
-          <option value="Negotiation">Negotiation</option>
-          <option value="Won">Won</option>
-          <option value="Lost">Lost</option>
+          {DEAL_STAGES.map((stage) => (
+            <option key={stage} value={stage}>
+              {stage}
+            </option>
+          ))}
         </Select>
 
         <Select

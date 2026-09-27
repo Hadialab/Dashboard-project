@@ -8,6 +8,8 @@ import {
   updateDeal,
   deleteDeal,
 } from "../services/dealService";
+import { isMine } from "../utils/myWork";
+import useAuthStore from "../store/authStore";
 import DealsHeader from "../components/deals/DealsHeader";
 import DealsToolbar from "../components/deals/DealsToolbar";
 import DealsTable from "../components/deals/DealsTable";
@@ -20,8 +22,16 @@ import EmptyState from "../components/deals/EmptyState";
 
 function Deals() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const currentUser = useAuthStore((state) => state.user);
 
   const [deals, setDeals] = useState([]);
+
+  // "all" or "mine" — see the note in Leads.jsx.
+  const [scope, setScope] = useState(searchParams.get("scope") || "all");
+
+  // Deep link from the dashboard widget, the command palette or a notification.
+  // See the matching effect further down.
+  const openDealId = searchParams.get("open");
 
   const [loading, setLoading] = useState(true);
 
@@ -71,6 +81,7 @@ function Deals() {
 
     if (searchTerm) params.search = searchTerm;
     if (stageFilter !== "All") params.stage = stageFilter;
+    if (scope !== "all") params.scope = scope;
     if (sortBy !== "newest") params.sort = sortBy;
     if (currentPage !== 1) params.page = currentPage;
     if (rowsPerPage !== 5) params.rows = rowsPerPage;
@@ -79,6 +90,7 @@ function Deals() {
   }, [
     searchTerm,
     stageFilter,
+    scope,
     sortBy,
     currentPage,
     rowsPerPage,
@@ -87,6 +99,10 @@ function Deals() {
 
   const filteredDeals = useMemo(() => {
     let filtered = [...deals];
+
+    if (scope === "mine") {
+      filtered = filtered.filter((deal) => isMine(deal, currentUser));
+    }
 
     if (searchTerm) {
       const query = searchTerm.toLowerCase();
@@ -155,7 +171,7 @@ function Deals() {
     }
 
     return filtered;
-  }, [deals, searchTerm, stageFilter, sortBy]);
+  }, [deals, searchTerm, stageFilter, scope, currentUser, sortBy]);
 
   const totalPages = Math.ceil(
     filteredDeals.length / rowsPerPage
@@ -171,6 +187,22 @@ function Deals() {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  // Opens a deal requested by ?open=. Only for a deal this user can see; an id
+  // they cannot see is ignored rather than erroring. See Leads.jsx.
+  useEffect(() => {
+    if (!openDealId || loading || deals.length === 0) return;
+
+    const match = deals.find((deal) => deal.id === openDealId);
+    if (!match) return;
+
+    setSelectedDeal(match);
+    setIsDrawerOpen(true);
+
+    const params = new URLSearchParams(searchParams);
+    params.delete("open");
+    setSearchParams(params, { replace: true });
+  }, [openDealId, loading, deals, searchParams, setSearchParams]);
 
  const handleAddDeal = async (deal) => {
   try {
@@ -239,6 +271,11 @@ function Deals() {
           stageFilter={stageFilter}
           onStageChange={(value) => {
             setStageFilter(value);
+            setCurrentPage(1);
+          }}
+          scope={scope}
+          onScopeChange={(value) => {
+            setScope(value);
             setCurrentPage(1);
           }}
           sortBy={sortBy}

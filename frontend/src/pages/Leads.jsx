@@ -4,7 +4,14 @@ import toast from "react-hot-toast";
 
 import { getLeads,createLead,updateLead,deleteLead,convertLead } from "../services/leadService";
 import { getCustomers } from "../services/customerService";
-import { CONVERTED_STATUS } from "../utils/crmConstants";
+import { CONVERTED_STATUS, LEAD_STATUSES } from "../utils/crmConstants";
+import { isMine } from "../utils/myWork";
+import useAuthStore from "../store/authStore";
+import useRowSelection from "../hooks/useRowSelection";
+import usePermissions from "../hooks/usePermissions";
+import { bulkSetLeadStatus, bulkDeleteLeads } from "../services/bulkService";
+import BulkActionBar from "../components/ui/BulkActionBar";
+import ImportCsvModal from "../components/ui/ImportCsvModal";
 
 import LeadsHeader from "../components/leads/LeadsHeader";
 import LeadsToolbar from "../components/leads/LeadsToolbar";
@@ -42,12 +49,30 @@ function Leads() {
     searchParams.get("converted") || "include"
   );
 
-  // Emails already in use, so the conversion modal can warn about a duplicate
-  // before the customer is created.
-  const [customerEmails, setCustomerEmails] = useState([]);
+  // "all" or "mine". Meaningful for an admin, who can otherwise only ever see
+  // the whole team; a rep scoped to their own records sees the same list either
+  // way, so the control is hidden for them rather than shown as a no-op.
+  const [scope, setScope] = useState(searchParams.get("scope") || "all");
+  const currentUser = useAuthStore((state) => state.user);
+  const selection = useRowSelection();
+  const { can } = usePermissions();
+
+  // The bar offers both actions, so each is gated separately: someone allowed
+  // to change a lead's status is not automatically allowed to delete one.
+  const canBulkEdit = can("leads", "edit");
+  const canBulkDelete = can("leads", "delete");
+  const canCreate = can("leads", "create");
+
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const [leadToConvert, setLeadToConvert] = useState(null);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+
+  // Deep link from elsewhere in the app — the dashboard's "needs attention"
+  // widget, the command palette, a notification — lands on /leads?open=l001 and
+  // opens that lead's drawer. Cleared afterwards so a later refresh does not
+  // reopen it over whatever the user has navigated to since.
+  const openLeadId = searchParams.get("open");
 
   const [sortBy, setSortBy] = useState(
     searchParams.get("sort") || "newest"
@@ -83,28 +108,39 @@ useEffect(() => {
   fetchLeads();
 }, []);
 
-  // Only fetched to warn about duplicate emails on conversion. A user without
-  // customer access cannot convert anyway, so a 403 here is not worth
-  // surfacing — a missing warning beats a failed page load.
+  // Emails already in use, for the duplicate warnings on conversion, on
+  // creating a lead, and on CSV import. Leads plus customers, because a lead
+  // whose email is already a customer is exactly the duplicate worth catching.
+  //
+  // A failure here is swallowed: a missing warning is better than a page that
+  // will not load.
+  const [knownEmails, setKnownEmails] = useState([]);
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
+      const leadEmails = leads.map((lead) => lead.email).filter(Boolean);
+
       try {
         const response = await getCustomers({ page: 1, limit: 1000 });
-        if (cancelled) return;
-
         const rows = response.data?.data ?? response.data ?? [];
-        setCustomerEmails(rows.map((row) => row.email).filter(Boolean));
+
+        if (!cancelled) {
+          setKnownEmails([
+            ...leadEmails,
+            ...rows.map((row) => row.email).filter(Boolean),
+          ]);
+        }
       } catch {
-        if (!cancelled) setCustomerEmails([]);
+        if (!cancelled) setKnownEmails(leadEmails);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [leads]);
 
   useEffect(() => {
     const params = {};
@@ -113,6 +149,7 @@ useEffect(() => {
     if (statusFilter !== "All") params.status = statusFilter;
     if (sourceFilter !== "All") params.source = sourceFilter;
     if (convertedFilter !== "include") params.converted = convertedFilter;
+    if (scope !== "all") params.scope = scope;
     if (sortBy !== "newest") params.sort = sortBy;
     if (currentPage !== 1) params.page = currentPage;
     if (rowsPerPage !== 5) params.rows = rowsPerPage;
@@ -123,6 +160,7 @@ useEffect(() => {
     statusFilter,
     sourceFilter,
     convertedFilter,
+    scope,
     sortBy,
     currentPage,
     rowsPerPage,
@@ -131,6 +169,10 @@ useEffect(() => {
 
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
+
+    if (scope === "mine") {
+      filtered = filtered.filter((lead) => isMine(lead, currentUser));
+    }
 
     if (searchTerm) {
       const query = searchTerm.toLowerCase();
@@ -213,6 +255,8 @@ useEffect(() => {
     statusFilter,
     sourceFilter,
     convertedFilter,
+    scope,
+    currentUser,
     sortBy,
   ]);
 
@@ -230,6 +274,30 @@ useEffect(() => {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  // Drop any selection whose row is no longer on screen, so a filter change or
+  // a page turn can never leave the bulk bar acting on rows the user has not
+  // seen.
+  useEffect(() => {
+    selection.sync(paginatedLeads);
+  }, [paginatedLeads, selection.sync]);
+
+  // Opens a lead requested by ?open=. Runs once the data has arrived, and only
+  // for a lead this user can actually see — an id they cannot see is simply
+  // ignored rather than producing an error.
+  useEffect(() => {
+    if (!openLeadId || loading || leads.length === 0) return;
+
+    const match = leads.find((lead) => lead.id === openLeadId);
+    if (!match) return;
+
+    setSelectedLead(match);
+    setIsDrawerOpen(true);
+
+    const params = new URLSearchParams(searchParams);
+    params.delete("open");
+    setSearchParams(params, { replace: true });
+  }, [openLeadId, loading, leads, searchParams, setSearchParams]);
 
  const handleAddLead = async (lead) => {
   try {
@@ -300,13 +368,57 @@ useEffect(() => {
       )
     );
 
-    setCustomerEmails((prev) => [...prev, result.customer.email]);
+    setKnownEmails((prev) => [...prev, result.customer.email]);
 
     setIsConvertModalOpen(false);
     setIsDrawerOpen(false);
     setLeadToConvert(null);
 
     toast.success(`${result.customer.name} is now a customer`);
+  };
+
+  const handleBulkStatus = async (status) => {
+    // Read the current rows rather than the selection ids, so each PUT sends a
+    // complete row — the API treats PUT as a full replace.
+    const records = leads.filter((lead) => selection.selected.includes(lead.id));
+
+    const result = await bulkSetLeadStatus(records, status);
+
+    if (result.failed === 0) {
+      setLeads((prev) =>
+        prev.map((lead) =>
+          selection.selected.includes(lead.id) ? { ...lead, status } : lead,
+        ),
+      );
+      toast.success(`${result.ok} leads set to ${status}`);
+      selection.clear();
+    } else {
+      // Refetch so the rows that did change are shown, and the ones that failed
+      // are not silently left looking updated.
+      const fresh = await getLeads();
+      setLeads(fresh);
+      toast.error(`${result.ok} updated, ${result.failed} failed`);
+    }
+
+    return result;
+  };
+
+  const handleBulkDelete = async () => {
+    const records = leads.filter((lead) => selection.selected.includes(lead.id));
+
+    const result = await bulkDeleteLeads(records);
+
+    if (result.failed === 0) {
+      setLeads((prev) => prev.filter((lead) => !selection.selected.includes(lead.id)));
+      toast.success(`${result.ok} leads deleted`);
+      selection.clear();
+    } else {
+      const fresh = await getLeads();
+      setLeads(fresh);
+      toast.error(`${result.ok} deleted, ${result.failed} failed`);
+    }
+
+    return result;
   };
 
   return (
@@ -342,8 +454,15 @@ useEffect(() => {
     setConvertedFilter(value);
     setCurrentPage(1);
   }}
+  scope={scope}
+  onScopeChange={(value) => {
+    setScope(value);
+    setCurrentPage(1);
+  }}
   sortBy={sortBy}
   onSortChange={setSortBy}
+  onImport={() => setIsImportOpen(true)}
+  canImport={canCreate}
 />
 
         </>
@@ -375,7 +494,20 @@ useEffect(() => {
               setLeadToConvert(lead);
               setIsConvertModalOpen(true);
             }}
+            selection={selection}
           />
+
+          {selection.count > 0 && (
+            <BulkActionBar
+              count={selection.count}
+              noun="leads"
+              statusOptions={LEAD_STATUSES}
+              onBulkStatusChange={handleBulkStatus}
+              onBulkDelete={handleBulkDelete}
+              disableStatus={!canBulkEdit}
+              disableDelete={!canBulkDelete}
+            />
+          )}
 
          <LeadPagination
   currentPage={currentPage}
@@ -400,6 +532,14 @@ useEffect(() => {
         onAddLead={handleAddLead}
         onUpdateLead={handleUpdateLead}
         lead={selectedLead}
+        existingEmails={knownEmails}
+      />
+
+      <ImportCsvModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        resource="lead"
+        existingEmails={knownEmails}
       />
 
       <ConvertLeadModal
@@ -410,7 +550,7 @@ useEffect(() => {
         }}
         onConfirm={handleConvertLead}
         lead={leadToConvert}
-        existingEmails={customerEmails}
+        existingEmails={knownEmails}
       />
 
       <DeleteLeadModal
