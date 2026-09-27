@@ -1,5 +1,6 @@
 import { findById } from "../db/store.js";
 import { readBearerToken, verifyToken } from "./tokens.js";
+import { normalizeRole } from "./roles.js";
 import { unauthorized } from "../utils/httpError.js";
 
 // Gate for the data routes. Without a valid token there is no req.user, so a
@@ -22,7 +23,7 @@ export function requireAuth(req, _res, next) {
 
   // Handlers should never be able to accidentally serialize the password hash.
   const { passwordHash, ...safeUser } = user;
-  req.user = safeUser;
+  req.user = { ...safeUser, role: normalizeRole(safeUser.role) };
 
   next();
 }
