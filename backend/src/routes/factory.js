@@ -1,9 +1,11 @@
 import express from "express";
 import { repo } from "../db/repos/crm.js";
+import { notesRepo } from "../db/repos/activity.js";
 import { findUserById } from "../db/repos/users.js";
 import { runQuery } from "../utils/query.js";
 import { asyncHandler, badRequest, forbidden, notFound } from "../utils/asyncHandler.js";
-import { validate } from "../validation/resources.js";
+import { validate, TIMELINE, resources } from "../validation/resources.js";
+import { describeChange } from "../validation/noteSchema.js";
 import { can, canViewRow, isAdmin } from "../auth/permissions.js";
 
 // Builds CRUD routes for one collection. Two independent gates apply to every
@@ -89,6 +91,10 @@ export function createResourceRouter(name, config) {
         ...ownership,
       });
 
+      // Every record opens with a line on its own timeline, so the activity
+      // view is never an unexplained blank page.
+      await recordEvent(req, config.entityType, created.id, `${singular(name)} created`);
+
       res.status(201).json(created);
     }),
   );
@@ -105,12 +111,16 @@ export function createResourceRouter(name, config) {
 
       const ownership = await applyOwnership(config, existing, req);
 
-      res.json(
-        await records.update(req.organizationId, existing.id, {
-          ...withDefaults(config, value),
-          ...ownership,
-        }),
-      );
+      const updated = await records.update(req.organizationId, existing.id, {
+        ...withDefaults(config, value),
+        ...ownership,
+      });
+
+      // Written after the update succeeds, from the row the database actually
+      // stored — so the entry cannot claim a change that did not happen.
+      await recordChanges(req, name, existing, updated);
+
+      res.json(updated);
     }),
   );
 
@@ -187,6 +197,51 @@ function withDefaults(config, value) {
   }
 
   return row;
+}
+
+// ===== Activity timeline =====
+//
+// The server writes these rather than the pages. Every write passes through
+// here, so a stage dragged on the pipeline board, a status changed in a form and
+// a row imported from a CSV all leave the same trace — and because the entry is
+// written after the update commits, it can never describe a change that rolled
+// back.
+
+async function recordEvent(req, entityType, entityId, body) {
+  try {
+    await notesRepo.insert(req.organizationId, {
+      entityType,
+      entityId,
+      body,
+      kind: "event",
+      authorId: req.user.id,
+      authorName: req.user.name,
+    });
+  } catch (error) {
+    // The record itself is already saved. Failing the whole request here would
+    // report a write that did succeed as an error, so log and move on.
+    console.error("[timeline] could not record event:", error.message);
+  }
+}
+
+async function recordChanges(req, name, before, after) {
+  const fields = TIMELINE[name] ?? [];
+  const entries = [];
+
+  for (const field of fields) {
+    // compared as strings: NUMERIC comes back as a number and a form sends one
+    // as a string, and "12000" === 12000 being false would log a change on
+    // every save of an unchanged form.
+    const from = String(before[field] ?? "");
+    const to = String(after[field] ?? "");
+
+    const sentence = describeChange(field, before[field], after[field]);
+    if (sentence && from !== to) entries.push(sentence);
+  }
+
+  for (const body of entries) {
+    await recordEvent(req, resources[name].entityType, after.id, body);
+  }
 }
 
 function singular(name) {

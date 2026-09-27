@@ -85,6 +85,12 @@ router.delete(
     const note = await notesRepo.findById(req.organizationId, req.params.id);
     if (!note) throw notFound("Note not found");
 
+    // Events are the record's own history — a stage change that happened. They
+    // are not editable notes, so nobody can remove them, an admin included.
+    if (note.kind === "event") {
+      throw forbidden("This is an automatic history entry and cannot be deleted");
+    }
+
     // Authors can remove their own notes; admins can remove any of them.
     if (req.user.role !== "admin" && note.authorId !== req.user.id) {
       throw forbidden("You can only delete your own notes");
