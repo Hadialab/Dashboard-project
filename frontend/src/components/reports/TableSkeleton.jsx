@@ -1,12 +1,11 @@
+import Skeleton from "../ui/Skeleton";
+
 const TableSkeleton = () => {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="animate-pulse p-6">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <div className="space-y-4 p-4">
         {Array.from({ length: 8 }).map((_, index) => (
-          <div
-            key={index}
-            className="mb-4 h-12 rounded-lg bg-slate-200 dark:bg-slate-800"
-          />
+          <Skeleton key={index} className="h-12 w-full" />
         ))}
       </div>
     </div>

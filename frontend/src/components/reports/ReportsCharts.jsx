@@ -17,8 +17,8 @@ const ReportsCharts = ({
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
       {/* Revenue Trend */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-4 lg:p-5">
-        <h2 className="mb-3 text-sm font-semibold sm:text-base">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
           Revenue Trend
         </h2>
 
@@ -61,8 +61,8 @@ const ReportsCharts = ({
       </div>
 
       {/* Deals by Stage */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-4 lg:p-5">
-        <h2 className="mb-3 text-sm font-semibold sm:text-base">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
           Deals by Stage
         </h2>
 

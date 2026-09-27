@@ -61,16 +61,13 @@ const SummaryCards = ({ summary }) => {
               border
               border-slate-200
               bg-white
-              p-3
+              p-4
               shadow-sm
               transition-all
               duration-300
               hover:-translate-y-1
-              hover:shadow-md
               dark:border-slate-800
-              dark:bg-slate-900
-              sm:p-4
-              xl:p-5
+              dark:bg-slate-950
             "
           >
             <div className="flex items-center justify-between">
@@ -83,22 +80,22 @@ const SummaryCards = ({ summary }) => {
                 />
               </div>
 
-              <div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-600 dark:bg-green-900/30">
-                <ArrowUpRight size={10} />
+              <div className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                <ArrowUpRight size={12} />
                 {card.trend}
               </div>
             </div>
 
-            <div className="mt-3 sm:mt-4">
-              <p className="text-xs text-slate-500">
+            <div className="mt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {card.title}
               </p>
 
-              <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">
+              <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
                 {card.value}
               </h2>
 
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {card.subtitle}
               </p>
             </div>

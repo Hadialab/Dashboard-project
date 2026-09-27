@@ -20,20 +20,23 @@ const ReportActions = ({
       as="div"
       className="relative inline-block text-left"
     >
-      <Menu.Button className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800">
+      <Menu.Button
+        aria-label={`Actions for ${report.title}`}
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+      >
         <EllipsisVertical size={18} />
       </Menu.Button>
 
-      <Menu.Items className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+      <Menu.Items className="fixed inset-x-3 top-20 z-50 rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-52 dark:border-slate-800 dark:bg-slate-950">
         <div className="p-2">
           {/* View Details */}
           <Menu.Item>
             {() => (
               <button
                 onClick={() => onView(report)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                <Eye size={16} />
+                <Eye size={16} className="shrink-0" />
                 View Details
               </button>
             )}
@@ -44,9 +47,9 @@ const ReportActions = ({
             {() => (
               <button
                 onClick={() => exportPdf(report)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                <FileText size={16} />
+                <FileText size={16} className="shrink-0" />
                 Export PDF
               </button>
             )}
@@ -57,9 +60,9 @@ const ReportActions = ({
             {() => (
               <button
                 onClick={() => exportCsv(filteredData)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                <FileDown size={16} />
+                <FileDown size={16} className="shrink-0" />
                 Export CSV
               </button>
             )}
@@ -70,9 +73,9 @@ const ReportActions = ({
             {() => (
               <button
                 onClick={() => window.print()}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                <Printer size={16} />
+                <Printer size={16} className="shrink-0" />
                 Print
               </button>
             )}

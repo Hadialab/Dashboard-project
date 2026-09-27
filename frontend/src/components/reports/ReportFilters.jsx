@@ -1,4 +1,5 @@
 import { RotateCcw, Search } from "lucide-react";
+import Select from "../ui/Select";
 
 const ReportFilters = ({ filters, setFilters }) => {
   const updateFilters = (newFilters) => {
@@ -8,142 +9,107 @@ const ReportFilters = ({ filters, setFilters }) => {
     }));
   };
 
+  const dateClass =
+    "min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100";
+
   return (
     <div>
-     
-      
-
-      {/* Search */}
       <div className="relative mb-4">
         <Search
-          size={18}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
         />
 
         <input
           type="text"
+          name="search"
           placeholder="Search reports..."
           value={filters.search}
-          onChange={(e) =>
-            updateFilters({
-              search: e.target.value,
-            })
-          }
-          className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          onChange={(e) => updateFilters({ search: e.target.value })}
+          className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
         />
       </div>
 
-      {/* Filters */}
+      {/* 1 column on mobile, 2 on tablet, 5 on desktop. */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {/* Report Type */}
-        <div>
-          <label className="mb-2 block text-sm font-medium">
-            Report Type
-          </label>
+        <Select
+          label="Report Type"
+          name="reportType"
+          value={filters.reportType}
+          onChange={(e) => updateFilters({ reportType: e.target.value })}
+        >
+          <option value="All">All</option>
+          <option value="Customers">Customers</option>
+          <option value="Leads">Leads</option>
+          <option value="Deals">Deals</option>
+          <option value="Revenue">Revenue</option>
+        </Select>
 
-          <select
-            value={filters.reportType}
-            onChange={(e) =>
-              updateFilters({
-                reportType: e.target.value,
-              })
-            }
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        <Select
+          label="Status"
+          name="status"
+          value={filters.status}
+          onChange={(e) => updateFilters({ status: e.target.value })}
+        >
+          <option value="All">All</option>
+          <option value="Generated">Generated</option>
+          <option value="Draft">Draft</option>
+          <option value="Archived">Archived</option>
+        </Select>
+
+        <Select
+          label="Sort By"
+          name="sortBy"
+          value={filters.sortBy}
+          onChange={(e) => updateFilters({ sortBy: e.target.value })}
+        >
+          <option value="none">None</option>
+          <option value="title">Deal Title</option>
+          <option value="customer">Customer</option>
+          <option value="value">Deal Value</option>
+          <option value="stage">Stage</option>
+          <option value="expectedClose">Expected Close</option>
+        </Select>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="dateFrom"
+            className="block text-sm font-medium text-slate-700 dark:text-slate-300"
           >
-            <option value="All">All</option>
-            <option value="Customers">Customers</option>
-            <option value="Leads">Leads</option>
-            <option value="Deals">Deals</option>
-            <option value="Revenue">Revenue</option>
-          </select>
-        </div>
-
-        {/* Status */}
-        <div>
-          <label className="mb-2 block text-sm font-medium">
-            Status
-          </label>
-
-          <select
-            value={filters.status}
-            onChange={(e) =>
-              updateFilters({
-                status: e.target.value,
-              })
-            }
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-          >
-            <option value="All">All</option>
-            <option value="Generated">Generated</option>
-            <option value="Draft">Draft</option>
-            <option value="Archived">Archived</option>
-          </select>
-        </div>
-
-        {/* Sort */}
-        <div>
-          <label className="mb-2 block text-sm font-medium">
-            Sort By
-          </label>
-
-          <select
-            value={filters.sortBy}
-            onChange={(e) =>
-              updateFilters({
-                sortBy: e.target.value,
-              })
-            }
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-          >
-            <option value="none">None</option>
-            <option value="title">Deal Title</option>
-            <option value="customer">Customer</option>
-            <option value="value">Deal Value</option>
-            <option value="stage">Stage</option>
-            <option value="expectedClose">Expected Close</option>
-          </select>
-        </div>
-
-        {/* Date From */}
-        <div>
-          <label className="mb-2 block text-sm font-medium">
             Date From
           </label>
 
           <input
+            id="dateFrom"
             type="date"
             value={filters.dateFrom}
-            onChange={(e) =>
-              updateFilters({
-                dateFrom: e.target.value,
-              })
-            }
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            onChange={(e) => updateFilters({ dateFrom: e.target.value })}
+            className={dateClass}
           />
         </div>
 
-        {/* Date To */}
-        <div>
-          <label className="mb-2 block text-sm font-medium">
+        <div className="space-y-2">
+          <label
+            htmlFor="dateTo"
+            className="block text-sm font-medium text-slate-700 dark:text-slate-300"
+          >
             Date To
           </label>
 
           <input
+            id="dateTo"
             type="date"
             value={filters.dateTo}
-            onChange={(e) =>
-              updateFilters({
-                dateTo: e.target.value,
-              })
-            }
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            onChange={(e) => updateFilters({ dateTo: e.target.value })}
+            className={dateClass}
           />
         </div>
       </div>
 
-      {/* Footer */}
       <div className="mt-4 flex justify-end">
         <button
+          type="button"
           onClick={() =>
             setFilters({
               search: "",
@@ -154,7 +120,7 @@ const ReportFilters = ({ filters, setFilters }) => {
               dateTo: "",
             })
           }
-          className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           <RotateCcw size={16} />
           Reset Filters

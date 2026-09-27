@@ -2,21 +2,18 @@ import { FileSearch } from "lucide-react";
 
 const EmptyState = () => {
   return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <div className="rounded-full bg-blue-100 p-5 dark:bg-blue-900/30">
-        <FileSearch
-          size={42}
-          className="text-blue-600"
-        />
+    <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+        <FileSearch size={28} className="text-blue-600 dark:text-blue-400" />
       </div>
 
-      <h2 className="mt-6 text-2xl font-bold">
+      <h2 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">
         No reports found
       </h2>
 
-      <p className="mt-2 max-w-sm text-center text-slate-500">
-        No CRM reports match your current search or filters.
-        Try adjusting the filters or reset them to view all reports.
+      <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+        No CRM reports match your current search or filters. Try adjusting the
+        filters or reset them to view all reports.
       </p>
     </div>
   );
