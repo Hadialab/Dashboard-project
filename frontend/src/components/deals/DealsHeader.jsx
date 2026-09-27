@@ -1,30 +1,24 @@
 import { Plus } from "lucide-react";
+import PageHeader from "../ui/PageHeader";
 
 function DealsHeader({ onAddDeal, showAddButton = true }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      {/* Title */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-          Deals
-        </h1>
-
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Manage your sales opportunities and track every deal.
-        </p>
-      </div>
-
-      {/* Add Button */}
-      {showAddButton && (
-        <button
-          onClick={onAddDeal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-        >
-          <Plus size={18} />
-          Add Deal
-        </button>
-      )}
-    </div>
+    <PageHeader
+      title="Deals"
+      description="Manage your sales opportunities and track every deal."
+      action={
+        showAddButton && (
+          <button
+            type="button"
+            onClick={onAddDeal}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto"
+          >
+            <Plus size={18} />
+            Add Deal
+          </button>
+        )
+      }
+    />
   );
 }
 
