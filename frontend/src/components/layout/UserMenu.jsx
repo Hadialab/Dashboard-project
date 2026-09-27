@@ -44,7 +44,9 @@ function UserMenu() {
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
             {user?.name ?? "Admin"}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Administrator</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {user?.role === "admin" ? "Administrator" : "Sales"}
+          </p>
         </div>
 
         <ChevronDown size={18} className="hidden md:block" />

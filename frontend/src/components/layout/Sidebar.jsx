@@ -12,16 +12,19 @@ import {
   UserCog,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
+import usePermissions from "../../hooks/usePermissions";
 
+// `permission` is the resource whose access gates this link. A user without it
+// does not see the link, and the route itself is guarded too.
 const links = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { name: "Customers", path: "/customers", icon: Users },
-  { name: "Leads", path: "/leads", icon: UserPlus },
-  { name: "Deals", path: "/deals", icon: Handshake },
+  { name: "Customers", path: "/customers", icon: Users, permission: "customers" },
+  { name: "Leads", path: "/leads", icon: UserPlus, permission: "leads" },
+  { name: "Deals", path: "/deals", icon: Handshake, permission: "deals" },
   { name: "Follow-ups", path: "/followups", icon: CalendarCheck },
-  { name: "Reports", path: "/reports", icon: FileBarChart },
+  { name: "Reports", path: "/reports", icon: FileBarChart, permission: "reports" },
   { name: "Settings", path: "/settings", icon: Settings },
-  // Admin only. A rep reaching this URL directly still gets a clear
+  // Admin only. A Sales user reaching this URL directly still gets a clear
   // explanation rather than a 403.
   { name: "Team", path: "/team", icon: UserCog, adminOnly: true },
 ];
@@ -29,10 +32,11 @@ const links = [
 function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
   const logout = useAuthStore((state) => state.logout);
-  const user = useAuthStore((state) => state.user);
-  const isAdmin = user?.role === "admin";
+  const { can, isAdmin } = usePermissions();
 
-  const visibleLinks = links.filter((link) => !link.adminOnly || isAdmin);
+  const visibleLinks = links.filter(
+    (link) => (!link.adminOnly || isAdmin) && (!link.permission || can(link.permission, "view")),
+  );
 
   function handleLogout() {
     logout();

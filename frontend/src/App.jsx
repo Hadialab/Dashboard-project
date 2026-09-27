@@ -79,15 +79,43 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/customers" element={<Customers />} />
+            <Route
+              path="/customers"
+              element={
+                <ProtectedRoute permission="customers">
+                  <Customers />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/leads" element={<Leads />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/deals" element={<Deals />} />
+            <Route
+              path="/leads"
+              element={
+                <ProtectedRoute permission="leads">
+                  <Leads />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute permission="reports">
+                  <Reports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/deals"
+              element={
+                <ProtectedRoute permission="deals">
+                  <Deals />
+                </ProtectedRoute>
+              }
+            />
             {/* Linked from the user menu, which previously 404'd. */}
             <Route path="/profile" element={<Profile />} />
             <Route path="/followups" element={<FollowUps />} />
-            {/* Renders an explanatory state for reps; the API 403s regardless. */}
+            {/* Renders an explanatory state for Sales users; the API 403s. */}
             <Route path="/team" element={<Team />} />
           </Route>
 
