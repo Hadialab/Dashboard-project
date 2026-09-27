@@ -1,13 +1,29 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import DetailRow from "../ui/DataCard";
+import RowCheckbox from "../ui/RowCheckbox";
 import usePermissions from "../../hooks/usePermissions";
 import { customerStatusBadge } from "../../utils/crmConstants";
 import { formatRelative, formatRelativeShort } from "../../utils/time";
 
-function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer }) {
+function CustomersTable({
+  customers,
+  onView,
+  onEditCustomer,
+  onDeleteCustomer,
+  selection,
+}) {
   const { can } = usePermissions();
   const canEdit = can("customers", "edit");
   const canDelete = can("customers", "delete");
+
+  // Selection is pointless without permission to act on the result, so the
+  // checkbox column disappears entirely for a read-only user.
+  const canSelect = canEdit || canDelete;
+  const isSelected = canSelect ? (selection?.isSelected ?? (() => false)) : () => false;
+  const toggle = canSelect ? (selection?.toggle ?? (() => {})) : () => {};
+  const toggleAll = canSelect ? (selection?.toggleAll ?? (() => {})) : () => {};
+  const allSelected = selection?.allVisibleSelected?.(customers) ?? false;
+  const someSelected = selection?.someVisibleSelected?.(customers) ?? false;
 
   return (
     <>
@@ -18,6 +34,17 @@ function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer })
           <table className="w-full min-w-max">
             <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
               <tr className="text-xs sm:text-sm">
+                {canSelect && (
+                  <th className="w-10 px-2 py-3 lg:px-3 lg:py-4">
+                    <RowCheckbox
+                      checked={allSelected}
+                      indeterminate={someSelected}
+                      onChange={() => toggleAll(customers)}
+                      label="Select every customer on this page"
+                    />
+                  </th>
+                )}
+
                 <th className="whitespace-nowrap px-4 py-3 text-left font-semibold lg:px-6 lg:py-4">
                   Customer
                 </th>
@@ -53,6 +80,16 @@ function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer })
                   key={customer.id}
                   className="border-b border-slate-200 text-sm transition last:border-none hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
                 >
+                  {canSelect && (
+                    <td className="px-2 py-3 lg:px-3 lg:py-4">
+                      <RowCheckbox
+                        checked={isSelected(customer.id)}
+                        onChange={() => toggle(customer.id)}
+                        label={`Select ${customer.name}`}
+                      />
+                    </td>
+                  )}
+
                   <td className="whitespace-nowrap px-4 py-3 lg:px-6 lg:py-4">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
@@ -132,12 +169,34 @@ function CustomersTable({ customers, onView, onEditCustomer, onDeleteCustomer })
       {/* Mobile: the same data as a stacked card list, so nothing is cut off
           and every action is a full-width tap target. */}
       <div className="mt-4 space-y-3 md:hidden">
+        {canSelect && customers.length > 0 && (
+          <div className="flex items-center gap-2 px-1">
+            <RowCheckbox
+              checked={allSelected}
+              indeterminate={someSelected}
+              onChange={() => toggleAll(customers)}
+              label="Select every customer on this page"
+            />
+            <span className="text-sm text-slate-500 dark:text-slate-400">
+              Select all on this page
+            </span>
+          </div>
+        )}
+
         {customers.map((customer) => (
           <div
             key={customer.id}
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950"
           >
             <div className="flex items-start gap-3">
+              {canSelect && (
+                <RowCheckbox
+                  checked={isSelected(customer.id)}
+                  onChange={() => toggle(customer.id)}
+                  label={`Select ${customer.name}`}
+                />
+              )}
+
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
                 {customer.name.charAt(0)}
               </div>

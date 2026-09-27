@@ -1,5 +1,6 @@
 import { Eye, Pencil, Trash2, UserCheck } from "lucide-react";
 import DetailRow from "../ui/DataCard";
+import RowCheckbox from "../ui/RowCheckbox";
 import usePermissions from "../../hooks/usePermissions";
 import { leadStatusBadge, leadSourceBadge, CONVERTED_STATUS } from "../../utils/crmConstants";
 import { formatRelative, formatRelativeShort } from "../../utils/time";
@@ -10,6 +11,7 @@ function LeadsTable({
   onEditLead,
   onDeleteLead,
   onConvertLead,
+  selection,
 }) {
   const { can } = usePermissions();
   const canEdit = can("leads", "edit");
@@ -19,6 +21,14 @@ function LeadsTable({
   // the action is worth offering.
   const canConvert = canEdit && can("customers", "create");
 
+  // Selection is pointless without permission to act on the result.
+  const canSelect = canEdit || canDelete;
+  const isSelected = canSelect ? (selection?.isSelected ?? (() => false)) : () => false;
+  const toggle = canSelect ? (selection?.toggle ?? (() => {})) : () => {};
+  const toggleAll = canSelect ? (selection?.toggleAll ?? (() => {})) : () => {};
+  const allSelected = selection?.allVisibleSelected?.(leads) ?? false;
+  const someSelected = selection?.someVisibleSelected?.(leads) ?? false;
+
   return (
     <>
       {/* Tablet and up: real table, scrolling inside its own container. */}
@@ -27,6 +37,17 @@ function LeadsTable({
           <table className="w-full min-w-max">
             <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
               <tr className="text-sm">
+                {canSelect && (
+                  <th className="w-10 px-2 py-3">
+                    <RowCheckbox
+                      checked={allSelected}
+                      indeterminate={someSelected}
+                      onChange={() => toggleAll(leads)}
+                      label="Select every lead on this page"
+                    />
+                  </th>
+                )}
+
                 <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
                   Lead
                 </th>
@@ -70,6 +91,16 @@ function LeadsTable({
                   key={lead.id}
                   className="border-b border-slate-200 text-sm transition last:border-none hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
                 >
+                  {canSelect && (
+                    <td className="px-2 py-3">
+                      <RowCheckbox
+                        checked={isSelected(lead.id)}
+                        onChange={() => toggle(lead.id)}
+                        label={`Select ${lead.name}`}
+                      />
+                    </td>
+                  )}
+
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
@@ -180,12 +211,34 @@ function LeadsTable({
 
       {/* Mobile: stacked cards, so no column is ever cut off. */}
       <div className="mt-6 space-y-3 md:hidden">
+        {canSelect && leads.length > 0 && (
+          <div className="flex items-center gap-2 px-1">
+            <RowCheckbox
+              checked={allSelected}
+              indeterminate={someSelected}
+              onChange={() => toggleAll(leads)}
+              label="Select every lead on this page"
+            />
+            <span className="text-sm text-slate-500 dark:text-slate-400">
+              Select all on this page
+            </span>
+          </div>
+        )}
+
         {leads.map((lead) => (
           <div
             key={lead.id}
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950"
           >
             <div className="flex items-start gap-3">
+              {canSelect && (
+                <RowCheckbox
+                  checked={isSelected(lead.id)}
+                  onChange={() => toggle(lead.id)}
+                  label={`Select ${lead.name}`}
+                />
+              )}
+
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
                 {lead.name.charAt(0)}
               </div>

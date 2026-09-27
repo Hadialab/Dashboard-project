@@ -9,6 +9,12 @@ import AddDealModal from "../components/deals/AddDealModal";
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "../services/customerService";
 import { createDeal } from "../services/dealService";
 import { getApiErrorMessage } from "../utils/apiError";
+import { bulkSetCustomerStatus, bulkDeleteCustomers } from "../services/bulkService";
+import { CUSTOMER_STATUSES } from "../utils/crmConstants";
+import usePermissions from "../hooks/usePermissions";
+import useRowSelection from "../hooks/useRowSelection";
+import BulkActionBar from "../components/ui/BulkActionBar";
+import ImportCsvModal from "../components/ui/ImportCsvModal";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -44,6 +50,41 @@ function Customers() {
   // everything else the user fills in.
   const [dealPrefill, setDealPrefill] = useState(null);
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
+
+  const { can } = usePermissions();
+  const selection = useRowSelection();
+  const canBulkEdit = can("customers", "edit");
+  const canBulkDelete = can("customers", "delete");
+  const canCreate = can("customers", "create");
+
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  // Every email in the company, for the duplicate check on create and on
+  // import. Fetched unpaginated; the customers list is small enough that pulling
+  // it all in one request beats paginating a lookup the user never sees.
+  const [allEmails, setAllEmails] = useState([]);
+
+  useEffect(() => {
+    if (!canCreate) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await getCustomers({ page: 1, limit: 1000 });
+        if (cancelled) return;
+
+        const rows = response.data?.data ?? [];
+        setAllEmails(rows.map((row) => row.email).filter(Boolean));
+      } catch {
+        if (!cancelled) setAllEmails([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canCreate]);
   const [isLoading, setIsLoading] = useState(true);
   // `totalPages` is enough to drive the pager; the envelope's `items` count is
   // not displayed anywhere.
@@ -185,6 +226,44 @@ function Customers() {
     }
   };
 
+  const handleBulkStatus = async (status) => {
+    const records = customers.filter((row) => selection.selected.includes(row.id));
+
+    const result = await bulkSetCustomerStatus(records, status);
+
+    if (result.failed === 0) {
+      setCustomers((prev) =>
+        prev.map((row) =>
+          selection.selected.includes(row.id) ? { ...row, status } : row,
+        ),
+      );
+      toast.success(`${result.ok} customers set to ${status}`);
+      selection.clear();
+    } else {
+      await fetchCustomers();
+      toast.error(`${result.ok} updated, ${result.failed} failed`);
+    }
+
+    return result;
+  };
+
+  const handleBulkDelete = async () => {
+    const records = customers.filter((row) => selection.selected.includes(row.id));
+
+    const result = await bulkDeleteCustomers(records);
+
+    await fetchCustomers();
+
+    if (result.failed === 0) {
+      toast.success(`${result.ok} customers deleted`);
+      selection.clear();
+    } else {
+      toast.error(`${result.ok} deleted, ${result.failed} failed`);
+    }
+
+    return result;
+  };
+
   const fetchCustomers = async () => {
     try {
       setLoading(true);
@@ -221,6 +300,12 @@ function Customers() {
     sortOrder,
   ]);
 
+  // Drop selections for rows that have scrolled off this page, so the bulk bar
+  // can never act on a record the user is no longer looking at.
+  useEffect(() => {
+    selection.sync(customers);
+  }, [customers, selection.sync]);
+
   // Deleting the last row on a page can leave currentPage past the end, which
   // renders an empty table with no way back. Pull it back to the last page.
   useEffect(() => {
@@ -255,6 +340,8 @@ function Customers() {
           onSortByChange={handleSortByChange}
           sortOrder={sortOrder}
           onSortOrderChange={handleSortOrderChange}
+          onImport={() => setIsImportOpen(true)}
+          canImport={canCreate}
         />
       )}
 
@@ -287,6 +374,19 @@ function Customers() {
           onView={handleViewCustomer}
           onEditCustomer={handleEditCustomer}
           onDeleteCustomer={handleOpenDeleteModal}
+          selection={selection}
+        />
+      )}
+
+      {selection.count > 0 && (
+        <BulkActionBar
+          count={selection.count}
+          noun="customers"
+          statusOptions={CUSTOMER_STATUSES}
+          onBulkStatusChange={handleBulkStatus}
+          onBulkDelete={handleBulkDelete}
+          disableStatus={!canBulkEdit}
+          disableDelete={!canBulkDelete}
         />
       )}
 
@@ -317,6 +417,14 @@ function Customers() {
         onAddCustomer={handleAddCustomer}
         onUpdateCustomer={handleUpdateCustomer}
         customer={editingCustomer}
+        existingEmails={allEmails}
+      />
+
+      <ImportCsvModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        resource="customer"
+        existingEmails={allEmails}
       />
 
       {/* Reuses the existing deal form rather than a second one, so validation
