@@ -188,6 +188,14 @@ function Customers() {
     sortOrder,
   ]);
 
+  // Deleting the last row on a page can leave currentPage past the end, which
+  // renders an empty table with no way back. Pull it back to the last page.
+  useEffect(() => {
+    if (!loading && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages, loading]);
+
   if (loading) {
     return <CustomerTableSkeleton />;
   }
@@ -199,7 +207,7 @@ function Customers() {
   const isFiltered = Boolean(searchTerm) || statusFilter !== "All";
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       <CustomersHeader
         onAddCustomer={() => setIsAddModalOpen(true)}
         showAddButton={customers.length > 0}
@@ -250,7 +258,7 @@ function Customers() {
       )}
 
       {customers.length > 0 && (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4">
           <RowsPerPage value={customersPerPage} onChange={handleRowsPerPageChange} />
 
           <CustomerPagination
