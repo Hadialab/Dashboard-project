@@ -17,6 +17,53 @@ npm run dev
 Runs on http://localhost:5000. `data/db.json` is created from the seed data on
 first start, so there is nothing else to set up.
 
+`JWT_SECRET` is blank in `.env.example` and the API will not start in
+production without it. Generate one before deploying:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+## Authentication
+
+Sign in with the seeded demo account:
+
+```
+admin@example.com / admin123
+```
+
+`POST /auth/register` and `POST /auth/login` both return a signed JWT. Send it
+as `Authorization: Bearer <token>` on every other request. `/customers`,
+`/deals` and `/leads` are all behind `requireAuth` and answer `401` without a
+valid token — knowing the API URL is not enough to read or change anything.
+
+| Method | Path            | Notes                                    |
+| ------ | --------------- | ---------------------------------------- |
+| `POST` | `/auth/register`| Returns a token; `409` if the email is taken |
+| `POST` | `/auth/login`   | Returns a token; `401` on bad credentials |
+| `GET`  | `/auth/me`      | Current user, for validating a token    |
+
+| Status | When                                              |
+| ------ | ------------------------------------------------- |
+| 400    | Validation failure or malformed JSON              |
+| 401    | Missing, invalid or expired token; bad credentials |
+| 404    | Unknown route or missing record                   |
+| 409    | Email already registered                          |
+| 500    | Unexpected server error                           |
+
+Notes on the implementation:
+
+- Passwords are hashed with bcrypt (cost 10) and never stored or returned in
+  plaintext. No response includes the hash.
+- Login returns the same message for an unknown email and a wrong password, and
+  runs a bcrypt comparison either way, so it does not reveal which accounts
+  exist.
+- Tokens carry only the user id. Name and email are re-read per request, so a
+  deleted account loses access immediately rather than at token expiry.
+- Tokens are stateless, so logging out clears the client copy but cannot revoke
+  an already-issued token before it expires. A blacklist is the fix if that
+  matters.
+
 ## Scripts
 
 | Script        | Purpose                                    |
@@ -101,12 +148,20 @@ Everything else — bare array vs. envelope, `items` semantics, `-field` sorting
 ```
 src/
   server.js              entry point
-  app.js                 express app, CORS, error handling
-  routes/factory.js      CRUD routes shared by all three collections
-  validation/resources.js  per-collection fields, search fields, validators
+  app.js                 express app, CORS, error handling, route wiring
+  config.js              env config; fails fast on a missing JWT secret
+  auth/
+    requireAuth.js       route guard for the data endpoints
+    tokens.js            sign, verify, and extract bearer tokens
+  routes/
+    auth.routes.js       register, login, me
+    factory.js           CRUD routes shared by all three collections
+  validation/
+    userSchema.js        registration and login rules
+    resources.js         per-collection fields, search fields, validators
   db/
     store.js             read/write helpers (swap these for MongoDB)
-    seed.js              writes data/db.json on first run
+    seed.js              writes data/db.json on first run, seeds the demo user
     seedData.js          the seed rows
   utils/
     query.js             filter, search, sort, paginate
@@ -125,6 +180,6 @@ are, so nothing else needs to change.
 ## Notes
 
 - CORS is restricted to `CORS_ORIGIN` (default `http://localhost:5173`).
-- There is **no authentication**. Login and register are client-side only, and
-  every endpoint is open to anyone who can reach the API. Fine for local
-  development; add auth before exposing this anywhere public.
+- Every registered user can read and write all CRM data. There are no roles or
+  per-record ownership rules yet, so `role` is informational for now.
+- Tokens do not expire early on logout; see the auth notes above.
