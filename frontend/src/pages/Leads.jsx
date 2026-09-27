@@ -19,7 +19,7 @@ function Leads() {
 
   const [leads, setLeads] = useState([]);
 
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || ""
@@ -54,10 +54,13 @@ function Leads() {
 useEffect(() => {
   const fetchLeads = async () => {
     try {
+      setLoading(true);
       const leadData = await getLeads();
       setLeads(leadData);
     } catch (error) {
       console.error("Failed to fetch leads:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -265,7 +268,7 @@ useEffect(() => {
       )}
 
       {loading ? (
-        <LeadsTableSkeleton />
+        <LeadTableSkeleton />
       ) : filteredLeads.length === 0 ? (
         <EmptyState
           onAddLead={() => setIsAddModalOpen(true)}

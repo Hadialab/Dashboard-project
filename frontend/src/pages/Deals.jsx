@@ -23,7 +23,7 @@ function Deals() {
 
   const [deals, setDeals] = useState([]);
 
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || ""
@@ -54,10 +54,13 @@ function Deals() {
   useEffect(() => {
   const fetchDeals = async () => {
     try {
+      setLoading(true);
       const dealsData = await getDeals();
       setDeals(dealsData);
     } catch (error) {
       console.error("Failed to fetch deals:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
