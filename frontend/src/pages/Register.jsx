@@ -28,7 +28,7 @@ const registerSchema = yup.object({
 
 function Register() {
   const navigate = useNavigate();
-  const login = useAuthStore((state) => state.login);
+  const register = useAuthStore((state) => state.register);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -58,35 +58,27 @@ function Register() {
 
       await registerSchema.validate(formData);
 
-      const existingUser = JSON.parse(
-        localStorage.getItem("registeredUser")
-      );
-
-      if (
-        existingUser &&
-        existingUser.email.toLowerCase() === formData.email.toLowerCase()
-      ) {
-        setError("An account with this email already exists.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const user = {
+      // The account is created by the API, which stores a hashed password and
+      // returns a session token. No credentials are kept in the browser.
+      await register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-      };
-
-      localStorage.setItem("registeredUser", JSON.stringify(user));
-
-      login({
-        name: user.name,
-        email: user.email,
       });
 
       navigate("/dashboard", { replace: true });
-    } catch (validationError) {
-      setError(validationError.message);
+    } catch (err) {
+      // Yup throws for client-side validation; axios for anything the API
+      // rejected, such as an email that is already registered.
+      if (err.inner) {
+        setError(err.message);
+      } else {
+        setError(
+          err.response?.data?.details?.email ??
+            err.response?.data?.error ??
+            "Unable to create your account. Please try again."
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
