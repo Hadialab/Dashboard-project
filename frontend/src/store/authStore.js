@@ -1,37 +1,51 @@
 import { create } from "zustand";
-import Cookies from "js-cookie";
+import { TOKEN_KEY, getToken } from "../api/axios";
+import { getCurrentUser, login as loginRequest, register as registerRequest } from "../services/authService";
 
+// Session state. `isChecking` is true while the stored token is being verified
+// on page load, so ProtectedRoute can wait instead of bouncing a signed-in user
+// to /login before the check finishes.
 const useAuthStore = create((set) => ({
-  isLoggedIn: !!Cookies.get("auth"),
-  user: Cookies.get("user")
-    ? JSON.parse(Cookies.get("user"))
-    : null,
+  isLoggedIn: false,
+  user: null,
+  isChecking: true,
 
-  login: (user) => {
-    Cookies.set("auth", "true", {
-      expires: 7,
-      sameSite: "strict",
-    });
+  // Called once at startup. Verifies the token with the API rather than
+  // trusting whatever is in localStorage.
+  async restoreSession() {
+    if (!getToken()) {
+      set({ isLoggedIn: false, user: null, isChecking: false });
+      return;
+    }
 
-    Cookies.set("user", JSON.stringify(user), {
-      expires: 7,
-      sameSite: "strict",
-    });
+    const user = await getCurrentUser();
 
-    set({
-      isLoggedIn: true,
-      user,
-    });
+    if (user) {
+      set({ isLoggedIn: true, user, isChecking: false });
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      set({ isLoggedIn: false, user: null, isChecking: false });
+    }
   },
 
-  logout: () => {
-    Cookies.remove("auth");
-    Cookies.remove("user");
+  // Throws on bad credentials so the caller can show the API's message.
+  async login(credentials) {
+    const { token, user } = await loginRequest(credentials);
+    localStorage.setItem(TOKEN_KEY, token);
+    set({ isLoggedIn: true, user, isChecking: false });
+    return user;
+  },
 
-    set({
-      isLoggedIn: false,
-      user: null,
-    });
+  async register(details) {
+    const { token, user } = await registerRequest(details);
+    localStorage.setItem(TOKEN_KEY, token);
+    set({ isLoggedIn: true, user, isChecking: false });
+    return user;
+  },
+
+  logout() {
+    localStorage.removeItem(TOKEN_KEY);
+    set({ isLoggedIn: false, user: null, isChecking: false });
   },
 }));
 
