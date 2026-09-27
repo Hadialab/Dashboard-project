@@ -10,6 +10,7 @@ import {
   Handshake,
   CalendarCheck,
   UserCog,
+  Columns3,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import usePermissions from "../../hooks/usePermissions";
@@ -21,6 +22,7 @@ const links = [
   { name: "Customers", path: "/customers", icon: Users, permission: "customers" },
   { name: "Leads", path: "/leads", icon: UserPlus, permission: "leads" },
   { name: "Deals", path: "/deals", icon: Handshake, permission: "deals" },
+  { name: "Pipeline", path: "/pipeline", icon: Columns3, permission: "deals" },
   { name: "Follow-ups", path: "/followups", icon: CalendarCheck },
   { name: "Reports", path: "/reports", icon: FileBarChart, permission: "reports" },
   { name: "Settings", path: "/settings", icon: Settings },

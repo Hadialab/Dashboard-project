@@ -17,6 +17,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Leads = lazy(() => import("./pages/Leads"));
 const Deals = lazy(() => import("./pages/Deals"));
+const Pipeline = lazy(() => import("./pages/Pipeline"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -109,6 +110,15 @@ function App() {
               element={
                 <ProtectedRoute permission="deals">
                   <Deals />
+                </ProtectedRoute>
+              }
+            />
+            {/* Same data as /deals, presented as a board rather than a list. */}
+            <Route
+              path="/pipeline"
+              element={
+                <ProtectedRoute permission="deals">
+                  <Pipeline />
                 </ProtectedRoute>
               }
             />
