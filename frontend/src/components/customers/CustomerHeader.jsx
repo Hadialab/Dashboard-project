@@ -1,13 +1,16 @@
 import { Plus } from "lucide-react";
 import PageHeader from "../ui/PageHeader";
+import usePermissions from "../../hooks/usePermissions";
 
 function CustomersHeader({ onAddCustomer, showAddButton = true }) {
+  const { can } = usePermissions();
+
   return (
     <PageHeader
       title="Customers"
       description="Manage all your customers in one place."
       action={
-        showAddButton && (
+        showAddButton && can("customers", "create") && (
           <button
             type="button"
             onClick={onAddCustomer}

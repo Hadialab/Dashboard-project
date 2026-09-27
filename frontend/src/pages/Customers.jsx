@@ -37,7 +37,8 @@ function Customers() {
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [totalCustomers, setTotalCustomers] = useState(0);
+  // `totalPages` is enough to drive the pager; the envelope's `items` count is
+  // not displayed anywhere.
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -163,12 +164,10 @@ function Customers() {
         order: sortOrder,
       });
 
-      // json-server v1 wraps results as { data, pages, items, ... } when
-      // _page/_per_page are valid — pull the array out of .data.data,
-      // not the wrapper object itself.
+      // With _page/_per_page the API wraps results as
+      // { data, pages, items, ... } rather than returning a bare array.
       setCustomers(response.data.data);
       setTotalPages(response.data.pages);
-      setTotalCustomers(response.data.items);
     } catch (err) {
       console.error(err);
       setError("Failed to load customers.");

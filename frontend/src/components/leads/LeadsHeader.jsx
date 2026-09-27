@@ -1,13 +1,16 @@
 import { Plus } from "lucide-react";
 import PageHeader from "../ui/PageHeader";
+import usePermissions from "../../hooks/usePermissions";
 
 function LeadsHeader({ onAddLead, showAddButton = true }) {
+  const { can } = usePermissions();
+
   return (
     <PageHeader
       title="Leads"
       description="Manage and track potential customers."
       action={
-        showAddButton && (
+        showAddButton && can("leads", "create") && (
           <button
             type="button"
             onClick={onAddLead}

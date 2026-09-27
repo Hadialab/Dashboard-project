@@ -6,6 +6,7 @@ import ChartsSection from "../components/dashboard/ChartsSection";
 import QuickActions from "../components/dashboard/QuickActions";
 import RecentActivity from "../components/dashboard/RecentActivity";
 import Skeleton from "../components/ui/Skeleton";
+import usePermissions from "../hooks/usePermissions";
 
 // Dashboard figures come from the API, not hardcoded placeholders. The same
 // analytics helpers the Reports page uses are reused so both screens agree.
@@ -17,21 +18,28 @@ import {
 } from "../utils/reportAnalytics";
 
 function Dashboard() {
+  const { can } = usePermissions();
   const [customers, setCustomers] = useState([]);
   const [leads, setLeads] = useState([]);
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const canSeeCustomers = can("customers", "view");
+  const canSeeLeads = can("leads", "view");
+  const canSeeDeals = can("deals", "view");
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
+      // Only request what the user may see, rather than asking and getting
+      // nothing back.
       const [customersRes, leadsRes, dealsRes] = await Promise.all([
-        api.get("/customers"),
-        api.get("/leads"),
-        api.get("/deals"),
+        canSeeCustomers ? api.get("/customers") : Promise.resolve({ data: [] }),
+        canSeeLeads ? api.get("/leads") : Promise.resolve({ data: [] }),
+        canSeeDeals ? api.get("/deals") : Promise.resolve({ data: [] }),
       ]);
 
       setCustomers(customersRes.data);
@@ -43,7 +51,7 @@ function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canSeeCustomers, canSeeLeads, canSeeDeals]);
 
   useEffect(() => {
     fetchDashboardData();

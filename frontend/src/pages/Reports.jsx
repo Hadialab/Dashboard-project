@@ -135,11 +135,6 @@ const Reports = () => {
     return first.localeCompare(second);
   });
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(sortedReports.length / itemsPerPage)
-  );
-
   const startIndex = (currentPage - 1) * itemsPerPage;
 
   const paginatedReports = sortedReports.slice(

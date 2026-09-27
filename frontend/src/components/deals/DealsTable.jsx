@@ -1,5 +1,6 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import DetailRow from "../ui/DataCard";
+import usePermissions from "../../hooks/usePermissions";
 
 const stageColors = {
   Lead: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
@@ -11,6 +12,10 @@ const stageColors = {
 };
 
 function DealsTable({ deals, onViewDeal, onEditDeal, onDeleteDeal }) {
+  const { can } = usePermissions();
+  const canEdit = can("deals", "edit");
+  const canDelete = can("deals", "delete");
+
   return (
     <>
       {/* Tablet and up: table. Deal, Customer, Value and Actions always show;
@@ -103,23 +108,27 @@ function DealsTable({ deals, onViewDeal, onEditDeal, onDeleteDeal }) {
                         <Eye size={16} />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onEditDeal(deal)}
-                        aria-label={`Edit ${deal.title}`}
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => onEditDeal(deal)}
+                          aria-label={`Edit ${deal.title}`}
+                          className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => onDeleteDeal(deal)}
-                        aria-label={`Delete ${deal.title}`}
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteDeal(deal)}
+                          aria-label={`Delete ${deal.title}`}
+                          className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -173,23 +182,27 @@ function DealsTable({ deals, onViewDeal, onEditDeal, onDeleteDeal }) {
                 View
               </button>
 
-              <button
-                type="button"
-                onClick={() => onEditDeal(deal)}
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                <Pencil size={16} />
-                Edit
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEditDeal(deal)}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                >
+                  <Pencil size={16} />
+                  Edit
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => onDeleteDeal(deal)}
-                className="flex min-h-11 items-center justify-center rounded-lg border border-red-200 px-4 text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
-                aria-label={`Delete ${deal.title}`}
-              >
-                <Trash2 size={16} />
-              </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteDeal(deal)}
+                  className="flex min-h-11 items-center justify-center rounded-lg border border-red-200 px-4 text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                  aria-label={`Delete ${deal.title}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           </div>
         ))}

@@ -1,5 +1,6 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import DetailRow from "../ui/DataCard";
+import usePermissions from "../../hooks/usePermissions";
 
 const statusColors = {
   New: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
@@ -19,6 +20,10 @@ const sourceColors = {
 };
 
 function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
+  const { can } = usePermissions();
+  const canEdit = can("leads", "edit");
+  const canDelete = can("leads", "delete");
+
   return (
     <>
       {/* Tablet and up: real table, scrolling inside its own container. */}
@@ -119,23 +124,27 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
                         <Eye size={16} />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onEditLead(lead)}
-                        aria-label={`Edit ${lead.name}`}
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => onEditLead(lead)}
+                          aria-label={`Edit ${lead.name}`}
+                          className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => onDeleteLead(lead)}
-                        aria-label={`Delete ${lead.name}`}
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteLead(lead)}
+                          aria-label={`Delete ${lead.name}`}
+                          className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -190,23 +199,27 @@ function LeadsTable({ leads, onViewLead, onEditLead, onDeleteLead }) {
                 View
               </button>
 
-              <button
-                type="button"
-                onClick={() => onEditLead(lead)}
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                <Pencil size={16} />
-                Edit
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEditLead(lead)}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                >
+                  <Pencil size={16} />
+                  Edit
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => onDeleteLead(lead)}
-                className="flex min-h-11 items-center justify-center rounded-lg border border-red-200 px-4 text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
-                aria-label={`Delete ${lead.name}`}
-              >
-                <Trash2 size={16} />
-              </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteLead(lead)}
+                  className="flex min-h-11 items-center justify-center rounded-lg border border-red-200 px-4 text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                  aria-label={`Delete ${lead.name}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           </div>
         ))}
