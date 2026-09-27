@@ -7,6 +7,8 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  // Generous, because a free-tier host can take 30-50s to wake from idle.
+  timeout: Number(import.meta.env.VITE_API_TIMEOUT ?? 60000),
 });
 
 // Where the session token lives. Kept in one place so switching to an httpOnly
@@ -27,15 +29,48 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// A 401 means the token is missing, expired or revoked. Clear it so the app
-// falls back to the login screen instead of looping on failed requests.
+// Retries a request that failed because the connection dropped or timed out.
+//
+// This is aimed at cold starts: a free-tier host that has spun down refuses or
+// drops the first request while it boots, and the retry lands once it is warm.
+// Only idempotent methods are retried — replaying a POST could create a
+// duplicate record.
+const RETRYABLE_METHODS = new Set(["get", "head", "options"]);
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1500;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A network error (no response at all) or a gateway-level failure from a host
+// that is still starting up.
+function isTransient(error) {
+  if (axios.isAxiosError(error) && !error.response) return true;
+
+  const status = error.response?.status;
+  return status === 408 || status === 429 || status >= 502;
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401 && !error.config?.url?.includes("/auth/")) {
+  async (error) => {
+    const config = error.config ?? {};
+
+    if (isTransient(error) && RETRYABLE_METHODS.has(config.method ?? "get")) {
+      config.retries = (config.retries ?? 0) + 1;
+
+      if (config.retries <= MAX_RETRIES) {
+        await sleep(RETRY_DELAY_MS * config.retries);
+        return api.request(config);
+      }
+    }
+
+    // A 401 means the token is missing, expired or revoked. Clear it so the app
+    // falls back to the login screen instead of looping on failed requests.
+    if (error.response?.status === 401 && !config.url?.includes("/auth/")) {
       localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event("crm:unauthorized"));
     }
+
     return Promise.reject(error);
   },
 );
