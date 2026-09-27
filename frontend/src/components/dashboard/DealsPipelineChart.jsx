@@ -6,35 +6,31 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+import Card from "../ui/Card";
 
-const data = [
-  { stage: "New", deals: 18 },
-  { stage: "Qualified", deals: 12 },
-  { stage: "Proposal", deals: 8 },
-  { stage: "Negotiation", deals: 5 },
-  { stage: "Won", deals: 14 },
-];
-
-function DealsPipelineChart() {
+// Data comes from the API via getDealsByStage().
+function DealsPipelineChart({ dealsStageData = [] }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <h2 className="mb-6 text-xl font-semibold">
+    <Card className="p-4">
+      <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">
         Deals by Stage
       </h2>
 
-      <ResponsiveContainer width="100%" height={350}>
-        <BarChart data={data}>
-          <XAxis dataKey="stage" />
-          <YAxis />
-          <Tooltip />
-          <Bar
-            dataKey="deals"
-            fill="#22c55e"
-            radius={[8, 8, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+      {dealsStageData.length === 0 ? (
+        <p className="flex h-[240px] items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+          No deals to chart yet.
+        </p>
+      ) : (
+        <ResponsiveContainer width="100%" height={240} className="sm:h-[350px]">
+          <BarChart data={dealsStageData}>
+            <XAxis dataKey="stage" tick={{ fontSize: 12 }} interval={0} />
+            <YAxis tick={{ fontSize: 12 }} width={40} />
+            <Tooltip />
+            <Bar dataKey="count" fill="#22c55e" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </Card>
   );
 }
 

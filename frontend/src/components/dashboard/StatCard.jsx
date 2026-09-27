@@ -1,26 +1,27 @@
+import Card from "../ui/Card";
+
 function StatCard({ title, value, change, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-slate-500">
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
             {title}
           </p>
 
-          <h2 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+          {/* Scales down on narrow cards so a long value never overflows. */}
+          <h3 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
             {value}
-          </h2>
+          </h3>
 
-          <p className={`mt-2 text-sm font-medium ${color}`}>
-            {change}
-          </p>
+          <p className={`mt-1 text-xs font-medium ${color}`}>{change}</p>
         </div>
 
-        <div className="rounded-xl bg-slate-100 p-4 dark:bg-slate-800">
-          <Icon size={28} />
+        <div className="shrink-0 rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
+          <Icon size={22} className="text-slate-600 dark:text-slate-300" />
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 

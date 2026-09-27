@@ -21,10 +21,12 @@ const visitorsData = [
 
 function VisitorsAreaChart() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
-      <div className="mb-6">
-        <p className="text-sm text-slate-500">Visitor growth</p>
-        <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <div className="mb-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Visitor growth
+        </p>
+        <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
           Website traffic
         </h2>
       </div>

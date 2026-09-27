@@ -1,18 +1,19 @@
 import useAuthStore from "../../store/authStore";
+import Card from "../ui/Card";
 
 function WelcomeHeader() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+    <Card className="p-4 sm:p-6">
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
         Welcome back{user ? `, ${user.name}` : ""} 👋
       </h1>
 
-      <p className="mt-2 text-slate-500">
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
         Here's what's happening with your dashboard today.
       </p>
-    </div>
+    </Card>
   );
 }
 

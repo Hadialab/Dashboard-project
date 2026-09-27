@@ -20,12 +20,12 @@ const COLORS = [
 
 function TrafficPieChart() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <h2 className="mb-6 text-xl font-semibold">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">
         Traffic Sources
       </h2>
 
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={280}>
         <PieChart>
           <Pie
             data={data}
