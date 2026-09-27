@@ -4,12 +4,6 @@ import * as yup from "yup";
 import useAuthStore from "../store/authStore";
 import { useNavigate } from "react-router-dom";
 
-const mockUser = {
-  name: "Hadi Al Abbassi",
-  email: "admin@example.com",
-  password: "admin123",
-};
-
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,44 +42,28 @@ function Login() {
   }
 
   async function handleLogin(event) {
-  event.preventDefault();
+    event.preventDefault();
 
-  if (!(await validate())) {
-    return;
+    if (!(await validate())) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      // Credentials are checked by the API, which is also what guards the CRM
+      // data. The token it returns is what authorises later requests.
+      await login({ email, password });
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setError(
+        err.response?.data?.error ?? "Unable to sign in. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
-
-  setIsSubmitting(true);
-  setError("");
-
-  // Default demo account
-  if (email === mockUser.email && password === mockUser.password) {
-    login(mockUser);
-    navigate("/dashboard", { replace: true });
-    return;
-  }
-
-  // Check for a registered account
-  const registeredUser = JSON.parse(
-    localStorage.getItem("registeredUser")
-  );
-
-  if (
-    registeredUser &&
-    email.toLowerCase() === registeredUser.email.toLowerCase() &&
-    password === registeredUser.password
-  ) {
-    login({
-      name: registeredUser.name,
-      email: registeredUser.email,
-    });
-
-    navigate("/dashboard", { replace: true });
-    return;
-  }
-
-  setError("Invalid email or password");
-  setIsSubmitting(false);
-}
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-10 dark:bg-slate-950 sm:px-6">
@@ -111,6 +89,7 @@ function Login() {
               <Mail size={18} className="text-slate-400" />
               <input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -128,6 +107,7 @@ function Login() {
               <Lock size={18} className="text-slate-400" />
               <input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -149,16 +129,15 @@ function Login() {
         </form>
 
         <div className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-  Don't have an account?{" "}
-  <button
-    type="button"
-    onClick={() => navigate("/register")}
-    className="font-semibold text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-  >
-    Create an account
-  </button>
-</div>
-
+          Don't have an account?{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/register")}
+            className="font-semibold text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            Create an account
+          </button>
+        </div>
       </div>
     </div>
   );
