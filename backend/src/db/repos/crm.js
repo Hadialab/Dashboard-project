@@ -30,6 +30,9 @@ const serverStamp = (column, alias) => ({
   readOnly: true,
 });
 
+// Same idea for a plain text column the server owns.
+const serverText = (column, alias) => ({ column, alias, type: "text", readOnly: true });
+
 export const CRM_TABLES = {
   customers: {
     prefix: "c",
@@ -63,6 +66,9 @@ export const CRM_TABLES = {
       numeric("owner_id", "ownerId"),
       date("created_at", "createdDate"),
       serverStamp("updated_at", "updatedAt"),
+      // Set by the conversion endpoint only. Read-only here so a client cannot
+      // claim a lead was converted.
+      serverText("converted_customer_id", "convertedCustomerId"),
     ],
   },
 

@@ -79,7 +79,10 @@ CREATE TABLE IF NOT EXISTS leads (
   -- DATE, not TIMESTAMPTZ: the API exposes this as `createdDate`, a plain day
   -- with no time and no timezone.
   created_at      DATE NOT NULL DEFAULT CURRENT_DATE,
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Set when this lead is converted. The lead is never deleted, so this records
+  -- what it became and is what stops it being converted twice.
+  converted_customer_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS leads_org_idx ON leads (organization_id);
@@ -167,6 +170,7 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL D
 ALTER TABLE leads     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE deals     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE notes     ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'note';
+ALTER TABLE leads     ADD COLUMN IF NOT EXISTS converted_customer_id TEXT;
 
 -- The original entity_type constraints were auto-named by Postgres. Swap them
 -- for ones that also allow leads, but only when the old constraint is still in

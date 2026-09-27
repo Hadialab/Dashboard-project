@@ -5,6 +5,7 @@ import { resources } from "./validation/resources.js";
 import authRoutes from "./routes/auth.routes.js";
 import notesRoutes from "./routes/notes.routes.js";
 import followUpsRoutes from "./routes/followUps.routes.js";
+import leadConversionRoutes from "./routes/leadConversion.routes.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { config } from "./config.js";
 import { ping } from "./db/migrate.js";
@@ -38,6 +39,10 @@ export function createApp() {
   // rules, so they get their own routers rather than the resource factory.
   app.use("/notes", notesRoutes);
   app.use("/followups", followUpsRoutes);
+
+  // Mounted before the generic /leads router so the conversion route is matched
+  // by its own rules rather than relying on the factory falling through.
+  app.use("/leads", leadConversionRoutes);
 
   // Every CRM collection sits behind requireAuth. This is the guard that makes
   // the API useless to anyone without a valid token, regardless of whether they
