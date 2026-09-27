@@ -1,50 +1,55 @@
-function DeleteLeadModal({
-  open,
-  onClose,
-  onConfirm,
-  lead,
-}) {
+import { AlertTriangle } from "lucide-react";
+import Modal from "../ui/Modal";
+import Button from "../ui/Button";
+
+function DeleteLeadModal({ open, onClose, onConfirm, lead }) {
   if (!open || !lead) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-        {/* Header */}
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-            Delete Lead
-          </h2>
-
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Are you sure you want to delete{" "}
-            <span className="font-semibold text-slate-900 dark:text-white">
-              {lead.name}
-            </span>
-            ? This action cannot be undone.
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="sm"
+      title={
+        <span className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+            <AlertTriangle size={22} className="text-red-600 dark:text-red-400" />
+          </span>
+          <span className="min-w-0">Delete Lead</span>
+        </span>
+      }
+      description="This action cannot be undone."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} className="sm:w-auto">
             Cancel
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="danger"
             onClick={() => {
               onConfirm(lead.id);
               onClose();
             }}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+            className="sm:w-auto"
           >
             Delete Lead
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Are you sure you want to delete{" "}
+        <span className="font-semibold text-slate-900 dark:text-white">
+          {lead.name}
+        </span>
+        ?
+      </p>
+
+      <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        Deleting this lead will permanently remove it from your pipeline.
+      </p>
+    </Modal>
   );
 }
 
