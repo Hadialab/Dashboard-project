@@ -15,11 +15,14 @@ export const LEAD_STATUSES = ["New", "Contacted", "Qualified", "Proposal", "Lost
 // Collections the API exposes, and the id prefix each one uses.
 // `users` is seeded with a demo account so there is something to sign in with;
 // its password is hashed here rather than stored in seedData.js.
+// `notes` and `followups` start empty — they are created through the API.
 export const collections = {
   customers: { rows: customers, prefix: "c" },
   deals: { rows: deals, prefix: "d" },
   leads: { rows: leads, prefix: "l" },
   users: { rows: [], prefix: "u" },
+  notes: { rows: [], prefix: "n" },
+  followups: { rows: [], prefix: "f" },
 };
 
 const DEMO_USER = {
