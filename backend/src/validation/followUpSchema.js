@@ -1,6 +1,13 @@
 // Follow-up scheduling. Separate from notes: a note is a record of something
 // that happened, a follow-up is something still to do, with a due date and a
 // done state.
+//
+// The entity list is shared with notes rather than repeated here. A follow-up
+// hangs off exactly the same records a note does, and two hand-maintained lists
+// would drift — which is how 'lead' ended up rejected by this validator while
+// the notes route accepted it.
+
+import { NOTE_ENTITY_TYPES } from "./noteSchema.js";
 
 export const FOLLOWUP_TYPES = ["call", "email", "meeting", "task"];
 
@@ -22,8 +29,8 @@ export function validateFollowUp(body) {
   const dueAt = String(body.dueAt ?? "").trim();
   const details = String(body.details ?? "").trim();
 
-  if (!["customer", "deal"].includes(entityType)) {
-    errors.entityType = "entityType must be customer or deal";
+  if (!NOTE_ENTITY_TYPES.includes(entityType)) {
+    errors.entityType = `entityType must be one of: ${NOTE_ENTITY_TYPES.join(", ")}`;
   }
 
   if (!entityId) errors.entityId = "entityId is required";

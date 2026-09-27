@@ -13,10 +13,24 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+?[0-9\s\-()]{7,20}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Fields whose movement is worth a line in the record's activity timeline.
+//
+// Declared here rather than in each page because the server sees the before and
+// after of every write. Doing it in the page would mean the entry could be
+// forgotten by a new caller — the pipeline board, a CSV import, a future
+// integration — or could describe a change that was then rolled back.
+const TIMELINE = {
+  customers: ["status"],
+  leads: ["status", "assignedRep"],
+  deals: ["stage", "owner", "value", "expectedClose"],
+};
+
 export const resources = {
   customers: {
     prefix: "c",
     permissionName: "customers",
+    // Singular name the notes and follow-ups tables key on.
+    entityType: "customer",
     owned: false,
     fields: ["name", "company", "email", "phone", "status"],
     searchFields: ["name", "company", "email", "phone"],
@@ -33,6 +47,7 @@ export const resources = {
   deals: {
     prefix: "d",
     permissionName: "deals",
+    entityType: "deal",
     owned: true,
     fields: ["title", "customer", "owner", "ownerId", "stage", "value", "createdDate", "expectedClose"],
     searchFields: ["title", "customer", "owner"],
@@ -56,6 +71,7 @@ export const resources = {
   leads: {
     prefix: "l",
     permissionName: "leads",
+    entityType: "lead",
     owned: true,
     fields: ["name", "company", "email", "phone", "status", "source", "assignedRep", "ownerId", "createdDate"],
     searchFields: ["name", "company", "email", "assignedRep"],
@@ -106,4 +122,4 @@ function validate(config, body, { partial }) {
   return { value, errors };
 }
 
-export { validate };
+export { validate, TIMELINE };
