@@ -5,7 +5,10 @@ import CustomersTable from "../components/customers/CustomersTable";
 import CustomerDetailsDrawer from "../components/customers/CustomerDetailDrawer";
 import AddCustomerModal from "../components/customers/AddCustomerModal";
 import DeleteCustomerModal from "../components/customers/DeleteCustomerModal";
+import AddDealModal from "../components/deals/AddDealModal";
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "../services/customerService";
+import { createDeal } from "../services/dealService";
+import { getApiErrorMessage } from "../utils/apiError";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -36,6 +39,11 @@ function Customers() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "All");
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Starting a deal from a customer drawer. The name is carried into the form;
+  // everything else the user fills in.
+  const [dealPrefill, setDealPrefill] = useState(null);
+  const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   // `totalPages` is enough to drive the pager; the envelope's `items` count is
   // not displayed anywhere.
@@ -148,6 +156,32 @@ function Customers() {
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete customer.");
+    }
+  };
+
+  // Opens the deal form with the customer's name already filled in. A deal
+  // references its customer by name, which is the only thing worth carrying
+  // over — the value, stage and close date are the user's call.
+  const handleStartDeal = (customer) => {
+    setDealPrefill({ customer: customer.name });
+    setIsDealModalOpen(true);
+    setIsDrawerOpen(false);
+  };
+
+  const handleCreateDealFromCustomer = async (deal) => {
+    try {
+      const created = await createDeal(deal);
+
+      setIsDealModalOpen(false);
+      setDealPrefill(null);
+      setSelectedCustomer(null);
+
+      toast.success(`Deal "${created.title}" added`);
+    } catch (error) {
+      // Thrown so AddDealModal can show it inline next to the form, rather than
+      // a toast that disappears while the user is still looking at the fields.
+      setError(getApiErrorMessage(error, "Failed to add deal."));
+      throw error;
     }
   };
 
@@ -272,6 +306,7 @@ function Customers() {
         customer={selectedCustomer}
         open={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+        onCreateDeal={handleStartDeal}
       />
       <AddCustomerModal
         open={isAddModalOpen}
@@ -282,6 +317,18 @@ function Customers() {
         onAddCustomer={handleAddCustomer}
         onUpdateCustomer={handleUpdateCustomer}
         customer={editingCustomer}
+      />
+
+      {/* Reuses the existing deal form rather than a second one, so validation
+          and the owner picker stay in a single place. */}
+      <AddDealModal
+        open={isDealModalOpen}
+        onClose={() => {
+          setIsDealModalOpen(false);
+          setDealPrefill(null);
+        }}
+        onAddDeal={handleCreateDealFromCustomer}
+        prefill={dealPrefill}
       />
       <DeleteCustomerModal
         open={isDeleteModalOpen}

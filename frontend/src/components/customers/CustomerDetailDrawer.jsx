@@ -1,12 +1,19 @@
-import { Mail, Building2, Phone, CircleUser, Calendar } from "lucide-react";
+import { Mail, Building2, Phone, CircleUser, Calendar, Handshake } from "lucide-react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
 import NotesTimeline from "../ui/NotesTimeline";
+import usePermissions from "../../hooks/usePermissions";
 import { customerStatusBadge } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
 
-function CustomerDetailsDrawer({ customer, open, onClose }) {
+function CustomerDetailsDrawer({ customer, open, onClose, onCreateDeal }) {
+  const { can } = usePermissions();
+
+  // A deal references its customer by name, so starting one from here carries
+  // that name over. The server still derives the owner.
+  const canCreateDeal = can("deals", "create");
+
   if (!open || !customer) return null;
 
   const details = [
@@ -23,9 +30,22 @@ function CustomerDetailsDrawer({ customer, open, onClose }) {
       onClose={onClose}
       title="Customer Details"
       footer={
-        <Button fullWidth onClick={onClose}>
-          Close
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {canCreateDeal && onCreateDeal && (
+            <Button
+              variant="secondary"
+              icon={Handshake}
+              onClick={() => onCreateDeal(customer)}
+              className="sm:flex-1"
+            >
+              Create deal
+            </Button>
+          )}
+
+          <Button onClick={onClose} className="sm:flex-1">
+            Close
+          </Button>
+        </div>
       }
     >
       <div className="flex flex-col items-center pb-2">

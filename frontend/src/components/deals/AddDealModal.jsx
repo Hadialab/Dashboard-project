@@ -29,7 +29,7 @@ const initialFormData = {
   expectedClose: "",
 };
 
-function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal }) {
+function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal, prefill }) {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
 
@@ -37,10 +37,15 @@ function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal }) {
     if (deal) {
       setFormData(deal);
     } else {
-      setFormData(initialFormData);
+      // `prefill` seeds a blank form, for starting a deal from somewhere else —
+      // a customer drawer, say. It is read when the modal opens and is
+      // deliberately not a dependency, because re-running on every parent
+      // render would throw away anything being typed.
+      setFormData({ ...initialFormData, ...(prefill ?? {}) });
     }
 
     setErrors({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deal, open]);
 
   const handleChange = (e) => {
