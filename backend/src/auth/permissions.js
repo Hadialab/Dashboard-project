@@ -45,8 +45,8 @@ function normalizeActions(value, spec) {
   const result = {};
 
   for (const action of spec.actions) {
-    // Anything not explicitly granted is denied, so a partial or tampered
-    // permissions object fails closed rather than open.
+    // Within a resource that was named, anything not explicitly granted is
+    // denied, so a partial or tampered object fails closed rather than open.
     result[action] = value?.[action] === true;
   }
 
@@ -56,16 +56,40 @@ function normalizeActions(value, spec) {
 /**
  * Fills in anything missing with the defaults, and coerces bad values.
  * Existing accounts created before permissions existed get the default set.
+ *
+ * Two levels of "missing", treated differently on purpose:
+ *
+ *   resource absent -> the whole default entry for it. Sending
+ *                      `{ customers: {...} }` used to produce leads with a
+ *                      default `view` but every action denied, because view
+ *                      read the fallback and the actions did not. That is
+ *                      neither fail-open nor cleanly fail-closed — it silently
+ *                      created a user who could see their leads but not touch
+ *                      them.
+ *
+ *   action absent   -> denied, because the resource was named and omitting an
+ *                      action inside it is a deliberate tightening.
  */
 export function normalizePermissions(raw) {
   const out = {};
 
   for (const [name, spec] of Object.entries(PERMISSION_RESOURCES)) {
-    const fallback = DEFAULT_PERMISSIONS[name];
     const value = raw?.[name];
 
+    // The resource was not named at all: take the defaults wholesale.
+    if (value === undefined || value === null) {
+      const fallback = DEFAULT_PERMISSIONS[name];
+
+      out[name] = {
+        view: normalizeView(fallback?.view, spec),
+        ...normalizeActions(fallback, spec),
+      };
+
+      continue;
+    }
+
     out[name] = {
-      view: normalizeView(value?.view ?? fallback?.view, spec),
+      view: normalizeView(value?.view, spec),
       ...normalizeActions(value, spec),
     };
   }
