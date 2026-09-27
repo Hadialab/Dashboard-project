@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lock, Mail, User } from "lucide-react";
+import { Building2, Lock, Mail, User } from "lucide-react";
 import * as yup from "yup";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../store/authStore";
@@ -12,6 +12,11 @@ const registerSchema = yup.object({
     .string()
     .min(2, "Name must be at least 2 characters")
     .required("Name is required"),
+
+  organizationName: yup
+    .string()
+    .min(2, "Company name must be at least 2 characters")
+    .required("Company name is required"),
 
   email: yup
     .string()
@@ -35,6 +40,7 @@ function Register() {
 
   const [formData, setFormData] = useState({
     name: "",
+    organizationName: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -63,8 +69,12 @@ function Register() {
 
       // The account is created by the API, which stores a hashed password and
       // returns a session token. No credentials are kept in the browser.
+      //
+      // Each signup creates its own company and the person signing up becomes
+      // that company's admin, so they can then add their own team.
       await register({
         name: formData.name,
+        organizationName: formData.organizationName,
         email: formData.email,
         password: formData.password,
       });
@@ -93,15 +103,28 @@ function Register() {
           </p>
 
           <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
-            Join your CRM
+            Set up your workspace
           </h1>
 
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-            Create your account to access the CRM dashboard.
+            You will be the admin of this workspace, and can add your own team
+            afterwards. Your data stays separate from any other company.
           </p>
         </div>
 
         <form className="space-y-5" onSubmit={handleRegister} noValidate>
+          <Input
+            label="Company name"
+            id="organizationName"
+            name="organizationName"
+            type="text"
+            icon={Building2}
+            value={formData.organizationName}
+            onChange={handleChange}
+            placeholder="Acme Inc."
+            autoComplete="organization"
+          />
+
           <Input
             label="Full name"
             id="name"

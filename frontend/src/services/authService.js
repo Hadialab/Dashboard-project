@@ -7,8 +7,16 @@ export async function login({ email, password }) {
   return response.data;
 }
 
-export async function register({ name, email, password }) {
-  const response = await api.post("/auth/register", { name, email, password });
+// `organizationName` names the company this signup creates. It is passed
+// explicitly rather than spread, so the payload stays obvious about what the
+// API actually receives.
+export async function register({ name, organizationName, email, password }) {
+  const response = await api.post("/auth/register", {
+    name,
+    organizationName,
+    email,
+    password,
+  });
   return response.data;
 }
 
