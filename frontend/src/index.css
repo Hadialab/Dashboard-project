@@ -2,6 +2,31 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Design tokens. See DESIGN_SYSTEM.md for the rules behind these values.
+ * Tailwind v4 reads @theme, so these extend the built-in scales and every
+ * utility (rounded-lg, shadow-sm, text-2xl...) resolves to the value below.
+ */
+@theme {
+  /* Radius: 4 steps, each with a fixed role.
+     md  = chips and inline tags
+     lg  = interactive elements (inputs, buttons, table cells, nav items)
+     xl  = surfaces (cards, panels, table containers)
+     2xl = overlays (modals, drawers, dropdowns) */
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+
+  /* Shadow: 3 steps.
+     xs  = table containers and flat panels
+     sm  = cards (the default raised surface)
+     lg  = overlays only (modals, drawers, dropdowns) */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.07), 0 1px 2px -1px rgb(15 23 42 / 0.05);
+  --shadow-lg: 0 20px 25px -5px rgb(15 23 42 / 0.12), 0 8px 10px -6px rgb(15 23 42 / 0.08);
+}
+
 :root {
   color-scheme: light;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -62,5 +87,35 @@ select {
 @layer base {
   body {
     line-height: 1.6;
+  }
+
+  /* Nothing should push the page sideways. Wide content (tables, charts) is
+     expected to scroll inside its own container instead. */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  /* Keyboard focus stays visible, but only for keyboard users. */
+  :focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+}
+
+/* Minimum comfortable tap target on touch devices. Pointer devices keep their
+   natural sizing, so this never makes desktop buttons look oversized. */
+@media (pointer: coarse) {
+  button:not([disabled]),
+  [role="button"]:not([disabled]),
+  a[href] {
+    min-height: 44px;
   }
 }
