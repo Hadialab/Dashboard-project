@@ -7,6 +7,9 @@ import SummaryCards from "../components/reports/SummaryCards";
 import ReportsCharts from "../components/reports/ReportsCharts";
 import ReportsTable from "../components/reports/ReportsTable";
 import Pagination from "../components/reports/Pagination";
+import FunnelChart from "../components/reports/FunnelChart";
+import ForecastCard from "../components/reports/ForecastCard";
+import OwnerPerformanceTable from "../components/reports/OwnerPerformanceTable";
 
 import {
   getSummaryMetrics,
@@ -14,6 +17,9 @@ import {
   getRecentDeals,
   getDealsByStage,
   getLeadsByStatus,
+  getStageFunnel,
+  getRevenueForecast,
+  getPerformanceByOwner,
 } from "../utils/reportAnalytics";
 
 
@@ -109,6 +115,10 @@ const Reports = () => {
 
   const leadsStatusData = getLeadsByStatus(leads);
 
+  const funnelData = getStageFunnel(deals);
+  const forecast = getRevenueForecast(deals);
+  const ownerPerformance = getPerformanceByOwner(deals);
+
   const reports = getRecentDeals(deals);
 
   const filteredReports = reports.filter((deal) => {
@@ -165,6 +175,15 @@ const Reports = () => {
         dealsStageData={dealsStageData}
         leadsStatusData={leadsStatusData}
       />
+
+      {/* Funnel and forecast side by side; the per-rep table underneath spans
+          the full width because it has more columns than fit in half. */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
+        <FunnelChart data={funnelData} />
+        <ForecastCard forecast={forecast} />
+      </div>
+
+      <OwnerPerformanceTable rows={ownerPerformance} />
 
       <ReportsTable
         reports={paginatedReports}
