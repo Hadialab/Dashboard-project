@@ -1,12 +1,27 @@
 import { Briefcase, Building2, DollarSign, User, Calendar } from "lucide-react";
+import { useEffect } from "react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
 import NotesTimeline from "../ui/NotesTimeline";
+import useRecentlyViewedStore from "../../store/recentlyViewedStore";
 import { stageBadge } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
 
 function DealDetailsDrawer({ deal, open, onClose }) {
+  const remember = useRecentlyViewedStore((state) => state.record);
+
+  useEffect(() => {
+    if (!open || !deal) return;
+
+    remember({
+      id: `deal:${deal.id}`,
+      recordId: deal.id,
+      type: "deal",
+      label: deal.title,
+    });
+  }, [open, deal, remember]);
+
   if (!open || !deal) return null;
 
   const details = [

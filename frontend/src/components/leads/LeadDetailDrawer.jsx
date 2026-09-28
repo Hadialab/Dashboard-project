@@ -1,14 +1,17 @@
 import { Building2, Mail, Phone, User, Calendar, UserCheck } from "lucide-react";
+import { useEffect } from "react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
 import NotesTimeline from "../ui/NotesTimeline";
 import usePermissions from "../../hooks/usePermissions";
+import useRecentlyViewedStore from "../../store/recentlyViewedStore";
 import { leadStatusBadge, CONVERTED_STATUS } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
 
 function LeadDetailDrawer({ open, onClose, lead, onConvertLead }) {
   const { can } = usePermissions();
+  const remember = useRecentlyViewedStore((state) => state.record);
 
   // Converting writes to two resources, so both permissions are needed. An
   // already-converted lead is not offered it again.
@@ -16,6 +19,17 @@ function LeadDetailDrawer({ open, onClose, lead, onConvertLead }) {
     can("leads", "edit") &&
     can("customers", "create") &&
     lead?.status !== CONVERTED_STATUS;
+
+  useEffect(() => {
+    if (!open || !lead) return;
+
+    remember({
+      id: `lead:${lead.id}`,
+      recordId: lead.id,
+      type: "lead",
+      label: lead.name,
+    });
+  }, [open, lead, remember]);
 
   if (!open || !lead) return null;
 

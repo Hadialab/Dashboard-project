@@ -1,18 +1,34 @@
 import { Mail, Building2, Phone, CircleUser, Calendar, Handshake } from "lucide-react";
+import { useEffect } from "react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
 import NotesTimeline from "../ui/NotesTimeline";
 import usePermissions from "../../hooks/usePermissions";
+import useRecentlyViewedStore from "../../store/recentlyViewedStore";
 import { customerStatusBadge } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
 
 function CustomerDetailsDrawer({ customer, open, onClose, onCreateDeal }) {
   const { can } = usePermissions();
+  const remember = useRecentlyViewedStore((state) => state.record);
 
   // A deal references its customer by name, so starting one from here carries
   // that name over. The server still derives the owner.
   const canCreateDeal = can("deals", "create");
+
+  // Opening the drawer is what counts as "viewed" — that is what the command
+  // palette offers as a way back.
+  useEffect(() => {
+    if (!open || !customer) return;
+
+    remember({
+      id: `customer:${customer.id}`,
+      recordId: customer.id,
+      type: "customer",
+      label: customer.name,
+    });
+  }, [open, customer, remember]);
 
   if (!open || !customer) return null;
 
