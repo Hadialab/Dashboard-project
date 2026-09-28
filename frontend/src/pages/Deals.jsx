@@ -10,6 +10,7 @@ import {
 } from "../services/dealService";
 import { isMine } from "../utils/myWork";
 import useAuthStore from "../store/authStore";
+import { useNotificationGenerator } from "../services/notificationService";
 import DealsHeader from "../components/deals/DealsHeader";
 import DealsToolbar from "../components/deals/DealsToolbar";
 import DealsTable from "../components/deals/DealsTable";
@@ -60,6 +61,7 @@ function Deals() {
   const [dealToDelete, setDealToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const notifications = useNotificationGenerator();
 
   useEffect(() => {
   const fetchDeals = async () => {
@@ -67,6 +69,10 @@ function Deals() {
       setLoading(true);
       const dealsData = await getDeals();
       setDeals(dealsData);
+
+      // Checked once per load rather than on every render, and deduplicated by
+      // key in the store, so a revisit does not pile up reminders.
+      notifications.checkClosingSoon(dealsData);
     } catch (error) {
       console.error("Failed to fetch deals:", error);
     } finally {
@@ -75,6 +81,7 @@ function Deals() {
   };
 
   fetchDeals();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
   useEffect(() => {
     const params = {};
@@ -230,6 +237,9 @@ function Deals() {
         deal.id === updated.id ? updated : deal
       )
     );
+
+    // Only fires for Won or Lost; see the generator.
+    notifications.dealStageChanged(updated);
 
     toast.success("Deal updated successfully");
   } catch (error) {

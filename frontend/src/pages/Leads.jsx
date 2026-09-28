@@ -10,6 +10,7 @@ import useAuthStore from "../store/authStore";
 import useRowSelection from "../hooks/useRowSelection";
 import usePermissions from "../hooks/usePermissions";
 import { bulkSetLeadStatus, bulkDeleteLeads } from "../services/bulkService";
+import { useNotificationGenerator } from "../services/notificationService";
 import BulkActionBar from "../components/ui/BulkActionBar";
 import ImportCsvModal from "../components/ui/ImportCsvModal";
 
@@ -64,6 +65,7 @@ function Leads() {
   const canCreate = can("leads", "create");
 
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const notifications = useNotificationGenerator();
 
   const [leadToConvert, setLeadToConvert] = useState(null);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
@@ -309,6 +311,8 @@ useEffect(() => {
     const createdLead = await createLead(newLead);
 
     setLeads((prev) => [createdLead, ...prev]);
+
+    notifications.leadCreated(createdLead);
 
     toast.success("Lead added successfully");
   } catch (error) {

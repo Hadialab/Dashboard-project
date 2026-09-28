@@ -13,6 +13,7 @@ import PipelineColumn from "../components/pipeline/PipelineColumn";
 
 import { boardStages, WON_STAGE, LOST_STAGE } from "../utils/crmConstants";
 import { getApiErrorMessage } from "../utils/apiError";
+import { useNotificationGenerator } from "../services/notificationService";
 
 /**
  * The pipeline as a board: one column per stage, deals dragged between them.
@@ -23,6 +24,7 @@ import { getApiErrorMessage } from "../utils/apiError";
 function Pipeline() {
   const { can } = usePermissions();
   const canEdit = can("deals", "edit");
+  const notifications = useNotificationGenerator();
 
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +94,9 @@ function Pipeline() {
           current.map((row) => (row.id === saved.id ? saved : row)),
         );
 
+        // A drag can land a deal in Won or Lost, exactly like the form can.
+        notifications.dealStageChanged(saved);
+
         if (stage === WON_STAGE || stage === LOST_STAGE) {
           toast.success(
             `${deal.title} marked ${stage.toLowerCase()} — ${Number(
@@ -106,7 +111,7 @@ function Pipeline() {
         );
       }
     },
-    [deals],
+    [deals, notifications],
   );
 
   function handleDragStart(event, deal) {
