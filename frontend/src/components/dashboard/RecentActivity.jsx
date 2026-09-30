@@ -1,22 +1,15 @@
 import { Download, RefreshCcw } from "lucide-react";
 import Card from "../ui/Card";
-import exportCsv from "../../utils/exportCsv";
+import { exportActivityCsv } from "../../utils/exportCsv";
 
 // Receives real records from the Dashboard rather than a hardcoded list.
 function RecentActivity({ items = [], topCustomers = [], onRefresh }) {
   function handleExport() {
-    // Shape the activity rows into the deal-shaped rows exportCsv expects.
-    exportCsv(
-      items.map((item) => ({
-        id: item.id,
-        title: item.title,
-        customer: item.description,
-        owner: "—",
-        stage: item.time ?? "—",
-        value: 0,
-        expectedClose: "",
-      })),
-    );
+    // Activity rows are not deals, so they get their own exporter. This used to
+    // reshape them into deal-shaped objects to satisfy exportCsv, which wrote a
+    // file headed "Deal ID, Deal, Customer, Owner, Stage, Value" with the Stage
+    // column holding customer statuses and every value 0.
+    exportActivityCsv(items);
   }
 
   return (

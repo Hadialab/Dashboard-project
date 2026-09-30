@@ -113,7 +113,12 @@ function Dashboard() {
         id: `c-${c.id}`,
         title: "New customer added",
         description: `${c.name} — ${c.company}`,
-        time: c.status,
+        // A date, like every other row here. This was the customer's status, so
+        // the row read "Nadine C — Beirut Dairy | Active" in a slot the UI styles
+        // and reads as a timestamp — and the CSV export inherited the confusion.
+        // createdDate first, so this reads as a plain date like the lead and deal
+        // rows rather than as a full ISO instant.
+        time: c.createdDate ?? c.createdAt ?? "",
       })),
     ...leads
       .slice()

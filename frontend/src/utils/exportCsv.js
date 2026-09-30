@@ -1,16 +1,8 @@
+import { downloadCsv } from "./downloadCsv";
+
 // Exports deals. Matches the /deals shape — the previous version read
 // reportType/amount/orders/date, so every column came out as "undefined".
-//
-// papaparse is imported dynamically so it stays out of the route chunk until
-// an export is actually requested.
 const exportCsv = async (deals) => {
-  if (!Array.isArray(deals) || deals.length === 0) {
-    console.warn("exportCsv called with no rows");
-    return;
-  }
-
-  const { default: Papa } = await import("papaparse");
-
   const data = deals.map((deal) => ({
     "Deal ID": deal.id,
     Deal: deal.title,
@@ -22,27 +14,28 @@ const exportCsv = async (deals) => {
     "Expected Close": deal.expectedClose ?? "",
   }));
 
-  const csv = Papa.unparse(data);
-
-  const blob = new Blob([csv], {
-    type: "text/csv;charset=utf-8;",
-  });
-
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.setAttribute("download", "deals.csv");
-
-  document.body.appendChild(link);
-
-  link.click();
-
-  document.body.removeChild(link);
-
-  // Release the object URL so the blob can be garbage collected.
-  URL.revokeObjectURL(url);
+  await downloadCsv("deals.csv", data);
 };
 
+/**
+ * Exports the dashboard's activity feed.
+ *
+ * Activity rows are not deals. This previously reshaped them into deal-shaped
+ * objects so they could be passed to the deals exporter, which produced a file
+ * headed "Deal ID, Deal, Customer, Owner, Stage, Value…" where Stage held a
+ * customer's status, every Value was 0, and both date columns were blank. The
+ * columns below are the ones the feed actually shows.
+ */
+const exportActivityCsv = async (items) => {
+  const data = items.map((item) => ({
+    ID: item.id,
+    Activity: item.title,
+    Detail: item.description,
+    When: item.time ?? "",
+  }));
+
+  await downloadCsv("recent-activity.csv", data);
+};
+
+export { exportActivityCsv };
 export default exportCsv;
