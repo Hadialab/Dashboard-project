@@ -31,6 +31,20 @@ export const DEFAULT_PERMISSIONS = {
   reports: false,
 };
 
+/**
+ * What an admin is reported as having. Admins bypass every check in `can`, so
+ * this describes no stored state — it is the honest answer to "what may this user
+ * do", and it is what the client needs in order to render unrestricted controls.
+ * Scoped resources report `view: "all"` because "all records" is the scope an
+ * admin actually sees.
+ */
+export const UNRESTRICTED_PERMISSIONS = {
+  customers: { view: true, create: true, edit: true, delete: true },
+  leads: { view: "all", create: true, edit: true, delete: true },
+  deals: { view: "all", create: true, edit: true, delete: true },
+  reports: { view: true },
+};
+
 const VIEW_OFF = false;
 
 function normalizeView(value, spec) {

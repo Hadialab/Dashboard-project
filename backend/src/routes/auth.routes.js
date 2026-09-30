@@ -17,6 +17,7 @@ import { ROLES, requireRole } from "../auth/roles.js";
 import {
   DEFAULT_PERMISSIONS,
   normalizePermissions,
+  UNRESTRICTED_PERMISSIONS,
   validatePermissions,
 } from "../auth/permissions.js";
 import { validateLogin, validateNewUser, validateRegistration } from "../validation/userSchema.js";
@@ -37,7 +38,14 @@ function publicUser(user) {
     email: user.email,
     role: user.role,
     // Normalized on the way out, so the client always receives a complete set.
-    permissions: normalizePermissions(user.permissions),
+    //
+    // An admin bypasses every permission check, so whatever is stored on the row
+    // is inert for them. Reporting that stored object anyway was actively
+    // misleading: the Access editor showed an admin as unable to delete a
+    // customer, and anyone reading the API response had to know the bypass rule
+    // to understand it. Admins are therefore reported as unrestricted, which is
+    // both true and what the UI needs in order to render the right controls.
+    permissions: user.role === "admin" ? UNRESTRICTED_PERMISSIONS : normalizePermissions(user.permissions),
   };
 }
 
