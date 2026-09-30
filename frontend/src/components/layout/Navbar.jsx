@@ -15,6 +15,8 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
+  const notificationButtonRef = useRef(null);
+  const notificationPanelRef = useRef(null);
 
   useEffect(() => {
     const listener = (event) => {
@@ -29,6 +31,33 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
     window.addEventListener("click", listener);
     return () => window.removeEventListener("click", listener);
   }, []);
+
+  /**
+   * Escape closes the panel and returns focus to the bell.
+   *
+   * Without it the panel was a one-way door for keyboard and screen-reader
+   * users: reachable with Enter, and then closable only by activating something
+   * inside it or clicking elsewhere on the page.
+   */
+  useEffect(() => {
+    if (!showNotifications) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+
+      setShowNotifications(false);
+      notificationButtonRef.current?.focus();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showNotifications]);
+
+  // Moves focus into the panel when it opens, so the next Tab reaches its
+  // controls rather than continuing from the bell out into the page behind.
+  useEffect(() => {
+    if (showNotifications) notificationPanelRef.current?.focus();
+  }, [showNotifications]);
 
   /**
    * Opening a notification marks it read and jumps to the record.
@@ -74,6 +103,7 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
         <div className="relative" ref={notificationRef}>
           <button
             type="button"
+            ref={notificationButtonRef}
             onClick={() => setShowNotifications((prev) => !prev)}
             className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-blue-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-900"
             aria-label={
@@ -81,6 +111,12 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
                 ? `Notifications, ${unreadCount} unread`
                 : "Notifications"
             }
+            // Tells assistive tech this button controls a panel, and whether that
+            // panel is currently open. Both were missing, so the bell announced
+            // as a plain button with no state.
+            aria-expanded={showNotifications}
+            aria-haspopup="dialog"
+            aria-controls="notifications-panel"
           >
             <Bell size={20} />
 
@@ -94,7 +130,14 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
           </button>
 
           {showNotifications && (
-            <div className="fixed inset-x-3 top-16 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-96 dark:border-slate-800 dark:bg-slate-950">
+            <div
+              id="notifications-panel"
+              ref={notificationPanelRef}
+              role="dialog"
+              aria-label="Notifications"
+              tabIndex={-1}
+              className="fixed inset-x-3 top-16 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg focus:outline-none sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-96 dark:border-slate-800 dark:bg-slate-950"
+            >
               <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   Notifications
@@ -165,6 +208,12 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
                             {notification.body}
                           </span>
                           <span className="mt-1 block text-xs text-slate-400 dark:text-slate-500">
+                            {/* A `due` notification is a reminder the app raised
+                                when it checked the pipeline, not something that
+                                happened at that moment. Labelled, because a bare
+                                "26 minutes ago" under "closes 2026-10-03" reads
+                                as though the deal closes in 26 minutes. */}
+                            {notification.type === "due" ? "Reminder raised " : ""}
                             {formatRelative(notification.createdAt)}
                           </span>
                         </span>
