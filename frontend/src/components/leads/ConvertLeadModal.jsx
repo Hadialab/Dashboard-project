@@ -85,12 +85,12 @@ function ConvertLeadModal({ open, onClose, onConfirm, lead, existingEmails = [] 
     try {
       await onConfirm(formData);
     } catch (err) {
-      const detail = err.response?.data?.details;
-      setSubmitError(
-        detail
-          ? Object.values(detail)[0]
-          : getApiErrorMessage(err, "Could not convert this lead."),
-      );
+      // Through the shared helper rather than picking the first value of
+      // `details` here. This component had its own copy of that logic, which
+      // meant a 409 sending { customerId: "c041" } rendered a bare "c041" to the
+      // user instead of the server's reason. One place decides what a failure
+      // looks like, so it cannot drift between components.
+      setSubmitError(getApiErrorMessage(err, "Could not convert this lead."));
     } finally {
       setSaving(false);
     }

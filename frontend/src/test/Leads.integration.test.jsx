@@ -202,11 +202,11 @@ describe("Lead — conversion", () => {
     expect(await screen.findByText(/already been converted/i)).toBeInTheDocument();
   });
 
-  it("shows the raw detail value when details is not a field-error map", async () => {
-    // getApiErrorMessage prefers the first value of `details`, which is right for
-    // a validation map like { email: "Invalid email address" } and wrong for a
-    // payload like { customerId: "c041" } — the user sees the id. Pinned here
-    // because it is surprising; the fix belongs with the error-shape work.
+  it("shows the server's reason, not a raw detail value", async () => {
+    // Regression guard. The 409 carries details: { customerId: "c041" }, and both
+    // getApiErrorMessage and this modal used to take the first value of
+    // `details` as the message — so the user saw the text "c041" and no
+    // explanation of what happened.
     const user = userEvent.setup();
     convertLead.mockRejectedValue(apiError(409, { error: "This lead has already been converted", details: { customerId: "c041" } }));
     renderWithProviders(<Leads />);
@@ -214,7 +214,8 @@ describe("Lead — conversion", () => {
 
     await user.click(within(dialog).getByRole("button", { name: /convert to customer/i }));
 
-    expect(await screen.findByText("c041")).toBeInTheDocument();
+    expect(await screen.findByText(/already been converted/i)).toBeInTheDocument();
+    expect(screen.queryByText("c041")).not.toBeInTheDocument();
   });
 
   it("leaves the lead unconverted when the request fails", async () => {

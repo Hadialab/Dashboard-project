@@ -73,4 +73,35 @@ describe("getApiErrorMessage", () => {
 
     expect(getApiErrorMessage(err, "fallback")).toBe("Request failed (403).");
   });
+
+  it("reads details as a field map on a 400", () => {
+    // A 400 is the API's "Validation failed", and its details are field -> message.
+    const err = axiosError({
+      response: { status: 400, data: { error: "Validation failed", details: { phone: "Invalid phone number" } } },
+    });
+
+    expect(getApiErrorMessage(err, "fallback")).toBe("Invalid phone number");
+  });
+
+  it("ignores details on a non-400, where they are a payload not a message", () => {
+    // The regression: a 409 conversion conflict sends { customerId: "c041" }, and
+    // taking the first value of that printed a bare "c041" as the error. The
+    // value is a string, so only the status can tell the two cases apart.
+    const err = axiosError({
+      response: {
+        status: 409,
+        data: { error: "This lead has already been converted", details: { customerId: "c041" } },
+      },
+    });
+
+    expect(getApiErrorMessage(err, "fallback")).toBe("This lead has already been converted");
+  });
+
+  it("ignores non-string detail values on a 400", () => {
+    const err = axiosError({
+      response: { status: 400, data: { error: "Something was wrong", details: { field: 42 } } },
+    });
+
+    expect(getApiErrorMessage(err, "fallback")).toBe("Something was wrong");
+  });
 });
