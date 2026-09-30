@@ -32,9 +32,22 @@ function escapeIcs(value) {
 
 // Folds a line to 75 octets, as the spec requires. Long details would
 // otherwise make the file unreadable to strict parsers.
+//
+// Folds repeatedly rather than once. A single split leaves everything past the
+// first 75 characters on one continuation line, so a 200-character note still
+// produced a 138-character line — exactly the malformed output this exists to
+// prevent. Each continuation carries a leading space, which the spec counts
+// towards the 75, so the segments are 74 characters wide.
 function fold(line) {
   if (line.length <= 75) return line;
-  return `${line.slice(0, 75)}\r\n ${line.slice(75)}`;
+
+  const segments = [];
+
+  for (let index = 0; index < line.length; index += 74) {
+    segments.push(line.slice(index, index + 74));
+  }
+
+  return segments.join("\r\n ");
 }
 
 const TYPE_LABELS = {
