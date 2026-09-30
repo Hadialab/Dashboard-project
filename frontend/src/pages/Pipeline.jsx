@@ -189,9 +189,11 @@ function Pipeline() {
       ) : (
         <>
           {/* Horizontal scroll rather than a squeezed grid: a board column that
-              wraps its cards is worse than one you have to scroll to. */}
-          <div className="-mx-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
-            <div className="flex min-h-[24rem] items-stretch gap-4">
+              wraps its cards is worse than one you have to scroll to.
+              w-full + min-w-0 so this element is the thing that scrolls, rather
+              than being stretched to the board's full width by its ancestors. */}
+          <div className="-mx-4 w-[calc(100%+2rem)] min-w-0 overflow-x-auto px-4 pb-4 sm:mx-0 sm:w-full sm:px-0">
+            <div className="flex min-h-[24rem] w-max items-stretch gap-4">
               {stages.map((stage) => (
                 <PipelineColumn
                   key={stage}

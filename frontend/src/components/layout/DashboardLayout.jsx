@@ -27,13 +27,19 @@ function DashboardLayout() {
     <div className="flex h-screen overflow-hidden bg-slate-100 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex min-h-0 flex-1 flex-col md:pl-72">
+      {/* min-w-0 on this row-flex child and on main below. A flex item defaults
+          to min-width:auto, which means it refuses to shrink below its content's
+          min-content width. The pipeline board's min-content width is six columns
+          side by side, so without this the whole app column — navbar included —
+          was stretched to the width of the board and the page scrolled sideways
+          instead of the board scrolling inside its own container. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:pl-72">
         <Navbar
           onToggleSidebar={() => setSidebarOpen(true)}
           onOpenSearch={() => setPaletteOpen(true)}
         />
 
-        <main className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
+        <main className="min-w-0 flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>
