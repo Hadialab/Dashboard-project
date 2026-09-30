@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# A new push supersedes an in-flight run for the same ref. Without this, every
+# push queues another full run and the badge sits on a stale result.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # Fast feedback: lint, unit and integration tests, and a production build.
+  # No database needed, because every test in this job mocks the service layer.
+  verify:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        # oxlint exits non-zero on errors. Warnings are reported and do not fail
+        # the build, so a new warning cannot block a merge on its own.
+        run: npm run lint
+
+      - name: Unit and integration tests
+        working-directory: frontend
+        run: npm run test
+
+      - name: Coverage
+        working-directory: frontend
+        # Fails the job if coverage of services/utils/store/hooks drops below the
+        # thresholds set in vite.config.js, so the gate cannot be quietly removed.
+        run: npm run coverage
+
+      - name: Production build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload the built app
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  # The full stack, in a real database, with a real browser. Separate from the
+  # job above so a Playwright flake does not read as a broken unit test.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: crm_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # A throwaway secret. The suite creates its own accounts, and nothing here
+      # is reachable once the job ends.
+      JWT_SECRET: ci-e2e-secret-not-used-anywhere-real
+      # Playwright's webServer block overrides PORT and CORS_ORIGIN for the API it
+      # starts, and the API applies the schema on boot, so there is nothing else
+      # to configure. This database is the one it will be pointed at.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/crm_e2e
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        # Only Chromium. The suite is written against it, and pulling three
+        # engines for one project roughly triples the cache for no extra signal.
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        working-directory: frontend
+        env:
+          # CI has no preinstalled Chrome, so use the pinned Playwright build.
+          E2E_BROWSER: chromium
+        run: npm run test:e2e
+
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
+      - name: Upload failure traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results
+          retention-days: 7
