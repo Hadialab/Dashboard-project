@@ -2,9 +2,9 @@
 
 A multi-tenant CRM: React front end, Express + PostgreSQL API, one repo.
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-304%20passing-22c55e)](frontend/src/test)
-[![E2E](https://img.shields.io/badge/e2e-18%20specs-0ea5e9)](frontend/e2e)
+[![CI](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
+![Tests](https://img.shields.io/badge/tests-307%20passing-22c55e)
+![E2E](https://img.shields.io/badge/e2e-19%20specs-0ea5e9)
 
 ```
 frontend/   React + Vite UI
