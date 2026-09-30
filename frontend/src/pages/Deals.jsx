@@ -19,6 +19,7 @@ import AddDealModal from "../components/deals/AddDealModal";
 import DeleteDealModal from "../components/deals/DeleteDealModal";
 import DealDetailsDrawer from "../components/deals/DealDetailsDrawer";
 import DealTableSkeleton from "../components/deals/DealTableSkeleton";
+import ErrorState from "../components/ui/ErrorState";
 import EmptyState from "../components/deals/EmptyState";
 
 function Deals() {
@@ -35,6 +36,7 @@ function Deals() {
   const openDealId = searchParams.get("open");
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || ""
@@ -63,10 +65,12 @@ function Deals() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const notifications = useNotificationGenerator();
 
-  useEffect(() => {
+  // In component scope, not inside the effect below, because the error state's
+  // "Try again" button needs to call it.
   const fetchDeals = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const dealsData = await getDeals();
       setDeals(dealsData);
 
@@ -74,15 +78,19 @@ function Deals() {
       // key in the store, so a revisit does not pile up reminders.
       notifications.checkClosingSoon(dealsData);
     } catch (error) {
+      // Held in state, not just logged: without it the page falls through to the
+      // empty state and claims there are no deals when the API is simply down.
       console.error("Failed to fetch deals:", error);
+      setLoadError(error);
     } finally {
       setLoading(false);
     }
   };
 
-  fetchDeals();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  useEffect(() => {
+    fetchDeals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     const params = {};
 
@@ -295,6 +303,12 @@ function Deals() {
 
       {loading ? (
         <DealTableSkeleton />
+      ) : loadError ? (
+        <ErrorState
+          title="Could not load deals"
+          message="We could not reach the server. Check that the API is running, then try again."
+          onRetry={fetchDeals}
+        />
       ) : filteredDeals.length === 0 ? (
         <EmptyState
           onAddDeal={() => setIsAddModalOpen(true)}
