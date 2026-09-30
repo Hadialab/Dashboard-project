@@ -1,8 +1,10 @@
-// Shared CSV plumbing: turn rows into a file and hand it to the browser.
-//
-// papaparse is imported dynamically so it stays out of the route chunk until an
-// export is actually requested.
-const downloadCsv = async (filename, data) => {
+/**
+ * Shared CSV plumbing: turn rows into a file and hand it to the browser.
+ *
+ * papaparse is imported dynamically so it stays out of the route chunk until an
+ * export is actually requested.
+ */
+const downloadCsv = async (filename: string, data: Record<string, unknown>[]): Promise<void> => {
   if (!Array.isArray(data) || data.length === 0) {
     console.warn(`downloadCsv called with no rows for ${filename}`);
     return;

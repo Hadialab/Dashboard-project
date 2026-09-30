@@ -6,23 +6,22 @@
  * mailto: link hands the work to the user's own calendar and mail client.
  */
 
-const pad = (n) => String(n).padStart(2, "0");
+import type { FollowUp, FollowUpType, NoteEntityType } from "../types";
+
+const pad = (n: number): string => String(n).padStart(2, "0");
 
 // Dates from the API are plain YYYY-MM-DD strings. Convert to the UTC form
 // iCalendar requires without letting the local timezone shift the day.
-function toIcsDate(dateString, hour = 9) {
-  const [year, month, day] = String(dateString).split("-").map(Number);
+function toIcsDate(dateString: string | null | undefined, hour = 9): string | null {
+  const [year, month, day] = String(dateString ?? "").split("-").map(Number);
 
   if (!year || !month || !day) return null;
 
-  return (
-    `${year}${pad(month)}${pad(day)}` +
-    `T${pad(hour)}0000Z`
-  );
+  return `${year}${pad(month)}${pad(day)}` + `T${pad(hour)}0000Z`;
 }
 
 // Escapes the characters iCalendar reserves in text values.
-function escapeIcs(value) {
+function escapeIcs(value: unknown): string {
   return String(value ?? "")
     .replace(/\\/g, "\\\\")
     .replace(/;/g, "\\;")
@@ -30,18 +29,18 @@ function escapeIcs(value) {
     .replace(/\r?\n/g, "\\n");
 }
 
-// Folds a line to 75 octets, as the spec requires. Long details would
-// otherwise make the file unreadable to strict parsers.
+// Folds a line to 75 octets, as the spec requires. Long details would otherwise
+// make the file unreadable to strict parsers.
 //
 // Folds repeatedly rather than once. A single split leaves everything past the
 // first 75 characters on one continuation line, so a 200-character note still
 // produced a 138-character line — exactly the malformed output this exists to
 // prevent. Each continuation carries a leading space, which the spec counts
 // towards the 75, so the segments are 74 characters wide.
-function fold(line) {
+function fold(line: string): string {
   if (line.length <= 75) return line;
 
-  const segments = [];
+  const segments: string[] = [];
 
   for (let index = 0; index < line.length; index += 74) {
     segments.push(line.slice(index, index + 74));
@@ -50,18 +49,31 @@ function fold(line) {
   return segments.join("\r\n ");
 }
 
-const TYPE_LABELS = {
+const TYPE_LABELS: Record<string, string> = {
   call: "Call",
   email: "Email",
   meeting: "Meeting",
   task: "Task",
 };
 
+/** A follow-up plus who it is about, when there is a reachable person. */
+export type FollowUpContact = {
+  name?: string;
+  email?: string;
+};
+
+export type IcsOptions = {
+  contact?: FollowUpContact | null;
+};
+
 /**
  * Builds an .ics file for a follow-up and triggers a download.
  * Returns the filename so callers can report it.
  */
-export function downloadIcsForFollowUp(followUp, { contact } = {}) {
+export function downloadIcsForFollowUp(
+  followUp: FollowUp,
+  { contact }: IcsOptions = {},
+): string | null {
   const start = toIcsDate(followUp.dueAt);
   if (!start) return null;
 
@@ -88,10 +100,12 @@ export function downloadIcsForFollowUp(followUp, { contact } = {}) {
     `DTEND:${end}`,
     `SUMMARY:${escapeIcs(`[${TYPE_LABELS[followUp.type] ?? "Task"}] ${followUp.title}`)}`,
     `DESCRIPTION:${escapeIcs(description)}`,
-    contact?.email ? `ORGANIZER;CN=${escapeIcs(followUp.createdByName ?? "CRM")}:mailto:${followUp.createdByEmail ?? "crm@example.com"}` : null,
+    contact?.email
+      ? `ORGANIZER;CN=${escapeIcs(followUp.createdByName ?? "CRM")}:mailto:${followUp.createdByEmail ?? "crm@example.com"}`
+      : null,
     "END:VEVENT",
     "END:VCALENDAR",
-  ].filter(Boolean);
+  ].filter((line): line is string => line !== null);
 
   const blob = new Blob([lines.map(fold).join("\r\n") + "\r\n"], {
     type: "text/calendar;charset=utf-8;",
@@ -115,7 +129,10 @@ export function downloadIcsForFollowUp(followUp, { contact } = {}) {
  * Builds a mailto: link for a follow-up. Opens whatever mail client the user
  * has, so nothing has to be configured on the server.
  */
-export function buildMailtoForFollowUp(followUp, contact) {
+export function buildMailtoForFollowUp(
+  followUp: FollowUp,
+  contact?: FollowUpContact | null,
+): string | null {
   if (!contact?.email) return null;
 
   const subject = `Follow-up: ${followUp.title}`;
@@ -134,12 +151,14 @@ export function buildMailtoForFollowUp(followUp, contact) {
 }
 
 /** Human label for a follow-up type. */
-export function followUpTypeLabel(type) {
+export function followUpTypeLabel(type: FollowUpType): string {
   return TYPE_LABELS[type] ?? "Task";
 }
 
 /** True when a follow-up is overdue: past its due date and still pending. */
-export function isOverdue(followUp) {
+export function isOverdue(followUp: Pick<FollowUp, "dueAt" | "status">): boolean {
   if (followUp.status === "done") return false;
   return String(followUp.dueAt) < new Date().toISOString().slice(0, 10);
 }
+
+export type { FollowUp, FollowUpType, NoteEntityType };
