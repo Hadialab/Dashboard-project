@@ -20,6 +20,7 @@ import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import EmptyState from "../components/customers/EmptyState";
 import CustomerTableSkeleton from "../components/customers/CustomerTableSkeleton";
+import ErrorState from "../components/ui/ErrorState";
 import RowsPerPage from "../components/customers/RowsPerPage";
 
 function Customers() {
@@ -281,6 +282,9 @@ function Customers() {
       // { data, pages, items, ... } rather than returning a bare array.
       setCustomers(response.data.data);
       setTotalPages(response.data.pages);
+      // Cleared on success: it was previously only ever set, so one failed
+      // request left the page stuck on the error even after a good reload.
+      setError("");
     } catch (err) {
       console.error(err);
       setError("Failed to load customers.");
@@ -319,7 +323,16 @@ function Customers() {
   }
 
   if (error) {
-    return <div>{error}</div>;
+    // Previously a bare <div> of unstyled text that replaced the entire page —
+    // no alert semantics, no retry, and it hid the "Add Customer" button behind
+    // a failure the user could do nothing about.
+    return (
+      <div className="space-y-6">
+        <CustomersHeader onAddCustomer={() => setIsAddModalOpen(true)} />
+
+        <ErrorState title="Could not load customers" message={error} onRetry={fetchCustomers} />
+      </div>
+    );
   }
 
   const isFiltered = Boolean(searchTerm) || statusFilter !== "All";
