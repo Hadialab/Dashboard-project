@@ -125,8 +125,16 @@ export default defineConfig({
       // app builds and boots the way it will in production.
       command: `npm run build && npm run preview -- --port ${WEB_PORT} --strictPort`,
       url: BASE_URL,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 180_000,
+      env: {
+        // Vite inlines VITE_ variables at BUILD time, not at runtime. Without
+        // this the bundle is hard-coded to the default http://localhost:5000,
+        // every request goes to a port nothing is listening on, and the app
+        // renders with silently empty lists — indistinguishable from a CORS
+        // failure, so it is worth being explicit about.
+        VITE_API_URL: API_URL,
+      },
     },
   ],
 });

@@ -1,5 +1,15 @@
 import { test, expect } from "@playwright/test";
-import { signUp, gotoLeads, gotoPipeline, createLead, tableRow } from "./helpers";
+import {
+  signUp,
+  gotoLeads,
+  gotoPipeline,
+  createLead,
+  createDeal,
+  dealCard,
+  stageColumn,
+  dragDealToStage,
+  tableRow,
+} from "./helpers";
 
 /**
  * Lead conversion, the pipeline board, and a bulk CSV import — the three
@@ -73,44 +83,43 @@ test.describe("lead conversion", () => {
 });
 
 test.describe("pipeline board", () => {
-  test("renders every stage as a column", async ({ page }) => {
+  test("renders every stage as a column once there is a deal", async ({ page }) => {
     await signUp(page);
+    // An empty pipeline shows an empty state rather than the board, so a deal has
+    // to exist before the columns are meaningful.
+    await createDeal(page, { title: "First Deal", customer: "First Co" });
     await gotoPipeline(page);
 
     for (const stage of ["Lead", "Qualified", "Proposal", "Negotiation", "Won", "Lost"]) {
-      // An empty stage must still be a column, or there is nowhere to drag into.
+      // A stage with no deals must still be a column, or there is nowhere to drag
+      // into.
       await expect(page.getByRole("region", { name: new RegExp(`^${stage} stage`) })).toBeVisible();
     }
   });
 
-  test("moves a deal between stages by dragging and persists it", async ({ page }) => {
+  test("shows the empty state for a pipeline with no deals", async ({ page }) => {
     await signUp(page);
-    await gotoLeads(page);
-    await createLead(page, { name: "Drag Lead", company: "Drag Co", email: "drag@test.local", phone: "+961 1 300 001" });
-
-    await page.getByRole("button", { name: /add deal|create deal/i }).first().click();
-    const dealDialog = page.getByRole("dialog");
-    await dealDialog.getByLabel(/title/i).fill("Drag Deal");
-    await dealDialog.getByLabel(/customer/i).fill("Drag Co");
-    await dealDialog.getByLabel(/value/i).fill("5000");
-    await dealDialog.getByRole("button", { name: /add deal|create deal|save/i }).click();
-    await expect(dealDialog).toBeHidden();
-
     await gotoPipeline(page);
 
-    const card = page.getByText("Drag Deal").first();
+    await expect(page.getByText(/no deals/i)).toBeVisible();
+  });
+
+  test("moves a deal between stages by dragging and persists it", async ({ page }) => {
+    await signUp(page);
+    await createDeal(page, { title: "Drag Deal", customer: "Drag Co", value: "5000" });
+    await gotoPipeline(page);
+
+    // The draggable element, not the text inside it — a drag has to start on the
+    // draggable node or the browser never begins one.
+    const card = dealCard(page, "Drag Deal");
     await expect(card).toBeVisible();
 
-    const target = page.getByRole("region", { name: /^Negotiation stage/ });
-    // HTML5 drag-and-drop, which is what the board offers on a desktop.
-    await card.dragTo(target);
-    await expect(target.getByText("Drag Deal")).toBeVisible();
+    await dragDealToStage(page, "Drag Deal", "Negotiation");
+    await expect(stageColumn(page, "Negotiation").getByRole("button", { name: /Drag Deal/ })).toBeVisible();
 
     // The real test: did the database agree?
     await page.reload();
-    await expect(
-      page.getByRole("region", { name: /^Negotiation stage/ }).getByText("Drag Deal"),
-    ).toBeVisible();
+    await expect(stageColumn(page, "Negotiation").getByRole("button", { name: /Drag Deal/ })).toBeVisible();
   });
 
   test("moves a deal via the stage select, which is the touch and keyboard path", async ({ page }) => {
@@ -118,27 +127,17 @@ test.describe("pipeline board", () => {
     // the only way to move a deal on a phone. It must persist exactly as the drag
     // does, or the board is unusable on mobile.
     await signUp(page);
-    await gotoLeads(page);
-    await createLead(page, { name: "Select Lead", company: "Select Co", email: "select@test.local", phone: "+961 1 300 002" });
-
-    await page.getByRole("button", { name: /add deal|create deal/i }).first().click();
-    const dealDialog = page.getByRole("dialog");
-    await dealDialog.getByLabel(/title/i).fill("Select Deal");
-    await dealDialog.getByLabel(/customer/i).fill("Select Co");
-    await dealDialog.getByLabel(/value/i).fill("6000");
-    await dealDialog.getByRole("button", { name: /add deal|create deal|save/i }).click();
-    await expect(dealDialog).toBeHidden();
-
+    await createDeal(page, { title: "Select Deal", customer: "Select Co", value: "6000" });
     await gotoPipeline(page);
+
     await page.getByRole("combobox", { name: /stage for select deal/i }).selectOption("Proposal");
-    await expect(
-      page.getByRole("region", { name: /^Proposal stage/ }).getByText("Select Deal"),
-    ).toBeVisible();
+
+    // Matched on the card's accessible name, which is unique. A loose text match
+    // also hits the screen-reader-only "Move … to another stage" label.
+    await expect(stageColumn(page, "Proposal").getByRole("button", { name: /Select Deal/ })).toBeVisible();
 
     await page.reload();
-    await expect(
-      page.getByRole("region", { name: /^Proposal stage/ }).getByText("Select Deal"),
-    ).toBeVisible();
+    await expect(stageColumn(page, "Proposal").getByRole("button", { name: /Select Deal/ })).toBeVisible();
   });
 });
 
@@ -147,15 +146,25 @@ test.describe("bulk CSV import", () => {
     await signUp(page);
     await gotoLeads(page);
 
-    // A mix of good rows, a missing name, a bad email, a bad phone, and a
-    // duplicate of a customer created in a previous step.
+    // The Leads toolbar — and with it the Import control — only renders once the
+    // list has rows, so the workspace needs a lead before import is reachable.
+    await createLead(page, {
+      name: "Existing Lead",
+      company: "Existing Co",
+      email: "existing@test.local",
+      phone: "+961 1 400 000",
+    });
+
+    // A mix of good rows, a missing name, a bad email, and a bad phone.
+    // `status` and `source` are required by the lead schema, so they have to be in
+    // the file — without them every row is invalid and nothing is importable.
     const csv = [
-      "name,company,email,phone",
-      "Import One,Import Co,import.one@test.local,+961 1 400 001",
-      ",Missing Name,noname@test.local,+961 1 400 002",
-      "Import Two,Import Co,bad-email,+961 1 400 003",
-      "Import Three,Import Co,import.three@test.local,12345",
-      "Import Four,Import Co,import.four@test.local,+961 1 400 005",
+      "name,company,email,phone,status,source",
+      "Import One,Import Co,import.one@test.local,+961 1 400 001,New,Website",
+      ",Missing Name,noname@test.local,+961 1 400 002,New,Website",
+      "Import Two,Import Co,bad-email,+961 1 400 003,New,Website",
+      "Import Three,Import Co,import.three@test.local,12345,New,Website",
+      "Import Four,Import Co,import.four@test.local,+961 1 400 005,Contacted,Referral",
     ].join("\n");
 
     await page.getByRole("button", { name: /import csv/i }).click();
@@ -177,10 +186,23 @@ test.describe("bulk CSV import", () => {
     await expect(dialog.getByText(/invalid phone/i)).toBeVisible();
 
     // Two good rows out of five.
-    const importButton = dialog.getByRole("button", { name: /import \d+ records/i });
-    await expect(importButton).toHaveText(/import 2 records/i);
+    const importButton = dialog.getByRole("button", { name: /import 2 records/i });
     await importButton.click();
+
+    // The modal does not close on success — it reports what happened, which is
+    // the only way to see that three rows were deliberately left behind.
+    // Matched loosely on the total because the denominator is the number of rows
+    // attempted, not the number of lines in the file.
+    await expect(dialog.getByText(/imported 2 of/i)).toBeVisible();
+    await expect(dialog.getByText(/failed validation/i)).toBeVisible();
+    await expect(dialog.getByText(/neither was\s+saved/i)).toBeVisible();
+
+    // Closing it reveals the list. Reloaded rather than read straight off the
+    // previous render, because the point is that the rows reached the database —
+    // not that a component happened to be holding them.
+    await dialog.getByRole("button", { name: /close|done|finish/i }).last().click();
     await expect(dialog).toBeHidden();
+    await page.reload();
 
     await expect(tableRow(page, "Import One")).toBeVisible();
     await expect(tableRow(page, "Import Four")).toBeVisible();
@@ -205,10 +227,19 @@ test.describe("bulk CSV import", () => {
 
     await gotoLeads(page);
 
+    // Same as the other import test: the Import control lives in the toolbar, so
+    // the list needs at least one row for it to exist.
+    await createLead(page, {
+      name: "Another Existing Lead",
+      company: "Another Co",
+      email: "another@test.local",
+      phone: "+961 1 500 000",
+    });
+
     const csv = [
-      "name,company,email,phone",
-      "Fresh Lead,Fresh Co,fresh.lead@test.local,+961 1 500 002",
-      "Duplicate Lead,Dup Co,dup.owner@test.local,+961 1 500 003",
+      "name,company,email,phone,status,source",
+      "Fresh Lead,Fresh Co,fresh.lead@test.local,+961 1 500 002,New,Website",
+      "Duplicate Lead,Dup Co,dup.owner@test.local,+961 1 500 003,New,Website",
     ].join("\n");
 
     await page.getByRole("button", { name: /import csv/i }).click();
@@ -220,8 +251,13 @@ test.describe("bulk CSV import", () => {
     });
     await dialog.getByRole("button", { name: /review \d+ rows/i }).click();
 
-    await expect(dialog.getByText(/duplicate email/i)).toBeVisible();
+    // "Duplicate email" appears twice — once in the summary tally and once in the
+    // offending row — so the row badge is the one that matters here.
+    await expect(
+      dialog.getByRole("row").filter({ hasText: "Duplicate Lead" }).getByText(/duplicate email/i),
+    ).toBeVisible();
+
     // The duplicate is held back, not silently imported.
-    await expect(dialog.getByRole("button", { name: /import 1 records/i })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /import 1 record/i })).toBeVisible();
   });
 });
