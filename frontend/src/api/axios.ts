@@ -1,20 +1,22 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
 
-// Vite exposes VITE_* variables here. The default targets the local backend;
-// override it in a .env file when pointing at a deployed API.
+import { apiTimeoutMs, apiUrl } from "../config";
+
+// The base URL and timeout come from src/config, which validates them and fails
+// the build rather than shipping a bundle pointing at localhost.
 //
-// Note this is read at BUILD time, not at runtime: a bundle built with one
+// Note they are read at BUILD time, not at runtime: a bundle built with one
 // VITE_API_URL keeps it whatever the server's environment says afterwards. That
 // is why the E2E run passes the variable to the build step rather than to the
 // preview server, and why a staging and a production build are separate
 // artifacts rather than one artifact with a runtime switch.
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5000",
+  baseURL: apiUrl,
   headers: {
     "Content-Type": "application/json",
   },
   // Generous, because a free-tier host can take 30-50s to wake from idle.
-  timeout: Number(import.meta.env.VITE_API_TIMEOUT ?? 60000),
+  timeout: apiTimeoutMs,
 });
 
 // Where the session token lives. Kept in one place so switching to an httpOnly

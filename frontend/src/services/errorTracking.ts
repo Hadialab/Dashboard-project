@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/react";
 
+import { appEnv, appVersion, isErrorTrackingEnabled, sentryDsn } from "../config";
+
 /**
  * Error tracking, on Sentry's free tier.
  *
@@ -29,30 +31,20 @@ const IGNORED_ERRORS = [
 /** Network chatter. The UI already shows a real error state for these. */
 const IGNORED_TRANSACTIONS = [/^GET \/(health|auth\/me)$/];
 
-function readEnvironment(): string {
-  return import.meta.env.VITE_APP_ENV ?? (import.meta.env.DEV ? "development" : "production");
-}
-
-/** True when a DSN is configured. Every call site branches on this. */
-export function isErrorTrackingEnabled(): boolean {
-  return Boolean(import.meta.env.VITE_SENTRY_DSN);
-}
-
 /**
  * Starts error tracking. Safe to call when tracking is off — it becomes a no-op,
  * so nothing in the app has to check first.
  */
 export function initErrorTracking(): void {
-  const dsn = import.meta.env.VITE_SENTRY_DSN;
-  if (!dsn) return;
+  if (!sentryDsn) return;
 
   Sentry.init({
-    dsn,
-    environment: readEnvironment(),
+    dsn: sentryDsn,
+    environment: appEnv,
 
     // Enough to find the break, not enough to reconstruct a session. Release
     // tagging is what makes "fixed in the last deploy?" answerable.
-    release: import.meta.env.VITE_APP_VERSION ?? undefined,
+    release: appVersion === "unknown" ? undefined : appVersion,
     tracesSampleRate: 0,
 
     // Strips the request and response bodies, which is where customer records
@@ -96,7 +88,7 @@ export function initErrorTracking(): void {
 
 /** Reports a caught error. A no-op when tracking is off. */
 export function reportError(error: unknown, context?: Record<string, unknown>): void {
-  if (!isErrorTrackingEnabled()) return;
+  if (!isErrorTrackingEnabled) return;
 
   Sentry.captureException(error, context ? { extra: context } : undefined);
 }
@@ -113,14 +105,14 @@ export function addBreadcrumb(crumb: {
   level?: "debug" | "info" | "warning" | "error";
   data?: Record<string, unknown>;
 }): void {
-  if (!isErrorTrackingEnabled()) return;
+  if (!isErrorTrackingEnabled) return;
 
   Sentry.addBreadcrumb(crumb);
 }
 
 /** Sets the signed-in user, so a report can be traced back to a real account. */
 export function setTrackingUser(user: { id: string; email?: string } | null): void {
-  if (!isErrorTrackingEnabled()) return;
+  if (!isErrorTrackingEnabled) return;
 
   Sentry.setUser(user ? { id: user.id, username: user.email } : null);
 }

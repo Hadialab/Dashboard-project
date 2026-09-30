@@ -52,9 +52,39 @@ jobs:
 
       - name: Production build
         working-directory: frontend
+        env:
+          # A stand-in URL, because this job checks that the bundle compiles and
+          # never runs it. The real value is a deploy secret; see deploy.yml.
+          VITE_API_URL: https://api.ci.invalid
         run: npm run build
 
+      - name: Staging build
+        working-directory: frontend
+        env:
+          # A separate mode, so the staging build path is exercised on every push
+          # rather than first discovered when someone needs it.
+          VITE_API_URL: https://api.staging.ci.invalid
+        run: npm run build:staging
+
+      - name: Reject a publish build with a placeholder API URL
+        working-directory: frontend
+        env:
+          # No VITE_API_URL, so it falls back to the placeholder in .env.production.
+          VITE_DEPLOY: "1"
+        run: |
+          # Inverted on purpose. This step is only useful if the build FAILS, so
+          # it asserts failure rather than asserting success. A guard that is
+          # never tested is a guard that quietly stops guarding — which is exactly
+          # how the original version of this check ended up in the browser bundle,
+          # where nothing could ever trip it.
+          if npm run build; then
+            echo "::error::A publish build with a placeholder API URL succeeded. The config guard is not working."
+            exit 1
+          fi
+          echo "Guard held: the build was refused."
+
       - name: Upload the built app
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
