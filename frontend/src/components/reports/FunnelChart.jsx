@@ -108,6 +108,16 @@ function FunnelChart({ data }) {
           const next = data[index + 1];
           if (!next) return null;
 
+          // getStageFunnel attaches each row's change to the transition *into*
+          // that row, so the movement from `row` to `next` is described by
+          // `next`, not by `row`. Reading `row`'s own numbers here shifted every
+          // figure one stage along — which made a growing stage report "no
+          // change", and printed a drop-off percentage next to a fraction that
+          // was counting a different pair of stages.
+          const change = next.change;
+          const grew = next.grew;
+          const dropOff = next.dropOff;
+
           return (
             <li
               key={row.stage}
@@ -123,19 +133,19 @@ function FunnelChart({ data }) {
               </span>
 
               <span className="text-slate-500 dark:text-slate-400">
-                {row.change === 0 ? (
+                {change === 0 ? (
                   "no change"
-                ) : row.grew ? (
+                ) : grew ? (
                   <>
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      +{row.change}
+                      +{change}
                     </span>{" "}
                     more progressed
                   </>
                 ) : (
                   <>
                     <span className="font-semibold text-slate-700 dark:text-slate-200">
-                      {row.dropOff}%
+                      {dropOff}%
                     </span>{" "}
                     drop-off · {next.count} of {row.count}
                   </>
