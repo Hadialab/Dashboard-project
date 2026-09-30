@@ -1,0 +1,60 @@
+{
+  "//": [
+    "Incremental migration from JavaScript. Nothing here changes how Vite builds",
+    "the app: esbuild strips the types, tsc is only used by `npm run typecheck`",
+    "and by the editor. That is what makes a file-at-a-time migration safe —",
+    "renaming one .js to .ts cannot break the build on its own.",
+    "",
+    "The two flags below are the migration's progress indicators. When",
+    "allowJs/checkJs are off, tsc only looks at the .ts and .tsx files, so the",
+    "error count is the debt of the converted part rather than the whole app."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "useDefineForClassFields": true,
+
+    // Types are stripped, not emitted. Vite handles the actual build.
+    "noEmit": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // === Migration state ===
+    // Still-converted JavaScript is allowed and not type-checked. Flip both to
+    // false once the last .js file under src is gone, which is the last step of
+    // the migration and the point at which `npm run typecheck` covers the app.
+    "allowJs": true,
+    "checkJs": false,
+
+    // === Strictness ===
+    // Deliberately off while untyped code is still being compiled. Turning it on
+    // before the migration finishes produces thousands of implicit-any errors
+    // in files nobody has touched yet, which buries the real ones. Raise these
+    // one at a time once the data layer is typed, in this order:
+    //   noImplicitAny -> strictNullChecks -> strict
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+
+    // Worth having from the start in any project that will be handed on.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true
+  },
+  "include": ["src"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "e2e",
+    "src/test",
+    "playwright.config.js"
+  ]
+}
