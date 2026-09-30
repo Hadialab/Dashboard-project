@@ -5,7 +5,10 @@ export const getSummaryMetrics = (customers = [], leads = [], deals = []) => {
   const totalLeads = leads.length;
   const totalDeals = deals.length;
 
-  const totalRevenue = deals.reduce((sum, deal) => sum + deal.value, 0);
+  // Number() because a NUMERIC column arrives from pg as a string, and `sum +
+  // "100"` concatenates: two deals worth 100 and 250.5 summed to "0100250.5".
+  // The other aggregations in this file already coerced; these two did not.
+  const totalRevenue = deals.reduce((sum, deal) => sum + Number(deal.value ?? 0), 0);
 
   const averageDealValue =
     totalDeals === 0 ? 0 : totalRevenue / totalDeals;
@@ -39,7 +42,9 @@ export const getRevenueTrend = (deals = []) => {
       };
     }
 
-    months[month].revenue += deal.value;
+    // Coerced for the same reason as in getSummaryMetrics: a NUMERIC column
+    // arrives as a string, and `+=` on a string concatenates.
+    months[month].revenue += Number(deal.value ?? 0);
     months[month].deals += 1;
   });
 
