@@ -3,7 +3,7 @@ import { repo } from "../db/repos/crm.js";
 import { notesRepo } from "../db/repos/activity.js";
 import { findUserById } from "../db/repos/users.js";
 import { runQuery } from "../utils/query.js";
-import { asyncHandler, badRequest, forbidden, notFound } from "../utils/asyncHandler.js";
+import { asyncHandler, badRequest, conflict, forbidden, notFound } from "../utils/asyncHandler.js";
 import { validate, TIMELINE, resources } from "../validation/resources.js";
 import { describeChange } from "../validation/noteSchema.js";
 import { can, canViewRow, isAdmin } from "../auth/permissions.js";
@@ -109,6 +109,8 @@ export function createResourceRouter(name, config) {
       const { value, errors } = validate(config, req.body, { partial: false });
       if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
 
+      guardConverted(name, existing, value);
+
       const ownership = await applyOwnership(config, existing, req);
 
       const updated = await records.update(req.organizationId, existing.id, {
@@ -197,6 +199,31 @@ function withDefaults(config, value) {
   }
 
   return row;
+}
+
+const CONVERTED_STATUS = "Converted";
+
+/**
+ * A lead that has already become a customer cannot go back to being an open lead.
+ *
+ * converted_customer_id is the record of that conversion and nothing clears it —
+ * conversion is one-way by design. So a plain status edit that moved a converted
+ * lead back to "New" or "Contacted" would leave the row claiming to be open while
+ * the link to its customer stayed put, and the row would then offer "Convert to
+ * customer" for a conversion the server answers with 409. Rejecting the edit keeps
+ * the two facts in agreement instead of leaving the record lying about itself.
+ */
+function guardConverted(name, existing, value) {
+  if (name !== "leads") return;
+  if (!existing.convertedCustomerId) return;
+
+  const nextStatus = value.status;
+  if (nextStatus === undefined || nextStatus === CONVERTED_STATUS) return;
+
+  throw conflict(
+    `This lead has already been converted to customer ${existing.convertedCustomerId}, so its status cannot be changed to "${nextStatus}".`,
+    { customerId: existing.convertedCustomerId },
+  );
 }
 
 // ===== Activity timeline =====
