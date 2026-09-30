@@ -1,0 +1,15 @@
+# Keep the build context small and keep host state out of the image.
+#
+# .env is the important one: it holds the real DATABASE_URL and JWT_SECRET.
+# `COPY . .` without this would bake both into the image, and every pushed copy
+# of that image would carry production credentials.
+
+node_modules
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+*.log
+scripts/*.test.js

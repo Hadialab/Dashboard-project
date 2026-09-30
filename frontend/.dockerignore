@@ -1,0 +1,24 @@
+# Keep the build context small and keep host state out of the image.
+#
+# The second matters more than it looks: .env files are gitignored, so a naive
+# `COPY . .` would quietly copy a developer's local VITE_API_URL — pointing at
+# localhost — into an image that then gets deployed.
+
+node_modules
+dist
+coverage
+test-results
+playwright-report
+blob-report
+
+# Environment files. The build receives these as build ARGs, never as files.
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+.vscode
+.idea
+*.log
+*.local

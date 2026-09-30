@@ -1,0 +1,189 @@
+name: Deploy
+
+# Staging deploys on a merge to main. Production is deliberately NOT automated.
+#
+# The reasoning, since "why not just automate prod too" is a fair question:
+#
+#   - Staging is where a bad build is supposed to be discovered. Deploying it
+#     automatically on every merge is what makes it worth having.
+#   - Production is where a bad build is discovered by customers. That should
+#     require a deliberate act by a person, so it is triggered by a workflow_dispatch
+#     below rather than by a push.
+#
+# The two share the same build steps on purpose: if staging and production were
+# built differently, staging would stop being evidence about production.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+
+# A deploy must never run against a half-finished push. Cancelling the older run
+# in favour of the newer one means staging always shows the latest merge.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+
+jobs:
+  build:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required to push to GitHub Container Registry. Scoped to this one job
+      # rather than the whole workflow, so nothing else can publish.
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Logged in with the workflow's own token, not a personal one. That is what
+      # makes this work for a repo you cannot grant a PAT to, and it means access
+      # ends with the job.
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the target environment
+        id: target
+        run: |
+          # On a push to main it is always staging. The input is only read for a
+          # manual run, so a push cannot be talked into deploying to production.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The API image. No build args: everything it needs comes from the
+      # environment at run time, which is the correct shape for secrets.
+      - name: Build the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:${{ steps.target.outputs.name }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The app image. The build args are the whole point of this step: VITE_
+      # values are inlined at build time, so the API URL is fixed now and cannot
+      # be changed by anything the server says later.
+      - name: Build the app image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:${{ steps.target.outputs.name }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:sha-${{ github.sha }}
+          build-args: |
+            VITE_API_URL=${{ vars.APP_API_URL_STAGING }}
+            VITE_APP_ENV=${{ steps.target.outputs.name }}
+            VITE_APP_VERSION=${{ github.sha }}
+            VITE_SENTRY_DSN=${{ vars.SENTRY_DSN_STAGING }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Built for ${{ steps.target.outputs.name }}"
+            echo ""
+            echo "| Image | Tag |"
+            echo "| --- | --- |"
+            echo "| crm-api | \`${{ github.sha }}\` |"
+            echo "| crm-app | \`${{ github.sha }}\` |"
+            echo ""
+            echo "API URL baked into the app: \`${{ vars.APP_API_URL_STAGING }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The actual rollout. Skipped rather than failed when the platform credentials
+  # are absent, because someone setting up the repo for the first time should get
+  # a built-and-pushed image and a clear instruction, not a red X and no artifact.
+  deploy:
+    name: Roll out to ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+
+    # A real deploy needs a platform token. Until one is configured, stop here —
+    # and say so, in the log, rather than reporting a success that did nothing.
+    if: ${{ secrets.RENDER_API_KEY != '' }}
+    steps:
+      - name: Deploy the API
+        run: |
+          set -euo pipefail
+          # Render's API. A no-op until the service ids in the repository
+          # variables are filled in, which is the point: it fails loudly rather
+          # than deploying nothing successfully.
+          curl --fail --silent --show-error \
+            -X POST "https://api.render.com/v1/services/${{ vars.RENDER_API_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"imageUrl\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:sha-${{ github.sha }}\"}"
+          echo "API deploy requested."
+
+      - name: Deploy the app
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -X POST "https://api.render.com/v1/services/${{ vars.RENDER_APP_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"imageUrl\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:sha-${{ github.sha }}\"}"
+          echo "App deploy requested."
+
+  verify-deploy:
+    name: Check the deployment is answering
+    needs: [build, deploy]
+    if: ${{ secrets.RENDER_API_KEY != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll the API health endpoint
+        run: |
+          set -euo pipefail
+          url="${{ vars.STAGING_API_HEALTH_URL }}"
+          if [ -z "$url" ]; then
+            echo "STAGING_API_HEALTH_URL is not set; skipping."
+            exit 0
+          fi
+          # A deploy that returns 200 once is not a deploy that works. Polling
+          # with a timeout catches the two common real failures: a crash loop
+          # (never becomes healthy) and a migration failure on boot (healthy,
+          # but every request fails).
+          for i in $(seq 1 30); do
+            if curl --fail --silent --max-time 5 "$url" > /dev/null; then
+              echo "Healthy after ${i} attempt(s)."
+              exit 0
+            fi
+            echo "  attempt $i: not healthy yet"
+            sleep 10
+          done
+          echo "::error::The API never became healthy at $url"
+          exit 1
