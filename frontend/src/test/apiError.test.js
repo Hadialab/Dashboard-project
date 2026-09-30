@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { getApiErrorMessage } from "../utils/apiError";
+import { getApiErrorMessage, normalizeError, isAuthError } from "../utils/apiError";
 import axios from "axios";
 
 /**
@@ -48,7 +48,10 @@ describe("getApiErrorMessage", () => {
     const message = getApiErrorMessage(err, "fallback");
 
     expect(message).toContain("Could not reach the API");
-    expect(message).toContain("5000");
+    expect(message).toMatch(/backend is running/i);
+    // No port named: the API URL is configurable per environment now, so a
+    // message hard-coding 5000 would be wrong on staging and production.
+    expect(message).not.toContain("5000");
     expect(message).not.toMatch(/try again/i);
   });
 
@@ -103,5 +106,76 @@ describe("getApiErrorMessage", () => {
     });
 
     expect(getApiErrorMessage(err, "fallback")).toBe("Something was wrong");
+  });
+});
+
+describe("normalizeError", () => {
+  // The point of this shape is that a caller branches on `kind` rather than
+  // sniffing at a message string, so the kinds are what is pinned here.
+
+  it("classifies a 401 as auth", () => {
+    const err = normalizeError(axiosError({ response: { status: 401, data: { error: "no" } } }));
+
+    expect(err.kind).toBe("auth");
+    expect(isAuthError(err)).toBe(true);
+  });
+
+  it("classifies 403, 409 and 400 distinctly", () => {
+    const of = (status, data = {}) => normalizeError(axiosError({ response: { status, data } })).kind;
+
+    expect(of(403)).toBe("forbidden");
+    expect(of(409)).toBe("conflict");
+    expect(of(400)).toBe("validation");
+    expect(of(500)).toBe("server");
+    expect(of(418)).toBe("api");
+  });
+
+  it("separates a network failure from an API failure", () => {
+    const network = normalizeError(axiosError({ code: "ERR_NETWORK" }));
+
+    expect(network.kind).toBe("network");
+    // A connection that never happened will not succeed on a second try.
+    expect(network.retryable).toBe(false);
+  });
+
+  it("marks transient server failures as retryable", () => {
+    for (const status of [429, 503, 502]) {
+      expect(normalizeError(axiosError({ response: { status, data: {} } })).retryable).toBe(true);
+    }
+    // A 400 will fail identically however many times it is sent.
+    expect(normalizeError(axiosError({ response: { status: 400, data: {} } })).retryable).toBe(false);
+  });
+
+  it("carries field errors only for a 400", () => {
+    const bad = normalizeError(
+      axiosError({ response: { status: 400, data: { error: "Validation failed", details: { email: "Invalid email address" } } } }),
+    );
+    expect(bad.fieldErrors).toEqual({ email: "Invalid email address" });
+    expect(bad.message).toBe("Invalid email address");
+
+    const conflict = normalizeError(
+      axiosError({ response: { status: 409, data: { error: "Already converted", details: { customerId: "c041" } } } }),
+    );
+    expect(conflict.fieldErrors).toBeUndefined();
+    expect(conflict.message).toBe("Already converted");
+  });
+
+  it("is idempotent, so normalising twice is safe", () => {
+    const once = normalizeError(axiosError({ response: { status: 403, data: { error: "no" } } }));
+
+    expect(normalizeError(once)).toBe(once);
+  });
+
+  it("treats a non-axios throwable as unknown rather than an API failure", () => {
+    const result = normalizeError(new TypeError("x is not a function"), "Could not save.");
+
+    expect(result.kind).toBe("unknown");
+    expect(result.message).toBe("Could not save.");
+  });
+
+  it("always keeps the original for logging", () => {
+    const thrown = axiosError({ response: { status: 500, data: {} } });
+
+    expect(normalizeError(thrown).original).toBe(thrown);
   });
 });

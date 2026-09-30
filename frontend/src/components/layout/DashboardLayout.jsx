@@ -4,6 +4,8 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import CommandPalette from "../ui/CommandPalette";
+import ErrorBoundary from "../ErrorBoundary";
+import { reportError } from "../../services/errorTracking";
 
 function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,7 +42,13 @@ function DashboardLayout() {
         />
 
         <main className="min-w-0 flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
-          <Outlet />
+          {/* Inside the chrome on purpose. A page that crashes leaves the sidebar
+              and navbar working, so the user can navigate somewhere that does
+              not — a far better outcome than a blank screen, or a reload that
+              lands on the same broken page. */}
+          <ErrorBoundary label="this page" onError={reportError}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 
