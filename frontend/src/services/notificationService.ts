@@ -1,7 +1,16 @@
 import { useCallback } from "react";
+
 import useNotificationStore from "../store/notificationStore";
 import { getClosingSoon } from "../utils/myWork";
 import { WON_STAGE, LOST_STAGE } from "../utils/crmConstants";
+import type { Deal, Lead } from "../types";
+
+/** What a page calls. Destructured, never depended on as an object. */
+export type NotificationGenerator = {
+  leadCreated: (lead: Pick<Lead, "id" | "name" | "company">) => void;
+  dealStageChanged: (deal: Pick<Deal, "id" | "title" | "stage" | "value">) => void;
+  checkClosingSoon: (deals: Deal[]) => void;
+};
 
 /**
  * Turns things that actually happened into notifications.
@@ -16,16 +25,16 @@ import { WON_STAGE, LOST_STAGE } from "../utils/crmConstants";
  * re-check — a page load, a refetch, a tab focus — would add another copy of the
  * same reminder.
  *
- * Every callback is memoised and the returned object is stable, so a consumer can
- * safely put it in a dependency array. A fresh object on every render would
- * defeat the memoisation of whatever depends on it.
+ * Each callback is memoised so a consumer can safely put it in a dependency
+ * array. The returned object is a fresh literal each render, so destructure it
+ * rather than depending on the object itself.
  */
-export function useNotificationGenerator() {
+export function useNotificationGenerator(): NotificationGenerator {
   const notify = useNotificationStore((state) => state.notify);
 
   /** Called by the Leads page after a successful create. */
   const leadCreated = useCallback(
-    (lead) => {
+    (lead: Pick<Lead, "id" | "name" | "company">) => {
       notify({
         key: `lead-created:${lead.id}`,
         title: "New lead captured",
@@ -43,7 +52,7 @@ export function useNotificationGenerator() {
    * accumulating a pair.
    */
   const dealStageChanged = useCallback(
-    (deal) => {
+    (deal: Pick<Deal, "id" | "title" | "stage" | "value">) => {
       if (deal.stage !== WON_STAGE && deal.stage !== LOST_STAGE) return;
 
       notify({
@@ -63,7 +72,7 @@ export function useNotificationGenerator() {
    * is an interruption, and anything further out is not worth one.
    */
   const checkClosingSoon = useCallback(
-    (deals) => {
+    (deals: Deal[]) => {
       const soon = getClosingSoon(deals, 3);
       const day = new Date().toISOString().slice(0, 10);
 

@@ -1,11 +1,28 @@
 import { create } from "zustand";
+
 import { TOKEN_KEY, getToken } from "../api/axios";
 import { getCurrentUser, login as loginRequest, register as registerRequest } from "../services/authService";
+import type { LoginRequest, RegisterRequest, User } from "../types";
 
-// Session state. `isChecking` is true while the stored token is being verified
-// on page load, so ProtectedRoute can wait instead of bouncing a signed-in user
-// to /login before the check finishes.
-const useAuthStore = create((set) => ({
+type AuthState = {
+  isLoggedIn: boolean;
+  user: User | null;
+  /**
+   * True while the stored token is being verified on page load, so ProtectedRoute
+   * can wait instead of bouncing a signed-in user to /login before the check
+   * finishes.
+   */
+  isChecking: boolean;
+
+  restoreSession: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
+  login: (credentials: LoginRequest) => Promise<User>;
+  register: (details: RegisterRequest) => Promise<User>;
+  logout: () => void;
+};
+
+/** The one place session state lives. */
+const useAuthStore = create<AuthState>()((set) => ({
   isLoggedIn: false,
   user: null,
   isChecking: true,
@@ -44,7 +61,8 @@ const useAuthStore = create((set) => ({
     return user;
   },
 
-  // Throws on bad credentials so the caller can show the API's message.
+  // Throws on bad credentials so the caller can show the API's own message
+  // rather than a generic one.
   async login(credentials) {
     const { token, user } = await loginRequest(credentials);
     localStorage.setItem(TOKEN_KEY, token);

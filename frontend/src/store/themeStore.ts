@@ -1,7 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-const useThemeStore = create(
+export type Theme = "light" | "dark";
+
+type ThemeState = {
+  theme: Theme;
+  /** Anything that is not "light" becomes dark, so a corrupt value is safe. */
+  setTheme: (value: string) => void;
+  toggleTheme: () => void;
+};
+
+const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
       theme: "dark",
@@ -14,8 +23,8 @@ const useThemeStore = create(
     }),
     {
       name: "theme-storage",
-    }
-  )
+    },
+  ),
 );
 
 export default useThemeStore;

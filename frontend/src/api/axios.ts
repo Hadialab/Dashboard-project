@@ -1,8 +1,14 @@
-import axios from "axios";
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
 
 // Vite exposes VITE_* variables here. The default targets the local backend;
 // override it in a .env file when pointing at a deployed API.
-const api = axios.create({
+//
+// Note this is read at BUILD time, not at runtime: a bundle built with one
+// VITE_API_URL keeps it whatever the server's environment says afterwards. That
+// is why the E2E run passes the variable to the build step rather than to the
+// preview server, and why a staging and a production build are separate
+// artifacts rather than one artifact with a runtime switch.
+const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5000",
   headers: {
     "Content-Type": "application/json",
@@ -15,9 +21,15 @@ const api = axios.create({
 // cookie is a change to this file plus the dev server proxy.
 export const TOKEN_KEY = "crm_token";
 
-export function getToken() {
+/** Dispatched when a request comes back 401, so the app can drop to /login. */
+export const UNAUTHORIZED_EVENT = "crm:unauthorized";
+
+export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
+
+/** Retries already spent on a request, so the budget survives a redirect. */
+type RetriableConfig = InternalAxiosRequestConfig & { retries?: number };
 
 // Attaches the bearer token to every request. Without this the API answers 401,
 // which is what protects the data from anyone who only knows the base URL.
@@ -39,21 +51,21 @@ const RETRYABLE_METHODS = new Set(["get", "head", "options"]);
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1500;
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // A network error (no response at all) or a gateway-level failure from a host
 // that is still starting up.
-function isTransient(error) {
+function isTransient(error: unknown): boolean {
   if (axios.isAxiosError(error) && !error.response) return true;
 
-  const status = error.response?.status;
-  return status === 408 || status === 429 || status >= 502;
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  return status === 408 || status === 429 || (status !== undefined && status >= 502);
 }
 
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const config = error.config ?? {};
+    const config = (error?.config ?? {}) as RetriableConfig;
 
     if (isTransient(error) && RETRYABLE_METHODS.has(config.method ?? "get")) {
       config.retries = (config.retries ?? 0) + 1;
@@ -66,9 +78,11 @@ api.interceptors.response.use(
 
     // A 401 means the token is missing, expired or revoked. Clear it so the app
     // falls back to the login screen instead of looping on failed requests.
-    if (error.response?.status === 401 && !config.url?.includes("/auth/")) {
+    // Login and registration are exempt: a wrong password is a 401 too, and
+    // clearing the token there would log the user out of a session they never had.
+    if (error?.response?.status === 401 && !config.url?.includes("/auth/")) {
       localStorage.removeItem(TOKEN_KEY);
-      window.dispatchEvent(new Event("crm:unauthorized"));
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     }
 
     return Promise.reject(error);

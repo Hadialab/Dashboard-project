@@ -1,8 +1,41 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { Notification, NotificationType } from "../types";
+
 const KEY = "notifications";
 const MAX = 50;
+
+/** What a caller passes to add one. Everything but the key is defaulted. */
+export type NotificationInput = {
+  /**
+   * Identity for deduplication, not a database id. The same event must never
+   * appear twice, however many times it is re-derived.
+   */
+  key: string;
+  title: string;
+  body: string;
+  type?: NotificationType;
+  link?: string | null;
+};
+
+type NotificationState = {
+  notifications: Notification[];
+
+  /**
+   * Adds a notification, or refreshes the existing one with the same key.
+   *
+   * Refreshing rather than ignoring is deliberate for the derived "due"
+   * notifications: if a deal's close date moves, the reminder should move with
+   * it instead of the old one lingering.
+   */
+  notify: (input: NotificationInput) => void;
+
+  markRead: (key: string) => void;
+  markAllRead: () => void;
+  remove: (key: string) => void;
+  clear: () => void;
+};
 
 /**
  * Notifications generated from real events in the CRM.
@@ -11,33 +44,23 @@ const MAX = 50;
  * things that never happened — "New user signed up", "Server load stabilized".
  *
  * Two kinds end up here:
- *   event  — pushed by a page when something happens (a lead created, a deal
- *            marked Won). Always carries a `key`.
- *   due    — derived on load from a deal closing soon. Deduplicated by `key`,
- *            which is the part that matters: without it, re-checking on every
- *            render or every tab focus would pile up the same reminder.
- *
- * `key` is the identity of a notification for deduplication, not an id — the
- * same event should never appear twice, however many times it is re-derived.
+ *   event — pushed by a page when something happens (a lead created, a deal
+ *           marked Won). Always carries a `key`.
+ *   due   — derived on load from a deal closing soon. Deduplicated by `key`,
+ *           which is the part that matters: without it, re-checking on every
+ *           render or every tab focus would pile up the same reminder.
  */
-const useNotificationStore = create(
+const useNotificationStore = create<NotificationState>()(
   persist(
     (set) => ({
       notifications: [],
 
-      /**
-       * Adds a notification, or refreshes the existing one with the same key.
-       *
-       * Refreshing rather than ignoring is deliberate for the derived "due"
-       * notifications: if a deal's close date moves, the reminder should move
-       * with it instead of the old one lingering.
-       */
       notify({ key, title, body, type = "event", link = null }) {
         set((state) => {
           const without = state.notifications.filter((n) => n.key !== key);
           const existing = state.notifications.find((n) => n.key === key);
 
-          const entry = {
+          const entry: Notification = {
             key,
             title,
             body,
@@ -55,9 +78,7 @@ const useNotificationStore = create(
 
       markRead(key) {
         set((state) => ({
-          notifications: state.notifications.map((n) =>
-            n.key === key ? { ...n, read: true } : n,
-          ),
+          notifications: state.notifications.map((n) => (n.key === key ? { ...n, read: true } : n)),
         }));
       },
 
@@ -87,7 +108,7 @@ const useNotificationStore = create(
 );
 
 /** How many are unread, for the bell badge. */
-export const selectUnreadCount = (state) =>
+export const selectUnreadCount = (state: NotificationState): number =>
   state.notifications.filter((n) => !n.read).length;
 
 export default useNotificationStore;

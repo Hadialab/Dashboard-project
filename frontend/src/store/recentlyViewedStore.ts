@@ -1,22 +1,32 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { RecentlyViewed } from "../types";
+
 const KEY = "recently-viewed";
 const MAX = 5;
+
+type RecentlyViewedState = {
+  items: RecentlyViewed[];
+
+  /** Records a view. Re-opening a record moves it to the top, not duplicates it. */
+  record: (entry: RecentlyViewed) => void;
+  clear: () => void;
+};
 
 /**
  * The last few records the user opened.
  *
- * Persisted so the palette can offer them from anywhere in the app, which is the
- * point: a list you cannot reach without first navigating to the page that
- * contains it is not much of a shortcut.
+ * Persisted so the command palette can offer them from anywhere in the app,
+ * which is the point: a list you cannot reach without first navigating to the
+ * page that contains it is not much of a shortcut.
  *
  * Stores only what the palette needs to render a result and jump to it — id,
  * type, a label and the route. Not the whole record, because a stale copy of a
  * customer sitting in localStorage for weeks is a liability rather than a
  * feature, and the target page re-reads the real data anyway.
  */
-const useRecentlyViewedStore = create(
+const useRecentlyViewedStore = create<RecentlyViewedState>()(
   persist(
     (set) => ({
       items: [],
