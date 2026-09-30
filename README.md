@@ -2,6 +2,10 @@
 
 A multi-tenant CRM: React front end, Express + PostgreSQL API, one repo.
 
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-304%20passing-22c55e)](frontend/src/test)
+[![E2E](https://img.shields.io/badge/e2e-18%20specs-0ea5e9)](frontend/e2e)
+
 ```
 frontend/   React + Vite UI
 backend/    Express API + PostgreSQL: customers, deals, leads, users, notes, follow-ups
@@ -96,10 +100,51 @@ Both services read a `.env` file; each has a committed `.env.example` to copy.
 but cannot reach Postgres shows up as `503` rather than failing on every
 request.
 
+## Tests
+
+```bash
+cd frontend
+npm test              # unit + integration (Vitest, jsdom)
+npm run coverage      # the same, with a coverage gate
+npm run test:e2e      # full stack, real browser, real database (Playwright)
+```
+
+`npm test` needs no database or API: every test mocks the service layer, so it
+runs anywhere in under half a minute.
+
+`npm run test:e2e` needs a running PostgreSQL. It starts its **own** API on port
+5001 and preview server on 5174, pointed at a separate `crm_e2e` database, so it
+never collides with a development server on 5000/5173 and never writes to the
+database you are working in. Each test registers its own company, so there is no
+fixture to reset between them.
+
+```bash
+npm run test:e2e:reset   # drop and recreate crm_e2e, for a clean slate
+```
+
+Set `E2E_DATABASE_URL` to override which database the E2E run uses. It drives the
+system Chrome already installed on the machine by default, so there is no browser
+download; set `E2E_BROWSER=chromium` to use Playwright's pinned build instead,
+which is what CI does.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and
+pull request to `main` or `dev`, in two jobs:
+
+- **Lint, test and build** — oxlint, Vitest with the coverage gate, and a
+  production build. No database needed.
+- **End-to-end** — the full stack against a throwaway PostgreSQL, with the
+  Playwright report uploaded as an artefact on failure.
+
+Both fail the workflow on error. Coverage thresholds are enforced by Vitest
+itself, so the gate cannot be removed without editing a config file.
+
 ## Layout
 
 - [`frontend/README.md`](frontend/README.md) — UI structure, pages, API usage
 - [`backend/README.md`](backend/README.md) — schema, endpoints, query params, response shapes
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — auth and permissions, data model, conventions
 
 ## Auth and roles
 
