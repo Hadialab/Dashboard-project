@@ -79,7 +79,9 @@ router.post(
         [
           req.organizationId,
           lead.id,
-          `Status changed from ${lead.status} to Converted (customer #${created.id})`,
+          // The customer's name rather than its id: this line is read by a person
+          // in the timeline, and "Nadia C" means something where "c041" does not.
+          `Status changed from ${lead.status} to Converted (became ${created.name})`,
           req.user.id,
           req.user.name,
         ],
