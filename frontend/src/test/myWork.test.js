@@ -182,23 +182,63 @@ describe("getMyWork", () => {
     expect(getMyWork({ deals, leads: [], user: null }).closingSoon).toHaveLength(2);
   });
 
-  it("applies the default thresholds when none are passed", () => {
-    // getMyWork has no `now` option and reads the real clock, so the dates here
-    // are relative to the real today rather than to NOW. Five days out falls
-    // inside the seven-day default; eight days does not.
-    const realToday = new Date();
-    const offset = (days) =>
-      new Date(realToday.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+  it("filters both lists by their own threshold", () => {
+    // getMyWork reads the real clock and takes no `now`, so the dates are pushed
+    // far enough out that the suite passing at any sensible time of day cannot
+    // change the answer. Sixty days is comfortably outside both default windows.
+    const deals = [deal({ id: "overdue", expectedClose: iso(-60) }), deal({ id: "distant", expectedClose: iso(60) })];
+    const leads = [lead({ id: "neglected", updatedAt: iso(-60) }), lead({ id: "touched", updatedAt: iso(-1) })];
 
-    const deals = [deal({ id: "inside", expectedClose: offset(5) }), deal({ id: "outside", expectedClose: offset(8) })];
+    const result = getMyWork({ deals, leads, user: null });
 
-    const result = getMyWork({ deals, leads: [], user: null });
+    expect(result.closingSoon.map((d) => d.id)).toEqual(["overdue"]);
+    expect(result.staleLeads.map((l) => l.id)).toEqual(["neglected"]);
+  });
 
-    expect(result.closingSoon.map((d) => d.id)).toEqual(["inside"]);
+  it("passes its threshold overrides through to both filters", () => {
+    // A threshold of -100 days can only be met by a deal due more than 100 days
+    // ago, so it excludes everything here. That it changes the answer is what
+    // proves the override is read rather than ignored in favour of the default.
+    const deals = [deal({ id: "a", expectedClose: iso(-1) }), deal({ id: "b", expectedClose: iso(-2) })];
+    const leads = [lead({ id: "c", updatedAt: iso(-60) }), lead({ id: "d", updatedAt: iso(-61) })];
+
+    const defaults = getMyWork({ deals, leads, user: null });
+    expect(defaults.closingSoon).toHaveLength(2);
+    expect(defaults.staleLeads).toHaveLength(2);
+
+    const impossible = getMyWork({ deals, leads, user: null, closingSoonDays: -100, staleLeadDays: 10_000 });
+    expect(impossible.closingSoon).toHaveLength(0);
+    expect(impossible.staleLeads).toHaveLength(0);
   });
 
   it("returns empty lists rather than undefined for a new account", () => {
     expect(getMyWork({})).toEqual({ closingSoon: [], staleLeads: [] });
+  });
+});
+
+describe("default thresholds", () => {
+  // Asserted through getClosingSoon and getStaleLeads rather than getMyWork,
+  // because getMyWork reads the real clock and cannot be given a fixed one.
+  // Building the dates from the real "today" and then reading them back as local
+  // dates is the trap here: toISOString() converts to UTC, so near midnight on a
+  // machine east of Greenwich an eight-day offset comes back as seven and the
+  // assertion flips depending on what time the suite happens to run.
+  it("applies the seven-day window when no days argument is given", () => {
+    const found = getClosingSoon([deal({ id: "inside", expectedClose: iso(5) }), deal({ id: "outside", expectedClose: iso(8) })], undefined, { now: NOW });
+
+    expect(CLOSING_SOON_DAYS).toBe(7);
+    expect(found.map((d) => d.id)).toEqual(["inside"]);
+  });
+
+  it("applies the fourteen-day window when no days argument is given", () => {
+    const found = getStaleLeads(
+      [lead({ id: "stale", updatedAt: iso(-20) }), lead({ id: "fresh", updatedAt: iso(-10) })],
+      undefined,
+      { now: NOW },
+    );
+
+    expect(STALE_LEAD_DAYS).toBe(14);
+    expect(found.map((l) => l.id)).toEqual(["stale"]);
   });
 });
 
