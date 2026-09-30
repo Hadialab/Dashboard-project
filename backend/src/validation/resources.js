@@ -37,8 +37,12 @@ export const resources = {
     // `status` drives the Customers toolbar filter.
     required: ["name", "company", "email", "phone", "status"],
     check: (row, errors) => {
-      if (!EMAIL.test(String(row.email))) errors.email = "Invalid email address";
-      if (!PHONE.test(String(row.phone))) errors.phone = "Enter a valid phone number";
+      if (isPresent(row, "email") && !EMAIL.test(String(row.email))) {
+        errors.email = "Invalid email address";
+      }
+      if (isPresent(row, "phone") && !PHONE.test(String(row.phone))) {
+        errors.phone = "Enter a valid phone number";
+      }
     },
     // The frontend omits the id when creating and sends the whole row on update.
     sanitize: (body) => pick(body, ["name", "company", "email", "phone", "status"]),
@@ -56,8 +60,10 @@ export const resources = {
     // just because the browser left it out.
     required: ["title", "customer", "stage", "value", "expectedClose"],
     check: (row, errors) => {
-      if (!Number.isFinite(Number(row.value))) errors.value = "Value must be a number";
-      if (row.expectedClose && !ISO_DATE.test(String(row.expectedClose))) {
+      if (isPresent(row, "value") && !Number.isFinite(Number(row.value))) {
+        errors.value = "Value must be a number";
+      }
+      if (isPresent(row, "expectedClose") && !ISO_DATE.test(String(row.expectedClose))) {
         errors.expectedClose = "Use YYYY-MM-DD format";
       }
     },
@@ -78,8 +84,12 @@ export const resources = {
     // `assignedRep` is excluded for the same reason as a deal's `owner`.
     required: ["name", "company", "email", "phone", "status", "source"],
     check: (row, errors) => {
-      if (!EMAIL.test(String(row.email))) errors.email = "Invalid email address";
-      if (!PHONE.test(String(row.phone))) errors.phone = "Invalid phone number";
+      if (isPresent(row, "email") && !EMAIL.test(String(row.email))) {
+        errors.email = "Invalid email address";
+      }
+      if (isPresent(row, "phone") && !PHONE.test(String(row.phone))) {
+        errors.phone = "Invalid phone number";
+      }
     },
     // `createdDate`, `ownerId` and `assignedRep` are server-assigned.
     sanitize: (body) => pick(body, ["name", "company", "email", "phone", "status", "source"]),
@@ -96,6 +106,15 @@ function pick(source, keys) {
   return out;
 }
 
+// Whether a field was actually supplied with something in it. A `check` rule must
+// skip absent fields: PUT here is a full replacement, so a missing field is a
+// "is required" problem, and reporting it a second time as "Invalid email
+// address" sends the caller hunting for a malformed value they never sent.
+const isPresent = (value, field) => {
+  const raw = value[field];
+  return raw !== undefined && raw !== null && String(raw).trim() !== "";
+};
+
 function validate(config, body, { partial }) {
   const errors = {};
 
@@ -105,12 +124,9 @@ function validate(config, body, { partial }) {
 
   const value = config.sanitize(body);
 
-  if (!partial) {
-    for (const field of config.required) {
-      const raw = value[field];
-      if (raw === undefined || raw === null || String(raw).trim() === "") {
-        errors[field] = `${field} is required`;
-      }
+  for (const field of config.required) {
+    if (!partial && !isPresent(value, field)) {
+      errors[field] = `${field} is required`;
     }
   }
 
