@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 import Button from "./Button";
 import Select from "./Select";
@@ -39,6 +40,16 @@ function BulkActionBar({
     try {
       const outcome = await action();
       setResult(outcome ?? { ok: 0, failed: 0 });
+      return outcome ?? { ok: 0, failed: 0 };
+    } catch (error) {
+      // The page handlers report their own success and partial-failure toasts,
+      // so this is only for an action that threw outright — where nothing is
+      // known about how many rows landed. Previously that escaped as an
+      // unhandled rejection and the user saw the bar simply stop working.
+      toast.error(
+        error?.response?.data?.error ?? `Could not update the selected ${noun}.`,
+      );
+      return null;
     } finally {
       setWorking(false);
     }
@@ -50,11 +61,9 @@ function BulkActionBar({
     const chosen = status;
     setStatus("");
 
-    const outcome = await run(() => onBulkStatusChange(chosen));
-
-    if (outcome && outcome.failed === 0) {
-      setResult(null);
-    }
+    // The page handler toasts, so the result is only used to decide whether the
+    // selection is still meaningful.
+    await run(() => onBulkStatusChange(chosen));
   }
 
   async function handleDelete() {
@@ -116,21 +125,17 @@ function BulkActionBar({
         </div>
       </div>
 
-      {/* Progress and partial-failure feedback, announced rather than trapped
-          in a toast the user may have looked away from. */}
-      {result && succeeded + failed > 0 && (
+      {/* Partial-failure feedback, announced rather than left in a toast the user
+          may have looked away from — and persistent, because "3 of 5 went
+          through" is something you may need to act on after the fact.
+          A clean run needs no banner: the toast says it, and the rows themselves
+          are visibly different. */}
+      {result && failed > 0 && (
         <p
           role="status"
-          className={[
-            "mt-2 rounded-lg border p-3 text-sm",
-            failed > 0
-              ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-              : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200",
-          ].join(" ")}
+          className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
         >
-          {failed > 0
-            ? `${succeeded} updated, ${failed} could not be.`
-            : `${succeeded} updated.`}
+          {succeeded} updated, {failed} could not be.
         </p>
       )}
 
