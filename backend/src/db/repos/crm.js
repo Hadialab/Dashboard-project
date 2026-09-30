@@ -122,6 +122,17 @@ function toResponse(row, spec) {
     const field = spec.fields.find((f) => f.alias === key);
     out[key] = coerce(value, field?.type);
   }
+
+  // `createdDate` is the long-standing API name for the DATE column on leads and
+  // deals, while its sibling is `updatedAt`. Anything reaching for the obvious
+  // `createdAt` got undefined and had no way to tell that from a missing field.
+  // Both names now come back, pointing at the same value, so the inconsistency
+  // costs a client nothing. Added here rather than in the SQL so there is still
+  // exactly one name per column on the way in.
+  if (out.createdDate !== undefined && out.createdAt === undefined) {
+    out.createdAt = out.createdDate;
+  }
+
   return out;
 }
 
