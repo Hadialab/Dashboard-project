@@ -12,6 +12,7 @@ import usePermissions from "../hooks/usePermissions";
 import { bulkSetLeadStatus, bulkDeleteLeads } from "../services/bulkService";
 import { useNotificationGenerator } from "../services/notificationService";
 import BulkActionBar from "../components/ui/BulkActionBar";
+import ErrorState from "../components/ui/ErrorState";
 import ImportCsvModal from "../components/ui/ImportCsvModal";
 
 import LeadsHeader from "../components/leads/LeadsHeader";
@@ -31,6 +32,7 @@ function Leads() {
   const [leads, setLeads] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || ""
@@ -94,29 +96,42 @@ function Leads() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
-useEffect(() => {
+  // Declared in component scope, not inside the effect below, because the error
+  // state's "Try again" button needs to call it.
   const fetchLeads = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const leadData = await getLeads();
       setLeads(leadData);
     } catch (error) {
+      // Kept in state, not just logged. Without it the page falls through to the
+      // empty state and reports "no leads yet" for what is actually a dead API.
       console.error("Failed to fetch leads:", error);
+      setLoadError(error);
     } finally {
       setLoading(false);
     }
   };
 
-  fetchLeads();
-}, []);
+  useEffect(() => {
+    fetchLeads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Emails already in use, for the duplicate warnings on conversion, on
-  // creating a lead, and on CSV import. Leads plus customers, because a lead
-  // whose email is already a customer is exactly the duplicate worth catching.
+  // Emails already in use, for the duplicate warnings on creating a lead and on
+  // CSV import. Leads plus customers, because a lead whose email is already a
+  // customer is exactly the duplicate worth catching.
+  //
+  // Customer emails are also kept separately, because the conversion warning
+  // means something narrower: it asks "is this person already a customer?". Hand
+  // it the merged list and every lead matches its own email, so the warning sits
+  // there permanently and stops meaning anything.
   //
   // A failure here is swallowed: a missing warning is better than a page that
   // will not load.
   const [knownEmails, setKnownEmails] = useState([]);
+  const [customerEmails, setCustomerEmails] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,12 +142,11 @@ useEffect(() => {
       try {
         const response = await getCustomers({ page: 1, limit: 1000 });
         const rows = response.data?.data ?? response.data ?? [];
+        const fromCustomers = rows.map((row) => row.email).filter(Boolean);
 
         if (!cancelled) {
-          setKnownEmails([
-            ...leadEmails,
-            ...rows.map((row) => row.email).filter(Boolean),
-          ]);
+          setKnownEmails([...leadEmails, ...fromCustomers]);
+          setCustomerEmails(fromCustomers);
         }
       } catch {
         if (!cancelled) setKnownEmails(leadEmails);
@@ -474,6 +488,12 @@ useEffect(() => {
 
       {loading ? (
         <LeadTableSkeleton />
+      ) : loadError ? (
+        <ErrorState
+          title="Could not load leads"
+          message="We could not reach the server. Check that the API is running, then try again."
+          onRetry={fetchLeads}
+        />
       ) : filteredLeads.length === 0 ? (
         <EmptyState
           onAddLead={() => setIsAddModalOpen(true)}
@@ -554,7 +574,7 @@ useEffect(() => {
         }}
         onConfirm={handleConvertLead}
         lead={leadToConvert}
-        existingEmails={knownEmails}
+        existingEmails={customerEmails}
       />
 
       <DeleteLeadModal
