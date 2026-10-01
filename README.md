@@ -1,30 +1,74 @@
 # CRM Dashboard
 
-A multi-tenant CRM: React front end, Express + PostgreSQL API, one repo.
+A multi-tenant CRM for small sales teams: track customers, leads, deals and
+follow-ups, with a pipeline board, reporting and per-person permissions.
+
+React front end, Express + PostgreSQL API, one repo.
 
 [![CI](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
-![Tests](https://img.shields.io/badge/tests-307%20passing-22c55e)
+[![E2E](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg?job=e2e)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
+![Types](https://img.shields.io/badge/TypeScript-strict-22c55e)
+![Tests](https://img.shields.io/badge/tests-350%20passing-22c55e)
 ![E2E](https://img.shields.io/badge/e2e-19%20specs-0ea5e9)
+![Coverage](https://img.shields.io/badge/coverage-97%25-0ea5e9)
 
-```
-frontend/   React + Vite UI
-backend/    Express API + PostgreSQL: customers, deals, leads, users, notes, follow-ups
-```
+## Screenshots
+
+> Screenshots are generated from the app in `docs/screenshots/`. Regenerate them
+> with `npm run screenshots` in `frontend/` (needs a running app and a Chrome
+> install).
+
+| Pipeline | Customers |
+| -------- | --------- |
+| ![The pipeline board: six stage columns, deals as cards, drag to move between stages](docs/screenshots/pipeline.png) | ![The customer table with filters and per-row actions](docs/screenshots/customers.png) |
+
+| Dashboard | Reports |
+| --------- | ------- |
+| ![Dashboard: revenue stat tiles, a funnel chart, and recent activity](docs/screenshots/dashboard.png) | ![Reports: revenue by stage, win rate, and export to CSV or PDF](docs/screenshots/reports.png) |
+
+## What it does
+
+- **Customers** — table with search, filters and sorting; create, edit, archive;
+  bulk select and act; CSV import and export. Each has a detail view with an
+  activity timeline, notes and scheduled follow-ups.
+- **Leads** — capture, qualify, assign, and convert to a customer in one action.
+  A converted lead stays on the list, marked, and cannot be converted twice.
+- **Deals** — value, expected close date, owner and stage. Move them by dragging
+  on the pipeline board or with the stage selector on the card.
+- **Pipeline** — six stages from `Lead` to `Won`, with per-stage totals and a
+  horizontal scroll on narrow screens rather than a squashed board.
+- **Reports** — revenue by stage, conversion funnel, win rate, and per-rep
+  performance. Export any view to CSV or PDF.
+- **Dashboard** — revenue tiles, the funnel, stale-lead warnings and recent
+  activity.
+- **Follow-ups** — everything due across customers, leads and deals, grouped by
+  overdue / today / upcoming.
+- **Team** — admins add and remove people and set exactly what each of them can
+  do, per resource.
+- **Profile and settings** — your own details, password, light and dark theme.
+
+Everything is scoped to a company. One database serves many, and no company can
+see another's records.
 
 ## Requirements
 
-- Node 18 or newer
-- PostgreSQL 14 or newer, reachable from the API
+- **Node 20 or newer** (18 works; 20 is what CI uses)
+- **PostgreSQL 14 or newer**, reachable from the API
 
 ## Running it
 
-**1. Create an empty database**
+Two terminals. The API on 5000, the UI on 5173.
+
+### 1. Create an empty database
 
 ```sql
 CREATE DATABASE crm;
 ```
 
-**2. API on http://localhost:5000**
+The schema is created automatically on first boot, from
+`backend/src/db/schema.sql`. Nothing else to run.
+
+### 2. The API
 
 ```bash
 cd backend
@@ -45,11 +89,16 @@ Generate a secret with:
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
+Then:
+
 ```bash
 npm run dev
 ```
 
-**3. UI on http://localhost:5173**
+`http://localhost:5000/health` reports both the API and the database, so a
+misconfigured connection shows up there rather than as a failed request later.
+
+### 3. The UI
 
 ```bash
 cd frontend
@@ -57,134 +106,201 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173 and **register**.
+Open **http://localhost:5173** and **register**.
 
-There is no seed script and no demo account. An empty database stays empty until
-someone signs up, and the first account creates its own company.
+There is no demo account and no seed data — an empty database stays empty until
+someone signs up, and the first account creates its own company. Each test in the
+E2E suite registers its own throwaway company, so there is nothing to reset.
 
-The schema is created automatically on first boot from `backend/src/db/schema.sql`.
+### Demo data
 
-## Companies
+If you want data to look at:
 
-**Every sign-up creates a new company, and the person signing up becomes that
-company's admin.** There is no shared signup pool and no way to join an existing
-company.
+```bash
+cd backend
+npm run seed:demo -- you@example.com
+```
 
-That is what lets one database serve several unrelated businesses: every row
-carries an `organization_id`, and the API filters on it for every read and
-write, so no company can see another's records. See
-[`backend/README.md`](backend/README.md#companies-and-sign-up).
+That fills the named account's company with date-relative customers, leads, deals
+and follow-ups. `-- --force` replaces what is there.
 
-The admin then adds their own team from the Team page and decides what each
-person can do.
+## Companies and roles
 
-## Configuration
+**Every sign-up creates a new company, and the person signing up becomes its
+admin.** There is no shared signup pool and no way to join an existing company.
+That is what lets one database serve several unrelated businesses — every row
+carries an `organization_id`, and the API filters on it for every read and write.
 
-Both services read a `.env` file; each has a committed `.env.example` to copy.
-`.env` itself is gitignored — never commit it.
+An **admin** has full access and manages their own team. A **sales rep** has
+per-person access: for each of customers, leads, deals and reports, the admin
+chooses whether they can view it — nothing, only their own records, or everything —
+plus whether they can create, edit and delete.
 
-| Service   | Variable             | Default                            |
-| --------- | -------------------- | ---------------------------------- |
-| `backend` | `DATABASE_URL`       | none — **required**                |
-| `backend` | `DATABASE_POOL_SIZE` | `10`                               |
-| `backend` | `RUN_MIGRATIONS`     | `true`                             |
-| `backend` | `PORT`               | `5000`                             |
-| `backend` | `CORS_ORIGIN`        | `http://localhost:5173,http://127.0.0.1:5173` |
-| `backend` | `JWT_SECRET`         | none — required in production      |
-| `backend` | `JWT_EXPIRES_IN`     | `12h`                              |
-| `backend` | `EMAIL_API_KEY`      | none — email falls back to `mailto:` |
-| `backend` | `EMAIL_FROM`         | none                               |
-| `frontend`| `VITE_API_URL`       | `http://localhost:5000`            |
+The API enforces all of this. The UI hides controls it would reject, which is a
+convenience, not the mechanism.
 
-`/health` reports both the API and the database, so a deployment that started
-but cannot reach Postgres shows up as `503` rather than failing on every
-request.
+## Tech stack
 
-## Tests
+**Frontend** — React 19, Vite 8, Tailwind CSS 4, React Router 7, Zustand, Axios,
+Recharts, Yup, jsPDF, Papa Parse, lucide-react, Sentry.
+**Backend** — Express 5, PostgreSQL (`pg`), `jsonwebtoken`, `bcryptjs`, Yup, CORS.
+**Tooling** — Vitest and Testing Library for unit and integration, Playwright for
+end-to-end, oxlint, TypeScript 7, GitHub Actions.
+
+TypeScript is being adopted file by file from the bottom up — types, services,
+stores and hooks are converted and the data layer runs under `tsc --noEmit` on
+every commit. Components are still `.jsx`. Nothing is checked in a way that lets
+the migration rot: the type check runs in CI on whatever is converted.
+
+## Scripts
+
+Run from `frontend/` unless noted.
+
+| Command                  | What it does                                                |
+| ------------------------ | ----------------------------------------------------------- |
+| `npm run dev`            | UI on 5173                                                   |
+| `npm run build`          | production bundle into `dist/`                               |
+| `npm run build:staging`  | staging bundle — picks up `.env.staging`                     |
+| `npm run preview`        | serve the built bundle                                       |
+| `npm run lint`           | oxlint                                                       |
+| `npm run typecheck`      | `tsc --noEmit` over everything converted                     |
+| `npm test`               | unit + integration, no database or API needed                |
+| `npm run test:watch`     | the same, in watch mode                                      |
+| `npm run test:ui`        | Vitest's interactive UI                                      |
+| `npm run coverage`       | tests + a coverage report and an enforced threshold          |
+| `npm run test:e2e`       | Playwright, full stack, real database                        |
+| `npm run test:e2e:ui`    | Playwright's interactive UI                                  |
+| `npm run test:e2e:reset` | drop and recreate the `crm_e2e` database                     |
+| `npm run test:all`       | unit, integration and end-to-end in one go                   |
+
+Backend: `npm run dev` (with `--watch`), `npm start`, `npm run seed:demo`.
+
+## Testing
+
+**350 unit and integration tests** across 17 files, and **19 end-to-end specs**.
 
 ```bash
 cd frontend
-npm test              # unit + integration (Vitest, jsdom)
-npm run coverage      # the same, with a coverage gate
-npm run test:e2e      # full stack, real browser, real database (Playwright)
+npm test            # unit + integration
+npm run coverage    # the same, with the coverage gate enforced
+npm run test:e2e    # full stack, real browser, real database
 ```
 
-`npm test` needs no database or API: every test mocks the service layer, so it
-runs anywhere in under half a minute.
+`npm test` needs no database and no running API — every test mocks the service
+layer, so it runs anywhere in about 20 seconds. The integration tests render real
+components against real stores with mocked services, which is what catches a
+component wired to the wrong store; a unit test of the component alone would pass
+regardless.
 
-`npm run test:e2e` needs a running PostgreSQL. It starts its **own** API on port
-5001 and preview server on 5174, pointed at a separate `crm_e2e` database, so it
-never collides with a development server on 5000/5173 and never writes to the
-database you are working in. Each test registers its own company, so there is no
-fixture to reset between them.
+`npm run test:e2e` needs PostgreSQL. It starts **its own** API on port 5001 and
+preview server on 5174, pointed at a separate `crm_e2e` database resolved from
+`backend/.env` by swapping the database name. It never collides with a dev server
+on 5000/5173 and never writes to the database you are working in. Each spec
+registers its own company, so there is no fixture to clean up between runs.
 
 ```bash
-npm run test:e2e:reset   # drop and recreate crm_e2e, for a clean slate
+npm run test:e2e:reset   # clean slate; refuses to run unless the URL names crm_e2e
 ```
 
-Set `E2E_DATABASE_URL` to override which database the E2E run uses. It drives the
-system Chrome already installed on the machine by default, so there is no browser
-download; set `E2E_BROWSER=chromium` to use Playwright's pinned build instead,
-which is what CI does.
+By default the E2E run drives the Chrome already installed on the machine, so
+there is nothing to download. Set `E2E_BROWSER=chromium` for Playwright's pinned
+build, which is what CI uses.
+
+Coverage is gated in CI at 80% lines and functions and 75% branches, scoped to
+`services`, `utils`, `store` and `hooks` — the layers where a regression costs
+something. Components are excluded on purpose: a number earned by covering prop
+plumbing is a number that stops meaning anything. Current coverage is 97%. The
+threshold lives in `vite.config.js` and is enforced by Vitest, so it cannot be
+quietly removed.
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and
-pull request to `main` or `dev`, in two jobs:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull
+request to `main` and `dev`. Both jobs fail the workflow on error.
 
-- **Lint, test and build** — oxlint, Vitest with the coverage gate, and a
-  production build. No database needed.
-- **End-to-end** — the full stack against a throwaway PostgreSQL, with the
-  Playwright report uploaded as an artefact on failure.
+- **Lint, test and build** — oxlint, `tsc --noEmit`, Vitest with the coverage gate,
+  a production build, and a staging build. No database needed.
+- **End-to-end** — the full stack against a throwaway PostgreSQL 16, with the
+  Playwright report and failure traces uploaded as artefacts.
 
-Both fail the workflow on error. Coverage thresholds are enforced by Vitest
-itself, so the gate cannot be removed without editing a config file.
+One step is deliberately inverted: it asserts that a publish build with a
+placeholder API URL **fails**. A configuration guard that is never exercised is a
+guard that quietly stops guarding.
 
-## Layout
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds and pushes
+both images on a merge to `main`. Production deploys are a manual dispatch rather
+than a push, so a bad build is found in staging rather than by a customer.
 
-- [`frontend/README.md`](frontend/README.md) — UI structure, pages, API usage
-- [`backend/README.md`](backend/README.md) — schema, endpoints, query params, response shapes
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — auth and permissions, data model, conventions
+## Deployment
 
-## Auth and roles
+Both services containerise:
 
-Sign-in is enforced by the API, not just hidden in the UI. Passwords are hashed
-with bcrypt, login returns a JWT, and every CRM request without a valid token
-gets a `401`. The user is re-read on every request, so a deleted account or a
-changed permission takes effect immediately.
+```bash
+docker build -t crm-api  ./backend
+docker build -t crm-app  ./frontend \
+  --build-arg VITE_API_URL=https://api.yourdomain.com \
+  --build-arg VITE_APP_VERSION=$(git rev-parse --short HEAD)
+```
 
-**Admins** always have full access and manage their own team. **Sales** access is
-set per person: for each of customers, leads, deals and reports, the admin
-chooses whether they can view it — nothing, their own records, or everything —
-plus whether they can create, edit and delete. New Sales accounts start with a
-standard salesperson's access, which you can then tune from the Team page.
+The API image runs as a non-root user and health-checks on `/health`. The app
+image is nginx serving the built bundle with the SPA fallback that client-side
+routing needs.
 
-The API enforces all of this; the UI hides the controls it would reject. See
-[`backend/README.md`](backend/README.md#roles-and-permissions).
+**`VITE_` values are inlined at build time.** The API URL is fixed by the build
+and cannot be changed by anything the server says afterwards — so staging and
+production are two separate artifacts, not one artifact with a runtime switch.
 
-## Activity, notes and follow-ups
+`src/envValidation.ts` refuses to build a publish whose API URL is missing,
+malformed, `http`, or still an `example.com` placeholder. Set `VITE_DEPLOY=1` to
+hold a local build to the same rules.
 
-Every customer and deal has an activity timeline and a list of scheduled
-follow-ups. Notes record what happened; follow-ups track what is still to do,
-with a due date and a done state. Both inherit the visibility of the record they
-hang off, and are removed with it.
+### Environment
 
-Calendar and email work with no configuration: the Calendar button writes an
-`.ics` file the user's own calendar opens, and Email opens a `mailto:` link. Set
-`EMAIL_API_KEY` and `EMAIL_FROM` on the backend to send server-side through
-Resend instead.
+Backend secrets are read at run time and never reach the browser.
 
-## Before going live
+| Service    | Variable          | Default                              |
+| ---------- | ----------------- | ------------------------------------ |
+| `backend`  | `DATABASE_URL`    | none — **required**                  |
+| `backend`  | `JWT_SECRET`      | none — **required** in production    |
+| `backend`  | `JWT_EXPIRES_IN`  | `12h`                                |
+| `backend`  | `PORT`            | `5000`                               |
+| `backend`  | `CORS_ORIGIN`     | `http://localhost:5173,http://127.0.0.1:5173` |
+| `backend`  | `DATABASE_POOL_SIZE` | `10`                              |
+| `backend`  | `RUN_MIGRATIONS`  | `true`                               |
+| `backend`  | `EMAIL_API_KEY`   | none — email falls back to `mailto:` |
+| `backend`  | `EMAIL_FROM`      | none                                 |
+| `frontend` | `VITE_API_URL`    | `http://localhost:5000` in dev       |
+| `frontend` | `VITE_API_TIMEOUT`| `60000`                              |
+| `frontend` | `VITE_APP_ENV`    | from the build mode                  |
+| `frontend` | `VITE_SENTRY_DSN` | none — **tracking off** when empty   |
+| `frontend` | `VITE_APP_VERSION`| `unknown`                            |
 
-- **Rotate the database password.** If it was ever pasted into a chat, a commit
-  or a shared document, treat it as public.
-- **Set a real `JWT_SECRET`** and a `CORS_ORIGIN` limited to your real frontend
-  host. `JWT_SECRET` is required in production, but `CORS_ORIGIN` defaults to
-  the dev servers.
-- **Logout does not revoke an issued token.** Tokens are stateless, so clearing
-  the client copy ends the session in the browser but a captured token stays
-  valid until it expires. A revocation list is the fix.
-- **No password reset flow.** An admin can set a password by removing and
-  re-adding a team member; self-service reset needs an email provider.
-- **Deals store a customer name, not a customer id**, so a deal follow-up has no
-  email address of its own and sends from the linked customer instead.
+Frontend env files are committed per mode and hold no secrets: `.env.development`,
+`.env.staging`, `.env.production`. Override locally in `.env.local`, which is
+gitignored and wins over all of them.
+
+Error tracking is off unless `VITE_SENTRY_DSN` is set, so development and CI send
+nothing anywhere and need no account. Before turning it on, note that it scrubs
+request and response bodies, the auth header, and anything typed into a form — a
+CRM holds names, emails and phone numbers, and an error report carrying a
+customer's email is a data leak with a friendly dashboard.
+
+### Before going live
+
+- **Rotate the database password.** If it was ever pasted into a chat, a commit or
+  a shared document, treat it as public.
+- **Set a real `JWT_SECRET`** and a `CORS_ORIGIN` limited to your actual frontend
+  host. `JWT_SECRET` is required in production, but `CORS_ORIGIN` silently defaults
+  to the dev servers — and an origin that is not listed fails every request with no
+  readable message in the browser.
+- **Delete the seeded and demo accounts**, including any leftover test companies.
+- **Serve over https**, or the JWT crosses the network in the clear.
+- Run `npm run test:all` against a staging database before the first release.
+
+## Further reading
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — auth and permissions, the data model,
+  multi-tenancy, error handling, conventions, known limitations
+- [frontend/README.md](frontend/README.md) — UI structure, pages, API usage
+- [backend/README.md](backend/README.md) — schema, endpoints, query parameters,
+  response shapes

@@ -18,6 +18,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:reset": "node scripts/reset-e2e-db.mjs",
     "test:all": "npm run test && npm run test:e2e",
+    "screenshots": "node scripts/capture-screenshots.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

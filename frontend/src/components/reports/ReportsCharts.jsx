@@ -10,6 +10,8 @@ import {
   Bar,
 } from "recharts";
 
+import { formatAxisCount, formatAxisMoney, formatMoney } from "../../utils/chartFormat";
+
 const ReportsCharts = ({
   revenueData,
   dealsStageData,
@@ -29,7 +31,7 @@ const ReportsCharts = ({
               margin={{
                 top: 5,
                 right: 10,
-                left: -10,
+                left: 0,
                 bottom: 0,
               }}
             >
@@ -41,12 +43,17 @@ const ReportsCharts = ({
                 interval="preserveStartEnd"
               />
 
+              {/* tickFormatter is not decoration. A raw 125000 does not fit a
+                  30px axis, and Recharts clips rather than shrinks, so the
+                  labels read ",00" and "0" — which looks like a broken
+                  calculation rather than a broken label. See utils/chartFormat. */}
               <YAxis
                 tick={{ fontSize: 10 }}
-                width={30}
+                tickFormatter={formatAxisMoney}
+                width={54}
               />
 
-              <Tooltip />
+              <Tooltip formatter={(value) => [formatMoney(value), "Revenue"]} />
 
               <Line
                 type="monotone"
@@ -73,7 +80,7 @@ const ReportsCharts = ({
               margin={{
                 top: 5,
                 right: 10,
-                left: -10,
+                left: 0,
                 bottom: 22,
               }}
             >
@@ -90,10 +97,14 @@ const ReportsCharts = ({
 
               <YAxis
                 tick={{ fontSize: 10 }}
-                width={30}
+                tickFormatter={formatAxisCount}
+                width={34}
+                allowDecimals={false}
               />
 
-              <Tooltip />
+              <Tooltip
+                formatter={(value) => [`${value} ${value === 1 ? "deal" : "deals"}`, "Deals"]}
+              />
 
               <Bar
                 dataKey="count"

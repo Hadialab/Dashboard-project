@@ -26,7 +26,7 @@ function checkEnvironment({ mode, isBuild, isDeploy }) {
   if (mode === "test") return;
 
   // loadEnv with an empty prefix reads every variable, not just VITE_ ones, so
-  // the check sees exactly what Vite will see — including anything set in the
+  // the check sees exactly what Vite will see, including anything set in the
   // shell by CI.
   const env = loadEnv(mode, process.cwd(), "");
 

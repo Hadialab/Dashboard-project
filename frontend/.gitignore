@@ -19,10 +19,23 @@ dist
 dist-ssr
 *.local
 
-# Local env files (.env.example is committed)
+# Local env files.
+#
+# .env.local and .env.*.local are ignored: they are a machine's own overrides.
+# The per-mode files ARE committed — .env.development, .env.staging,
+# .env.production — because a build needs them to pick up the right settings
+# without configuration, and because the expected shape of each belongs in the
+# repository where it can be reviewed. They hold no secrets: everything VITE_
+# prefixed is inlined into the bundle and readable by anyone who opens the app.
+# Secrets live in backend/.env.
 .env
-.env.*
+.env.local
+.env.*.local
+
 !.env.example
+!.env.development
+!.env.staging
+!.env.production
 
 # Editor directories and files
 .vscode/*

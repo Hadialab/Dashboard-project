@@ -61,6 +61,8 @@ const WEB_PORT = process.env.E2E_WEB_PORT ?? "5174";
 const API_URL = `http://localhost:${API_PORT}`;
 const BASE_URL = `http://localhost:${WEB_PORT}`;
 
+
+
 export default defineConfig({
   testDir: "./e2e",
   // Serial by default. Every test creates a company, and the stack they share is
@@ -100,6 +102,14 @@ export default defineConfig({
     {
       // The API. `reuseExistingServer` keeps a dev server the developer already
       // has running, which matters because ports 5000/5173 belong to them.
+      //
+      // Spawned directly, with no wrapper. A wrapper was tried — one that teed
+      // stdout to a file, on the theory that the server's output is discarded —
+      // and it was reverted because it leaked the API process on Windows: killing
+      // the wrapper does not kill its child, so the server survived the run and
+      // held port 5001, breaking the next one. Playwright already forwards
+      // webServer output to the console prefixed `[WebServer]`, so the reason for
+      // a failed start is visible without any of that.
       command: "node src/server.js",
       url: `${API_URL}/health`,
       // Never reused. This instance is pointed at the E2E database with an
@@ -108,6 +118,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
       cwd: BACKEND_DIR,
+      stdout: "pipe",
+      stderr: "pipe",
       env: {
         PORT: API_PORT,
         // The API's CORS_ORIGIN is an allow-list, and the development value
