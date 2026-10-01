@@ -83,16 +83,23 @@ jobs:
         # last test, a crash in teardown — produces no annotations at all and
         # would otherwise be completely opaque.
         run: |
+          # GitHub runs a `run:` block under `bash -e`, so any non-zero command
+          # ends the script immediately. With pipefail that would kill it at the
+          # test command — before the summary below ever ran, which is exactly
+          # the failure this block was added to diagnose. So errexit is turned off
+          # around the run and the exit code is handled explicitly.
+          set +e
           set -o pipefail
           npm run test -- --reporter=github-actions 2>&1 | tee test-output.log
           status=${PIPESTATUS[0]}
+          set -e
 
           if [ "$status" -ne 0 ]; then
             {
               echo "### Tests failed (exit $status)"
               echo ""
               echo '```'
-              grep -E 'FAIL|Test Files|Tests |Unhandled|Error:|Error ' test-output.log | head -40 || true
+              grep -E 'FAIL|Test Files|Tests |Unhandled|Error|error' test-output.log | head -40 || true
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
