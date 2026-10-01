@@ -82,29 +82,35 @@ jobs:
         # a failure that is not a test failure — an unhandled rejection after the
         # last test, a crash in teardown — produces no annotations at all and
         # would otherwise be completely opaque.
+        # Redirected to a file rather than piped.
+        #
+        # A pipeline here was tried and reverted: `set -o pipefail` is a bashism,
+        # and combined with the runner's `bash -e` it ended the step at the test
+        # command before the summary could be written — so the step failed with no
+        # output of its own, which is the exact opacity it was meant to remove.
+        # A plain redirect has no such failure mode, and the exit code still
+        # propagates because the command is the last one in the step.
+        run: npm run test -- --reporter=github-actions > test-output.log 2>&1
+
+      # Always runs, so a red build says what broke on the run page itself.
+      # Kept separate from the test step on purpose: anything that can prevent the
+      # test step from producing output must not be in the same step.
+      - name: Summarise the test run
+        if: always()
+        working-directory: frontend
         run: |
-          # GitHub runs a `run:` block under `bash -e`, so any non-zero command
-          # ends the script immediately. With pipefail that would kill it at the
-          # test command — before the summary below ever ran, which is exactly
-          # the failure this block was added to diagnose. So errexit is turned off
-          # around the run and the exit code is handled explicitly.
-          set +e
-          set -o pipefail
-          npm run test -- --reporter=github-actions 2>&1 | tee test-output.log
-          status=${PIPESTATUS[0]}
-          set -e
-
-          if [ "$status" -ne 0 ]; then
-            {
-              echo "### Tests failed (exit $status)"
-              echo ""
-              echo '```'
-              grep -E 'FAIL|Test Files|Tests |Unhandled|Error|error' test-output.log | head -40 || true
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f test-output.log ]; then
+            echo "No test output was produced." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-
-          exit "$status"
+          {
+            echo "<details><summary>Test output</summary>"
+            echo ""
+            echo '```'
+            tail -60 test-output.log
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Coverage
         working-directory: frontend
