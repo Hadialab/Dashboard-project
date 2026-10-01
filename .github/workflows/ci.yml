@@ -13,7 +13,15 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "20"
+  # Pinned to a minor, not "20".
+  #
+  # vite 8 requires ^20.19.0 || >=22.12.0, and jsdom, oxlint and @sentry/react
+  # all have their own floors. Asking for "20" resolves to whatever 20.x
+  # setup-node downloads, so the runner can land on a version the toolchain does
+  # not support and fail with a syntax or engine error that reads like a bug in
+  # the tests. Pinning to a minor makes that impossible, and the assertion below
+  # turns a silent drift into a message that says which package objected.
+  NODE_VERSION: "20.19"
 
 jobs:
   # Fast feedback: lint, unit and integration tests, and a production build.
@@ -33,6 +41,26 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      # Fails loudly on an unsupported Node instead of letting the first test that
+      # touches a newer syntax API die with a message that points at the test
+      # rather than at the runtime.
+      - name: Check the Node version is supported
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          echo "node $(node --version)"
+          node -e "
+            const required = ['vite', 'vitest', 'jsdom'];
+            const [major, minor] = process.versions.node.split('.').map(Number);
+            // vite is the strictest: ^20.19.0 || >=22.12.0
+            const ok = major > 22 || (major === 22 && minor >= 12) || (major === 20 && minor >= 19);
+            if (!ok) {
+              console.error('Node ' + process.versions.node + ' is below the toolchain floor (20.19).');
+              process.exit(1);
+            }
+            console.log('Supported by ' + required.join(', ') + '.');
+          "
 
       - name: Lint
         working-directory: frontend

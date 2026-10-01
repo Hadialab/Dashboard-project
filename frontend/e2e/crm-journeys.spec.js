@@ -101,7 +101,16 @@ test.describe("pipeline board", () => {
     await signUp(page);
     await gotoPipeline(page);
 
-    await expect(page.getByText(/no deals/i)).toBeVisible();
+    // Scoped to the page heading, not matched by loose text.
+    //
+    // `getByText(/no deals/i)` also matches the Dashboard's two chart empty
+    // states ("No deals to chart yet."), and signup lands on the Dashboard — so
+    // on a runner slow enough that the Dashboard is still mounted when the
+    // Pipeline renders, the locator resolves to two elements and fails with a
+    // strict-mode violation. The heading is unique to this page, so waiting for
+    // it also proves the navigation has actually completed.
+    await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
+    await expect(page.getByText(/no deals yet/i)).toBeVisible();
   });
 
   test("moves a deal between stages by dragging and persists it", async ({ page }) => {

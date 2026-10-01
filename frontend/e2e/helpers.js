@@ -60,24 +60,48 @@ export function tableRow(page, name) {
   return page.getByRole("table").getByRole("row").filter({ hasText: name });
 }
 
+/**
+ * Navigates to a page and waits for it to have actually rendered.
+ *
+ * Waiting on the URL alone is not enough. Pages are lazy-loaded, so the URL
+ * changes while the previous page is still mounted — and on a slow runner that
+ * previous page is still in the DOM when the test's first assertion runs. That
+ * produces failures that look like the wrong thing entirely: a strict-mode
+ * violation against a Dashboard chart when testing the Pipeline, or a locator
+ * timing out on an element that has not mounted yet.
+ *
+ * So each helper waits for the page's own heading. That proves the lazy chunk
+ * loaded and the new tree committed.
+ */
+const PAGE_HEADINGS = {
+  customers: "Customers",
+  leads: "Leads",
+  deals: "Deals",
+  pipeline: "Pipeline",
+};
+
+async function gotoPage(page, key, navName) {
+  await page.getByRole("link", { name: navName, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/${key}`));
+  await expect(page.getByRole("heading", { name: PAGE_HEADINGS[key], exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
+}
+
 export async function gotoCustomers(page) {
-  await page.getByRole("link", { name: "Customers", exact: true }).click();
-  await expect(page).toHaveURL(/\/customers/);
+  await gotoPage(page, "customers", "Customers");
 }
 
 export async function gotoLeads(page) {
-  await page.getByRole("link", { name: "Leads", exact: true }).click();
-  await expect(page).toHaveURL(/\/leads/);
+  await gotoPage(page, "leads", "Leads");
 }
 
 export async function gotoPipeline(page) {
-  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
-  await expect(page).toHaveURL(/\/pipeline/);
+  await gotoPage(page, "pipeline", "Pipeline");
 }
 
 export async function gotoDeals(page) {
-  await page.getByRole("link", { name: "Deals", exact: true }).click();
-  await expect(page).toHaveURL(/\/deals/);
+  await gotoPage(page, "deals", "Deals");
 }
 
 /**
@@ -87,6 +111,9 @@ export async function gotoDeals(page) {
  * a lead — so this goes via the Deals page, which is where the app actually
  * offers the action. Expected close is required and has no default, so it has to
  * be filled or the form silently refuses to submit.
+ *
+ * Waits for the title to land in the list before returning, for the same reason
+ * createCustomer does: the dialog closing is not the row arriving.
  */
 export async function createDeal(page, { title, customer, value = "5000", expectedClose }) {
   await gotoDeals(page);
@@ -104,6 +131,7 @@ export async function createDeal(page, { title, customer, value = "5000", expect
   await dialog.getByRole("button", { name: /^add deal$/i }).click();
 
   await expect(dialog).toBeHidden();
+  await expect(page.getByText(title).first()).toBeVisible({ timeout: 15_000 });
 }
 
 /**
@@ -145,7 +173,17 @@ export async function dragDealToStage(page, title, stage) {
   await card.dispatchEvent("dragend", { dataTransfer });
 }
 
-/** Fills the add-customer dialog and submits it. */
+/**
+ * Fills the add-customer dialog and submits it.
+ *
+ * Waits for the new row to appear rather than only for the dialog to close. The
+ * two are not the same thing: the dialog closes the moment the POST is sent, and
+ * the list only re-renders once the response lands and the refetch completes. A
+ * test that returns at dialog-close and immediately looks for the row therefore
+ * races the network — which passes on a fast laptop and fails on a cold CI
+ * runner, and does so as an apparently random failure in a test that has nothing
+ * wrong with it.
+ */
 export async function createCustomer(page, { name, company, email, phone }) {
   await page.getByRole("button", { name: /add customer/i }).click();
 
@@ -159,9 +197,13 @@ export async function createCustomer(page, { name, company, email, phone }) {
   await dialog.getByRole("button", { name: /^add customer$/i }).click();
 
   await expect(dialog).toBeHidden();
+
+  // The refetch is the thing being waited on. Generous, because it is a round
+  // trip to a real database and the suite runs against a cold Postgres in CI.
+  await expect(tableRow(page, name)).toBeVisible({ timeout: 15_000 });
 }
 
-/** Fills the add-lead dialog and submits it. */
+/** Fills the add-lead dialog and submits it. Waits for the row, as createCustomer does. */
 export async function createLead(page, { name, company, email, phone }) {
   await page.getByRole("button", { name: /add lead/i }).click();
 
@@ -175,4 +217,5 @@ export async function createLead(page, { name, company, email, phone }) {
   await dialog.getByRole("button", { name: /add lead/i }).click();
 
   await expect(dialog).toBeHidden();
+  await expect(tableRow(page, name)).toBeVisible({ timeout: 15_000 });
 }

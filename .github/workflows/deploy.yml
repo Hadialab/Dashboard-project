@@ -32,7 +32,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "20"
+  # Matches ci.yml. Pinned to a minor because vite 8 needs ^20.19.0 || >=22.12.0
+  # and jsdom, oxlint and @sentry/react have their own floors.
+  NODE_VERSION: "20.19"
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
 
@@ -94,7 +96,28 @@ jobs:
       # The app image. The build args are the whole point of this step: VITE_
       # values are inlined at build time, so the API URL is fixed now and cannot
       # be changed by anything the server says later.
+      #
+      # Requires the APP_API_URL_STAGING repository variable, and is skipped with
+      # an explicit message when it is missing. Not failed: this workflow should
+      # still push the API image — which needs no configuration at all — so
+      # someone setting the repo up for the first time gets a working artifact
+      # and a clear instruction, rather than a red X and nothing.
+      #
+      # The two jobs are separate for the same reason. The app image's config
+      # cannot be guessed; the API image's cannot be guessed either, but it is
+      # supplied at run time and so has nothing to configure here.
+      - name: Check for the staging API URL
+        id: app_config
+        run: |
+          if [ -z "${{ vars.APP_API_URL_STAGING }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::APP_API_URL_STAGING is not set, so the app image was not built. Add it under Settings > Secrets and variables > Actions > Variables."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build the app image
+        if: steps.app_config.outputs.configured == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
@@ -118,9 +141,13 @@ jobs:
             echo "| Image | Tag |"
             echo "| --- | --- |"
             echo "| crm-api | \`${{ github.sha }}\` |"
-            echo "| crm-app | \`${{ github.sha }}\` |"
-            echo ""
-            echo "API URL baked into the app: \`${{ vars.APP_API_URL_STAGING }}\`"
+            if [ "${{ steps.app_config.outputs.configured }}" = "true" ]; then
+              echo "| crm-app | \`${{ github.sha }}\` |"
+              echo ""
+              echo "API URL baked into the app: \`${{ vars.APP_API_URL_STAGING }}\`"
+            else
+              echo "| crm-app | _not built — APP_API_URL_STAGING is not set_ |"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   # The actual rollout. Skipped rather than failed when the platform credentials
@@ -134,7 +161,7 @@ jobs:
 
     # A real deploy needs a platform token. Until one is configured, stop here —
     # and say so, in the log, rather than reporting a success that did nothing.
-    if: ${{ secrets.RENDER_API_KEY != '' }}
+    if: ${{ secrets.RENDER_API_KEY != '' && vars.APP_API_URL_STAGING != '' }}
     steps:
       - name: Deploy the API
         run: |
@@ -162,7 +189,7 @@ jobs:
   verify-deploy:
     name: Check the deployment is answering
     needs: [build, deploy]
-    if: ${{ secrets.RENDER_API_KEY != '' }}
+    if: ${{ secrets.RENDER_API_KEY != '' && vars.APP_API_URL_STAGING != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Poll the API health endpoint
