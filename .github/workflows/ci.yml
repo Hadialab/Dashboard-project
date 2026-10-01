@@ -70,23 +70,34 @@ jobs:
 
       - name: Unit and integration tests
         working-directory: frontend
-        # The github reporter, explicitly.
+        # The reporter's job here is to put the failure somewhere a human will
+        # actually see.
         #
-        # Without it Vitest uses its default reporter, which prints to the log but
-        # creates no check annotations — so a failure shows up in the UI as
-        # "Process completed with exit code 1" and nothing else. No test name, no
-        # file, no assertion. That is not a usable failure: the only way to learn
-        # what broke is to open the raw log and read it line by line, and on a
-        # red build nobody does that.
+        # `github-actions` turns each failed test into an annotation on its file,
+        # so the CI page names the test rather than just saying "exit code 1". The
+        # name is not `github` — that is Playwright's, and guessing by analogy
+        # fails with "Failed to load custom Reporter from github".
         #
-        # With this reporter each failure becomes an annotation on the test file,
-        # which is what makes the CI page itself tell you what to fix.
-        #
-        # Note the name: it is `github-actions`, not `github`. `github` is what
-        # Playwright's reporter is called, and guessing by analogy fails with
-        # "Failed to load custom Reporter from github" — which is unhelpful
-        # enough that it is worth saying.
-        run: npm run test -- --reporter=github-actions
+        # The output is also teed to a file and summarised on the run page, because
+        # a failure that is not a test failure — an unhandled rejection after the
+        # last test, a crash in teardown — produces no annotations at all and
+        # would otherwise be completely opaque.
+        run: |
+          set -o pipefail
+          npm run test -- --reporter=github-actions 2>&1 | tee test-output.log
+          status=${PIPESTATUS[0]}
+
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "### Tests failed (exit $status)"
+              echo ""
+              echo '```'
+              grep -E 'FAIL|Test Files|Tests |Unhandled|Error:|Error ' test-output.log | head -40 || true
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          exit "$status"
 
       - name: Coverage
         working-directory: frontend
