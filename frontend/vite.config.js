@@ -64,6 +64,23 @@ export default defineConfig(({ mode, command }) => {
       globals: true,
       setupFiles: ["./src/test/setup.js"],
       css: false,
+
+      // 15s, up from Vitest's 5s default.
+      //
+      // The integration tests render real components and drive them through
+      // user-event, which is genuinely slow — a representative test takes 1-2s on
+      // a fast machine. On a 4-core CI runner that lands near or past 5s, and the
+      // result is a pile of failures that are pure timing: no assertion fires,
+      // every test just reports as timed out.
+      //
+      // That is a bad failure mode, because it looks like the tests are wrong
+      // rather than the budget, and it hides a real regression behind 30 red
+      // tests nobody can read. 15s is still tight enough that a genuinely hung
+      // test fails, and CI is the place this matters — a timeout tuned on one
+      // developer's laptop is not a timeout.
+      testTimeout: 15_000,
+      hookTimeout: 15_000,
+
       // Playwright owns the browser; Vitest must not try to use one.
       exclude: [
         "**/node_modules/**",
