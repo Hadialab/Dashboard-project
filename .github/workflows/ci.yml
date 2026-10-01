@@ -70,7 +70,23 @@ jobs:
 
       - name: Unit and integration tests
         working-directory: frontend
-        run: npm run test
+        # The github reporter, explicitly.
+        #
+        # Without it Vitest uses its default reporter, which prints to the log but
+        # creates no check annotations — so a failure shows up in the UI as
+        # "Process completed with exit code 1" and nothing else. No test name, no
+        # file, no assertion. That is not a usable failure: the only way to learn
+        # what broke is to open the raw log and read it line by line, and on a
+        # red build nobody does that.
+        #
+        # With this reporter each failure becomes an annotation on the test file,
+        # which is what makes the CI page itself tell you what to fix.
+        #
+        # Note the name: it is `github-actions`, not `github`. `github` is what
+        # Playwright's reporter is called, and guessing by analogy fails with
+        # "Failed to load custom Reporter from github" — which is unhelpful
+        # enough that it is worth saying.
+        run: npm run test -- --reporter=github-actions
 
       - name: Coverage
         working-directory: frontend
