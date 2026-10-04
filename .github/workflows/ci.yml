@@ -105,34 +105,17 @@ jobs:
           code=$?
 
           if [ "$code" -ne 0 ]; then
-            {
-              echo "::error title=Vitest::node=$(node --version) exit=$code bytes=$(wc -c < test-output.log)"
-
-              # Anchored on the one line that is known to be the symptom, and
-              # read the lines *above* it, because that is where the cause is.
-              #
-              # GitHub caps annotations at ten per step, so the window has to be
-              # narrow and pointed. An earlier version grepped for "Unhandled
-              # Error" with a context window, which matched the banner near the
-              # top of the log first and spent the whole allowance there.
-              sed -e 's/\x1b\[[0-9;]*m//g' test-output.log \
-                | grep -B 14 'Failed to start' \
-                | head -9 \
-                | cut -c1-300 \
-                | while IFS= read -r line; do
-                    echo "::error title=Vitest::${line}"
-                  done
-
-              # Also the failing test names, which are near the top of the block
-              # and are the other half of what a red build needs to say.
-              sed -e 's/\x1b\[[0-9;]*m//g' test-output.log \
-                | grep -E '^\s*(FAIL|×|✕)' \
-                | head -12 \
-                | cut -c1-300 \
-                | while IFS= read -r line; do
-                    echo "::error title=Vitest::${line}"
-                  done
-            }
+            # One annotation carrying the whole tail, not a window of lines.
+            #
+            # GitHub caps annotations per step, and every earlier attempt here
+            # emitted ten and lost the cause: the cap silently dropped whichever
+            # lines came last, which is exactly where the detail was. One
+            # annotation cannot be squeezed out that way.
+            #
+            # Newlines become `+` and `%` becomes `%25`, because a workflow
+            # command is a single line and `%` starts an escape.
+            detail=$(sed -e 's/\x1b\[[0-9;]*m//g' test-output.log | tail -c 6000 | tr '\n' '+' | sed 's/%/%25/g')
+            echo "::error title=Vitest::node=$(node --version) exit=$code::${detail}"
           fi
 
           exit "$code"
