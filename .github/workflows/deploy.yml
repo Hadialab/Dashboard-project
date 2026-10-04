@@ -7,8 +7,8 @@ name: Deploy
 #   - Staging is where a bad build is supposed to be discovered. Deploying it
 #     automatically on every merge is what makes it worth having.
 #   - Production is where a bad build is discovered by customers. That should
-#     require a deliberate act by a person, so it is triggered by a workflow_dispatch
-#     below rather than by a push.
+#     require a deliberate act by a person, so it is triggered by a
+#     workflow_dispatch below rather than by a push.
 #
 # The two share the same build steps on purpose: if staging and production were
 # built differently, staging would stop being evidence about production.
@@ -23,7 +23,9 @@ on:
         required: true
         default: staging
         type: choice
-        options: [staging, production]
+        options:
+          - staging
+          - production
 
 # A deploy must never run against a half-finished push. Cancelling the older run
 # in favour of the newer one means staging always shows the latest merge.
@@ -69,13 +71,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # On a push to main it is always staging. The dispatch input is only read
+      # for a manual run, so a push cannot be talked into deploying to production.
       - name: Resolve the target environment
         id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED: ${{ inputs.environment }}
         run: |
-          # On a push to main it is always staging. The input is only read for a
-          # manual run, so a push cannot be talked into deploying to production.
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "name=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "name=$REQUESTED" >> "$GITHUB_OUTPUT"
           else
             echo "name=staging" >> "$GITHUB_OUTPUT"
           fi
@@ -97,21 +102,22 @@ jobs:
       # values are inlined at build time, so the API URL is fixed now and cannot
       # be changed by anything the server says later.
       #
-      # Requires the APP_API_URL_STAGING repository variable, and is skipped with
-      # an explicit message when it is missing. Not failed: this workflow should
-      # still push the API image — which needs no configuration at all — so
-      # someone setting the repo up for the first time gets a working artifact
-      # and a clear instruction, rather than a red X and nothing.
+      # Requires the APP_API_URL_STAGING repository variable. Skipped with an
+      # explicit warning when missing, not failed: this workflow should still push
+      # the API image — which needs no configuration at all — so someone setting
+      # the repo up for the first time gets a working artifact and a clear
+      # instruction, rather than a red X and nothing.
       #
-      # The two jobs are separate for the same reason. The app image's config
-      # cannot be guessed; the API image's cannot be guessed either, but it is
-      # supplied at run time and so has nothing to configure here.
+      # Set the variable under Settings > Secrets and variables > Actions >
+      # Variables. STAGING_API_HEALTH_URL is used by verify-deploy below.
       - name: Check for the staging API URL
         id: app_config
+        env:
+          API_URL: ${{ vars.APP_API_URL_STAGING }}
         run: |
-          if [ -z "${{ vars.APP_API_URL_STAGING }}" ]; then
+          if [ -z "$API_URL" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::APP_API_URL_STAGING is not set, so the app image was not built. Add it under Settings > Secrets and variables > Actions > Variables."
+            echo "::warning::APP_API_URL_STAGING is not set, so the app image was not built."
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
@@ -134,19 +140,24 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Summarise
+        env:
+          TARGET: ${{ steps.target.outputs.name }}
+          SHA: ${{ github.sha }}
+          APP_CONFIGURED: ${{ steps.app_config.outputs.configured }}
+          API_URL: ${{ vars.APP_API_URL_STAGING }}
         run: |
           {
-            echo "### Built for ${{ steps.target.outputs.name }}"
+            echo "### Built for $TARGET"
             echo ""
             echo "| Image | Tag |"
             echo "| --- | --- |"
-            echo "| crm-api | \`${{ github.sha }}\` |"
-            if [ "${{ steps.app_config.outputs.configured }}" = "true" ]; then
-              echo "| crm-app | \`${{ github.sha }}\` |"
+            echo "| crm-api | \`$SHA\` |"
+            if [ "$APP_CONFIGURED" = "true" ]; then
+              echo "| crm-app | \`$SHA\` |"
               echo ""
-              echo "API URL baked into the app: \`${{ vars.APP_API_URL_STAGING }}\`"
+              echo "API URL baked into the app: \`$API_URL\`"
             else
-              echo "| crm-app | _not built — APP_API_URL_STAGING is not set_ |"
+              echo "| crm-app | not built: APP_API_URL_STAGING is not set |"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -154,63 +165,86 @@ jobs:
   # are absent, because someone setting up the repo for the first time should get
   # a built-and-pushed image and a clear instruction, not a red X and no artifact.
   deploy:
-    name: Roll out to ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    name: Roll out
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
-
-    # A real deploy needs a platform token. Until one is configured, stop here —
-    # and say so, in the log, rather than reporting a success that did nothing.
-    if: ${{ secrets.RENDER_API_KEY != '' && vars.APP_API_URL_STAGING != '' }}
+    environment: staging
     steps:
+      # Decided inside the job rather than in a job-level `if`.
+      #
+      # A job-level `if` referencing `secrets` is evaluated by GitHub before the
+      # runner exists, and a skipped job leaves no trace — so "no deploy
+      # configured" and "the deploy silently did nothing" look identical. Running
+      # the check here means it is logged.
+      - name: Check for a deploy target
+        id: target
+        env:
+          RENDER_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          if [ -z "$RENDER_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::RENDER_API_KEY is not set, so nothing was deployed. Images were pushed to the registry."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Render's API. Fails loudly if the service ids are unset rather than
+      # deploying nothing successfully.
       - name: Deploy the API
+        if: steps.target.outputs.configured == 'true'
+        env:
+          RENDER_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:sha-${{ github.sha }}
         run: |
           set -euo pipefail
-          # Render's API. A no-op until the service ids in the repository
-          # variables are filled in, which is the point: it fails loudly rather
-          # than deploying nothing successfully.
           curl --fail --silent --show-error \
-            -X POST "https://api.render.com/v1/services/${{ vars.RENDER_API_SERVICE_ID }}/deploys" \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -X POST "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"imageUrl\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:sha-${{ github.sha }}\"}"
+            -d "{\"imageUrl\":\"$IMAGE\"}"
           echo "API deploy requested."
 
       - name: Deploy the app
+        if: steps.target.outputs.configured == 'true'
+        env:
+          RENDER_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ vars.RENDER_APP_SERVICE_ID }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:sha-${{ github.sha }}
         run: |
           set -euo pipefail
           curl --fail --silent --show-error \
-            -X POST "https://api.render.com/v1/services/${{ vars.RENDER_APP_SERVICE_ID }}/deploys" \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -X POST "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"imageUrl\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:sha-${{ github.sha }}\"}"
+            -d "{\"imageUrl\":\"$IMAGE\"}"
           echo "App deploy requested."
 
   verify-deploy:
     name: Check the deployment is answering
     needs: [build, deploy]
-    if: ${{ secrets.RENDER_API_KEY != '' && vars.APP_API_URL_STAGING != '' }}
     runs-on: ubuntu-latest
     steps:
+      # A deploy that returns 200 once is not a deploy that works. Polling with a
+      # timeout catches the two common real failures: a crash loop (never becomes
+      # healthy) and a migration failure on boot (healthy, but every request
+      # fails).
       - name: Poll the API health endpoint
+        env:
+          HEALTH_URL: ${{ vars.STAGING_API_HEALTH_URL }}
         run: |
           set -euo pipefail
-          url="${{ vars.STAGING_API_HEALTH_URL }}"
-          if [ -z "$url" ]; then
+          if [ -z "$HEALTH_URL" ]; then
             echo "STAGING_API_HEALTH_URL is not set; skipping."
             exit 0
           fi
-          # A deploy that returns 200 once is not a deploy that works. Polling
-          # with a timeout catches the two common real failures: a crash loop
-          # (never becomes healthy) and a migration failure on boot (healthy,
-          # but every request fails).
           for i in $(seq 1 30); do
-            if curl --fail --silent --max-time 5 "$url" > /dev/null; then
+            if curl --fail --silent --max-time 5 "$HEALTH_URL" > /dev/null; then
               echo "Healthy after ${i} attempt(s)."
               exit 0
             fi
             echo "  attempt $i: not healthy yet"
             sleep 10
           done
-          echo "::error::The API never became healthy at $url"
+          echo "::error::The API never became healthy at $HEALTH_URL"
           exit 1
