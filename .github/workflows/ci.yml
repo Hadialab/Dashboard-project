@@ -68,6 +68,21 @@ jobs:
         # the build, so a new warning cannot block a merge on its own.
         run: npm run lint
 
+      # Vitest's default pool is `forks`, and every test file needs a worker
+      # process spawned for it. GitHub's runners give the container 64MB of
+      # /dev/shm, and that is not enough: the spawn fails, and because it fails
+      # outside any test file, Vitest reports it as an "unhandled error" and exits
+      # non-zero.
+      #
+      # The failure looks nothing like its cause. No test is named, the exit code
+      # is bare, and the message — "Failed to start forks worker" — is printed
+      # after the per-file results, past the part of the log anyone reads.
+      #
+      # 1GB is generous but free: /dev/shm is tmpfs, so it is RAM-backed and
+      # untouched pages are never resident.
+      - name: Raise the shared memory limit
+        run: sudo mount -o remount,size=1G /dev/shm
+
       - name: Unit and integration tests
         working-directory: frontend
         # Deliberately unguarded, and deliberately emits its own diagnostics.
@@ -86,36 +101,36 @@ jobs:
         run: |
           set +e
 
-          # Three probes, because "no output at all" does not distinguish between
-          # a broken binary, a config that fails to load, and a reporter that
-          # cannot start. Each is cheap and they fail differently.
-          npx vitest --version > probe-version.log 2>&1
-          echo "vitest --version exit=$? bytes=$(wc -c < probe-version.log)"
-
-          node -e "import('./vite.config.js').then(() => console.log('config loads')).catch(e => console.log('CONFIG FAILS: ' + e.message))" > probe-config.log 2>&1
-          echo "config import exit=$? bytes=$(wc -c < probe-config.log)"
-
           npm run test > test-output.log 2>&1
           code=$?
 
-          {
-            echo "::error title=Vitest::node=$(node --version) test-exit=$code test-bytes=$(wc -c < test-output.log)"
-            echo "probe-version: $(head -3 probe-version.log | tr '\n' ' ')"
-            echo "probe-config:  $(head -3 probe-config.log | tr '\n' ' ')"
+          if [ "$code" -ne 0 ]; then
+            {
+              echo "::error title=Vitest::node=$(node --version) exit=$code bytes=$(wc -c < test-output.log)"
 
-            # The unhandled-error block specifically. Vitest prints it after the
-            # per-file results, so slicing the head of the log only ever finds the
-            # banner — which is why earlier attempts at this reported nothing
-            # useful. Stripped of ANSI codes because the escape bytes make the
-            # message unreadable in the annotation.
-            sed -e 's/\x1b\[[0-9;]*m//g' test-output.log \
-              | grep -A 30 'Unhandled Error' \
-              | head -24 \
-              | cut -c1-300 \
-              | while IFS= read -r line; do
-                  echo "::error title=Vitest::${line}"
-                done
-          }
+              # Vitest prints the unhandled-error block *after* the per-file
+              # results, so reading the head of the log only ever finds the
+              # banner. It is grepped for and stripped of ANSI codes, which
+              # otherwise make the message unreadable.
+              sed -e 's/\x1b\[[0-9;]*m//g' test-output.log \
+                | grep -A 30 'Unhandled Error' \
+                | head -24 \
+                | cut -c1-300 \
+                | while IFS= read -r line; do
+                    echo "::error title=Vitest::${line}"
+                  done
+
+              # Also the failing test names, which are near the top of the block
+              # and are the other half of what a red build needs to say.
+              sed -e 's/\x1b\[[0-9;]*m//g' test-output.log \
+                | grep -E '^\s*(FAIL|×|✕)' \
+                | head -12 \
+                | cut -c1-300 \
+                | while IFS= read -r line; do
+                    echo "::error title=Vitest::${line}"
+                  done
+            }
+          fi
 
           exit "$code"
 
