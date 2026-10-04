@@ -95,14 +95,28 @@ jobs:
       # Always runs, so a red build says what broke on the run page itself.
       # Kept separate from the test step on purpose: anything that can prevent the
       # test step from producing output must not be in the same step.
+      #
+      # The interesting lines are emitted as ::error:: annotations as well as
+      # going into the job summary. Annotations land on the run page *and* are
+      # readable through the API without authentication, which is what makes this
+      # diagnosable by someone who is not sitting at the browser. A job summary
+      # alone is only visible in the UI.
       - name: Summarise the test run
         if: always()
         working-directory: frontend
         run: |
           if [ ! -f test-output.log ]; then
-            echo "No test output was produced." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Vitest::The test step produced no output file."
             exit 0
           fi
+
+          grep -E 'FAIL|Unhandled|Test Files|Tests  |Error:|Error ' test-output.log \
+            | head -25 \
+            | cut -c1-400 \
+            | while IFS= read -r line; do
+                echo "::error title=Vitest::${line}"
+              done
+
           {
             echo "<details><summary>Test output</summary>"
             echo ""
