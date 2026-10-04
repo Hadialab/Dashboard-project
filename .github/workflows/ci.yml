@@ -106,25 +106,19 @@ jobs:
         working-directory: frontend
         run: |
           if [ ! -f test-output.log ]; then
-            echo "::error title=Vitest::The test step produced no output file."
+            echo "::error title=Vitest::no log file was produced at all"
             exit 0
           fi
 
-          grep -E 'FAIL|Unhandled|Test Files|Tests  |Error:|Error ' test-output.log \
-            | head -25 \
-            | cut -c1-400 \
-            | while IFS= read -r line; do
-                echo "::error title=Vitest::${line}"
-              done
-
-          {
-            echo "<details><summary>Test output</summary>"
-            echo ""
-            echo '```'
-            tail -60 test-output.log
-            echo '```'
-            echo "</details>"
-          } >> "$GITHUB_STEP_SUMMARY"
+          # Size and the first lines, unconditionally. Narrow greps hide the
+          # failure they were meant to expose: a command that dies before Vitest
+          # prints anything contains none of the words being grepped for, so the
+          # report is empty and the real cause stays invisible.
+          bytes=$(wc -c < test-output.log)
+          echo "::error title=Vitest::test-output.log is $bytes bytes"
+          head -30 test-output.log | cut -c1-500 | while IFS= read -r line; do
+            echo "::error title=Vitest::${line}"
+          done
 
       - name: Coverage
         working-directory: frontend
