@@ -13,15 +13,26 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Pinned to a minor, not "20".
+  # Node 22.22.2 or newer.
   #
-  # vite 8 requires ^20.19.0 || >=22.12.0, and jsdom, oxlint and @sentry/react
-  # all have their own floors. Asking for "20" resolves to whatever 20.x
-  # setup-node downloads, so the runner can land on a version the toolchain does
-  # not support and fail with a syntax or engine error that reads like a bug in
-  # the tests. Pinning to a minor makes that impossible, and the assertion below
-  # turns a silent drift into a message that says which package objected.
-  NODE_VERSION: "20.19"
+  # This was Node 20 for a long time, and it was wrong. jsdom 30 declares
+  # `engines: ^22.22.2 || ^24.15.0 || >=26.0.0` and does not support Node 20 at
+  # all. npm installs it anyway — `engines` is advisory unless the package sets
+  # engine-strict — so the build installed cleanly and then failed at runtime with
+  #
+  #   TypeError: webidl.util.markAsUncloneable is not a function
+  #     at new CacheStorage (undici/lib/web/cache/cachestorage.js)
+  #     at node_modules/jsdom/lib/api.js
+  #
+  # once per test file, reported by Vitest as an unhandled error rather than a
+  # failing test. So the build went red with no test named and nothing pointing at
+  # the runtime.
+  #
+  # 24 is what this is developed on, so CI matching it also means a test that
+  # passes here passes there. The floor assertion below is what stops this
+  # regressing the next time someone reads "engines is only advisory" and drops
+  # the version back.
+  NODE_VERSION: "22.22"
 
 jobs:
   # Fast feedback: lint, unit and integration tests, and a production build.
@@ -42,24 +53,77 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      # Fails loudly on an unsupported Node instead of letting the first test that
-      # touches a newer syntax API die with a message that points at the test
-      # rather than at the runtime.
-      - name: Check the Node version is supported
+      # Fails loudly, here, with the package that objected.
+      #
+      # The alternative is what happened for weeks: `npm ci` happily installs a
+      # dependency that declares it does not support the runtime, and the failure
+      # surfaces 200 lines into a Vitest log as an unhandled error in a file nobody
+      # changed. Checking `engines` up front costs one step and names the culprit.
+      - name: Check every dependency supports this Node
         working-directory: frontend
         run: |
-          set -euo pipefail
           echo "node $(node --version)"
-          node -e "
-            const required = ['vite', 'vitest', 'jsdom'];
-            const [major, minor] = process.versions.node.split('.').map(Number);
-            // vite is the strictest: ^20.19.0 || >=22.12.0
-            const ok = major > 22 || (major === 22 && minor >= 12) || (major === 20 && minor >= 19);
-            if (!ok) {
-              console.error('Node ' + process.versions.node + ' is below the toolchain floor (20.19).');
+          node --input-type=module -e "
+            import fs from 'node:fs';
+            import { createRequire } from 'node:module';
+            const require = createRequire(process.cwd() + '/');
+
+            // A deliberately conservative semver range test. It handles the caret,
+            // tilde and comparison forms these packages actually use, and treats
+            // anything it cannot parse as "check it by hand" rather than silently
+            // passing.
+            //
+            // The optional whitespace after the operator is load-bearing: pg
+            // declares ">= 16.0.0", and without \s* the regex reads that as a bare
+            // "16.0.0" and tests for exact equality — which reports every Node as
+            // unsupported. A guard that cries wolf gets disabled, which is worse
+            // than not having one.
+            const satisfies = (range, version) => {
+              const [maj, min] = version.split('.').map(Number);
+              const ok = (test) => { try { return test(); } catch { return true; } };
+
+              return range.split('||').some((part) => part.trim().split(/\s+/).every((clause) => {
+                const m = clause.match(/^(\^|~|>=|<=|>|<|=)?\s*v?(\d+)(?:\.(\d+))?/);
+                if (!m) return true; // Unparsed: do not block, but do not claim it passed.
+                const op = m[1] ?? '=';
+                const a = [Number(m[2]), Number(m[3] ?? 0)];
+                const b = [maj, min];
+                return ok(() => {
+                  if (op === '^' || op === '~') return a[0] === b[0] && b[1] >= a[1];
+                  if (op === '>=') return b[0] > a[0] || (b[0] === a[0] && b[1] >= a[1]);
+                  if (op === '<=') return b[0] < a[0] || (b[0] === a[0] && b[1] <= a[1]);
+                  if (op === '>') return b[0] > a[0] || (b[0] === a[0] && b[1] > a[1]);
+                  if (op === '<') return b[0] < a[0];
+                  return b[0] === a[0] && b[1] === a[1];
+                });
+              }));
+            };
+
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const names = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+            const bad = [];
+
+            for (const name of names) {
+              let manifest;
+              try {
+                manifest = require(name + '/package.json');
+              } catch {
+                continue; // Not resolvable at the top level; skip rather than guess.
+              }
+              const range = manifest.engines?.node;
+              if (range && !satisfies(range, process.versions.node)) {
+                bad.push(name + '@' + manifest.version + ' requires ' + range);
+              }
+            }
+
+            if (bad.length) {
+              console.error('These dependencies do not support Node ' + process.versions.node + ':');
+              for (const b of bad) console.error('  - ' + b);
+              console.error('');
+              console.error('Raise NODE_VERSION in ci.yml, or pin those packages to a version that supports this runtime.');
               process.exit(1);
             }
-            console.log('Supported by ' + required.join(', ') + '.');
+            console.log('All ' + names.length + ' direct dependencies declare support for this Node.');
           "
 
       - name: Lint

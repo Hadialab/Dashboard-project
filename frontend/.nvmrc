@@ -1,0 +1,24 @@
+# Node 22.22.2 or newer.
+#
+# Not Node 20, which this was for a long time and should not have been.
+#
+# jsdom 30 — the jsdom the unit and integration tests run in — declares
+# `engines: ^22.22.2 || ^24.15.0 || >=26.0.0`. It does not support Node 20.
+#
+# npm does not stop you installing it anyway: `engines` is advisory unless the
+# package sets engine-strict, or npm is run with --engine-strict. So a fresh
+# `npm ci` succeeded, the install step was green, and then every single test file
+# failed the moment its worker started:
+#
+#   TypeError: webidl.util.markAsUncloneable is not a function
+#     at new CacheStorage (node_modules/undici/lib/web/cache/cachestorage.js:20)
+#     at Object.<anonymous> (node_modules/undici/index.js:179)
+#     at Object.<anonymous> (node_modules/jsdom/lib/api.js:12)
+#
+# which Vitest reports as an *unhandled error* rather than a failing test, because
+# the worker dies before a test starts. So the build went red with no test named,
+# no assertion, and no hint that the runtime was the problem.
+#
+# 24 also works, and matches what the code is developed on. Anything below
+# 22.22.2 does not.
+ENGINE_NODE=^22.22.2 || ^24.15.0 || >=26.0.0

@@ -34,9 +34,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Matches ci.yml. Pinned to a minor because vite 8 needs ^20.19.0 || >=22.12.0
-  # and jsdom, oxlint and @sentry/react have their own floors.
-  NODE_VERSION: "20.19"
+  # Matches ci.yml. Must be a Node that every dependency declares support for —
+  # jsdom 30 alone rules out Node 20. See ci.yml for the full story.
+  NODE_VERSION: "22.22"
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
 
