@@ -102,9 +102,19 @@ jobs:
             echo "::error title=Vitest::node=$(node --version) test-exit=$code test-bytes=$(wc -c < test-output.log)"
             echo "probe-version: $(head -3 probe-version.log | tr '\n' ' ')"
             echo "probe-config:  $(head -3 probe-config.log | tr '\n' ' ')"
-            head -25 test-output.log | cut -c1-400 | while IFS= read -r line; do
-              echo "::error title=Vitest::${line}"
-            done
+
+            # The unhandled-error block specifically. Vitest prints it after the
+            # per-file results, so slicing the head of the log only ever finds the
+            # banner — which is why earlier attempts at this reported nothing
+            # useful. Stripped of ANSI codes because the escape bytes make the
+            # message unreadable in the annotation.
+            sed -e 's/\x1b\[[0-9;]*m//g' test-output.log \
+              | grep -A 30 'Unhandled Error' \
+              | head -24 \
+              | cut -c1-300 \
+              | while IFS= read -r line; do
+                  echo "::error title=Vitest::${line}"
+                done
           }
 
           exit "$code"
