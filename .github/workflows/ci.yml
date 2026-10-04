@@ -86,11 +86,22 @@ jobs:
         run: |
           set +e
 
-          npm run test -- --reporter=github-actions > test-output.log 2>&1
+          # Three probes, because "no output at all" does not distinguish between
+          # a broken binary, a config that fails to load, and a reporter that
+          # cannot start. Each is cheap and they fail differently.
+          npx vitest --version > probe-version.log 2>&1
+          echo "vitest --version exit=$? bytes=$(wc -c < probe-version.log)"
+
+          node -e "import('./vite.config.js').then(() => console.log('config loads')).catch(e => console.log('CONFIG FAILS: ' + e.message))" > probe-config.log 2>&1
+          echo "config import exit=$? bytes=$(wc -c < probe-config.log)"
+
+          npm run test > test-output.log 2>&1
           code=$?
 
           {
-            echo "::error title=Vitest::exit=$code bytes=$(wc -c < test-output.log) node=$(node --version)"
+            echo "::error title=Vitest::node=$(node --version) test-exit=$code test-bytes=$(wc -c < test-output.log)"
+            echo "probe-version: $(head -3 probe-version.log | tr '\n' ' ')"
+            echo "probe-config:  $(head -3 probe-config.log | tr '\n' ' ')"
             head -25 test-output.log | cut -c1-400 | while IFS= read -r line; do
               echo "::error title=Vitest::${line}"
             done
