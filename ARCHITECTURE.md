@@ -372,6 +372,33 @@ E2E runs on its own ports (5001, 5174) against its own `crm_e2e` database,
 resolved from `backend/.env` by swapping the database name. It cannot collide with
 a running dev server and cannot write to the database you are working in.
 
+**A green local suite is not a green CI suite, and the gap is worth stating.**
+Two of the failures that had to be diagnosed here were invisible locally: two E2E
+helpers that waited for a dialog to close rather than for a row to arrive, and a
+Node version that no dependency would admit to needing. Both pass on a developer
+machine and fail on a cold runner. The lesson generalises — a test that passes
+because the machine is fast is not a test that passes.
+
+### What CI asserts, in order
+
+The order is the point. Each step catches a class of failure that the next one
+would report in a way nobody can act on.
+
+1. **Every direct dependency's `engines` supports this Node.** Because `engines`
+   is advisory, `npm ci` will happily install a package that cannot run here, and
+   the symptom arrives later as an unexplained error inside another tool's
+   unhandled-errors section.
+2. **Lint**, then the unit and integration tests, then coverage against its
+   thresholds.
+3. **A production build and a staging build**, plus an inverted step asserting
+   that a publish build with a placeholder API URL is *refused*.
+
+The test step re-emits the tail of its own log as an annotation. Vitest's reporter
+annotates failing tests; it has nothing to say about a worker that failed to
+start, which is not a failing test. Without that, the most confusing failure
+observed here presented as a bare `exit code 1` that named no test and pointed at
+nothing.
+
 ## Known limitations
 
 Real gaps, not a to-do list. Each would change the design above rather than sit

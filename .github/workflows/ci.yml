@@ -134,52 +134,46 @@ jobs:
 
       # Vitest's default pool is `forks`, and every test file needs a worker
       # process spawned for it. GitHub's runners give the container 64MB of
-      # /dev/shm, and that is not enough: the spawn fails, and because it fails
-      # outside any test file, Vitest reports it as an "unhandled error" and exits
-      # non-zero.
+      # /dev/shm, which is the usual cause of "Failed to start forks worker".
       #
-      # The failure looks nothing like its cause. No test is named, the exit code
-      # is bare, and the message — "Failed to start forks worker" — is printed
-      # after the per-file results, past the part of the log anyone reads.
-      #
-      # 1GB is generous but free: /dev/shm is tmpfs, so it is RAM-backed and
-      # untouched pages are never resident.
+      # This was *not* the cause here — remounting it changed nothing — but it is
+      # cheap, correct, and the kind of limit a runner can tighten without warning,
+      # so it stays. 1GB is generous but free: /dev/shm is tmpfs, so it is
+      # RAM-backed and untouched pages are never resident.
       - name: Raise the shared memory limit
         run: sudo mount -o remount,size=1G /dev/shm
 
       - name: Unit and integration tests
         working-directory: frontend
-        # Deliberately unguarded, and deliberately emits its own diagnostics.
+        # Vitest is told to use its github-actions reporter so a failing test is
+        # an annotation on the test file, visible on the CI page rather than only
+        # in the raw log.
         #
-        # GitHub runs a `run:` block under `bash -e`, so a failing test command
-        # ends the block immediately and everything after it — including anything
-        # written to the job log — is lost. That is why the run is wrapped in
-        # `set +e`, and why the results are reported as ::error:: annotations
-        # rather than left in the log: an annotation is attached to the check run
-        # and stays readable from outside the browser.
+        # On top of that, a failure that is *not* a test failure — a worker that
+        # never started, an unhandled rejection after the last test — produces no
+        # annotations at all and would otherwise be completely opaque. That is not
+        # hypothetical: it is exactly how a broken Node version presented here, as
+        # a bare "exit code 1" that named no test and pointed at nothing. So the
+        # log tail is re-emitted as one annotation, which is the only way to see a
+        # failure that the reporter has nothing to report about.
         #
-        # Kept in one step on purpose. Splitting the reporting into a second step
-        # with `if: always()` looks safer, and was the previous version, but it
-        # re-introduced the same blindness: the reporting step succeeded while
-        # saying nothing useful, which is the worst of both.
+        # `set +e` because GitHub runs a `run:` block under `bash -e`, which would
+        # end the block at the failing command before anything was reported.
+        #
+        # Note the reporter name: `github-actions`, not `github`. `github` is what
+        # Playwright's is called, and guessing by analogy fails with "Failed to
+        # load custom Reporter from github".
         run: |
           set +e
-
-          npm run test > test-output.log 2>&1
+          npm run test -- --reporter=github-actions > test-output.log 2>&1
           code=$?
 
           if [ "$code" -ne 0 ]; then
-            # One annotation carrying the whole tail, not a window of lines.
-            #
-            # GitHub caps annotations per step, and every earlier attempt here
-            # emitted ten and lost the cause: the cap silently dropped whichever
-            # lines came last, which is exactly where the detail was. One
-            # annotation cannot be squeezed out that way.
-            #
             # Newlines become `+` and `%` becomes `%25`, because a workflow
-            # command is a single line and `%` starts an escape.
+            # command is a single line and `%` starts an escape. The tail rather
+            # than the head, because this failure mode prints its cause at the end.
             detail=$(sed -e 's/\x1b\[[0-9;]*m//g' test-output.log | tail -c 6000 | tr '\n' '+' | sed 's/%/%25/g')
-            echo "::error title=Vitest::node=$(node --version) exit=$code::${detail}"
+            echo "::error title=Test run failed::${detail}"
           fi
 
           exit "$code"

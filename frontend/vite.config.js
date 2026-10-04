@@ -65,24 +65,16 @@ export default defineConfig(({ mode, command }) => {
       setupFiles: ["./src/test/setup.js"],
       css: false,
 
-      // The `threads` pool, not Vitest 4's default `forks`.
+      // Vitest's default `forks` pool is kept.
       //
-      // Every test file needs a worker, and on a 4-core GitHub runner the forks
-      // pool failed to start all eighteen of them:
+      // `threads` was set here while chasing a CI failure that turned out to be a
+      // Node version problem — jsdom 30 refuses to load below Node 22.22.2, so
+      // every worker died on startup. Switching pool changed the error message
+      // without changing the cause, which is a good illustration of why a fix has
+      // to be justified by the mechanism and not by whether the symptom moves.
       //
-      //   [vitest-pool]: Failed to start forks worker for test files
-      //   Vitest caught 18 unhandled errors during the test run.
-      //
-      // It failed with no test named and a bare exit code, because a worker that
-      // never starts is an unhandled error rather than a failing test — so the
-      // build went red with nothing pointing at the cause. Raising /dev/shm, which
-      // is the usual suspect for this, did not help.
-      //
-      // worker_threads spawn in-process rather than through fork(), which is what
-      // the runner was refusing. Isolation is unchanged: Vitest still gives each
-      // test file its own module registry, and `isolate` stays at its default of
-      // true. All 364 tests pass under this pool locally.
-      pool: "threads",
+      // Left as a default rather than stated explicitly, since it is Vitest's
+      // choice and not something this project depends on.
 
       // 15s, up from Vitest's 5s default.
       //

@@ -8,9 +8,9 @@ React front end, Express + PostgreSQL API, one repo.
 [![CI](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
 [![E2E](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg?job=e2e)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
 ![Types](https://img.shields.io/badge/TypeScript-strict-22c55e)
-![Tests](https://img.shields.io/badge/tests-350%20passing-22c55e)
+![Tests](https://img.shields.io/badge/tests-364%20passing-22c55e)
 ![E2E](https://img.shields.io/badge/e2e-19%20specs-0ea5e9)
-![Coverage](https://img.shields.io/badge/coverage-97%25-0ea5e9)
+![Coverage](https://img.shields.io/badge/coverage-93%25-0ea5e9)
 
 ## Screenshots
 
@@ -52,8 +52,18 @@ see another's records.
 
 ## Requirements
 
-- **Node 20 or newer** (18 works; 20 is what CI uses)
+- **Node 22.22.2 or newer.** Not a preference: jsdom 30 — which the unit and
+  integration tests run in — declares `engines: ^22.22.2 || ^24.15.0 || >=26.0.0`
+  and does not support Node 20 at all. npm will install it anyway, because
+  `engines` is advisory, and then every test file fails the moment its worker
+  starts, with a `webidl.util.markAsUncloneable is not a function` error that
+  reads like a jsdom bug rather than a runtime mismatch. CI asserts every direct
+  dependency's `engines` against the running Node before anything else runs, so
+  this fails at the top of the build instead of 200 lines into a log.
 - **PostgreSQL 14 or newer**, reachable from the API
+
+`frontend/.nvmrc` records the same floor, and Node 24 works too — it is what the
+code is developed against.
 
 ## Running it
 
@@ -145,7 +155,8 @@ convenience, not the mechanism.
 Recharts, Yup, jsPDF, Papa Parse, lucide-react, Sentry.
 **Backend** — Express 5, PostgreSQL (`pg`), `jsonwebtoken`, `bcryptjs`, Yup, CORS.
 **Tooling** — Vitest and Testing Library for unit and integration, Playwright for
-end-to-end, oxlint, TypeScript 7, GitHub Actions.
+end-to-end, oxlint, TypeScript 7, GitHub Actions. Node 22.22.2 or newer; see
+[Requirements](#requirements).
 
 TypeScript is being adopted file by file from the bottom up — types, services,
 stores and hooks are converted and the data layer runs under `tsc --noEmit` on
@@ -177,7 +188,7 @@ Backend: `npm run dev` (with `--watch`), `npm start`, `npm run seed:demo`.
 
 ## Testing
 
-**350 unit and integration tests** across 17 files, and **19 end-to-end specs**.
+**364 unit and integration tests** across 18 files, and **19 end-to-end specs**.
 
 ```bash
 cd frontend
@@ -209,19 +220,28 @@ build, which is what CI uses.
 Coverage is gated in CI at 80% lines and functions and 75% branches, scoped to
 `services`, `utils`, `store` and `hooks` — the layers where a regression costs
 something. Components are excluded on purpose: a number earned by covering prop
-plumbing is a number that stops meaning anything. Current coverage is 97%. The
-threshold lives in `vite.config.js` and is enforced by Vitest, so it cannot be
-quietly removed.
+plumbing is a number that stops meaning anything. Current coverage across those
+layers is 93% of lines and 84% of branches. The threshold lives in
+`vite.config.js` and is enforced by Vitest, so it cannot be quietly removed.
 
 ## CI
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull
 request to `main` and `dev`. Both jobs fail the workflow on error.
 
-- **Lint, test and build** — oxlint, `tsc --noEmit`, Vitest with the coverage gate,
-  a production build, and a staging build. No database needed.
+- **Lint, test and build** — checks that every dependency's `engines` supports the
+  running Node, then oxlint, Vitest with the coverage gate, a production build and
+  a staging build. No database needed.
 - **End-to-end** — the full stack against a throwaway PostgreSQL 16, with the
   Playwright report and failure traces uploaded as artefacts.
+
+Two steps exist because of failures that were hard to read rather than hard to
+fix. The `engines` check names the dependency that does not support the runtime
+before a test runs, instead of surfacing it as an unexplained `webidl` error
+inside Vitest's unhandled-errors section. And the test step re-emits the tail of
+its log as an annotation, because a failure that is not a failing test — a worker
+that never started — produces no annotation from Vitest at all, and a bare "exit
+code 1" that names no test and points at nothing is not a usable error.
 
 One step is deliberately inverted: it asserts that a publish build with a
 placeholder API URL **fails**. A configuration guard that is never exercised is a
