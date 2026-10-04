@@ -70,55 +70,33 @@ jobs:
 
       - name: Unit and integration tests
         working-directory: frontend
-        # The reporter's job here is to put the failure somewhere a human will
-        # actually see.
+        # Deliberately unguarded, and deliberately emits its own diagnostics.
         #
-        # `github-actions` turns each failed test into an annotation on its file,
-        # so the CI page names the test rather than just saying "exit code 1". The
-        # name is not `github` — that is Playwright's, and guessing by analogy
-        # fails with "Failed to load custom Reporter from github".
+        # GitHub runs a `run:` block under `bash -e`, so a failing test command
+        # ends the block immediately and everything after it — including anything
+        # written to the job log — is lost. That is why the run is wrapped in
+        # `set +e`, and why the results are reported as ::error:: annotations
+        # rather than left in the log: an annotation is attached to the check run
+        # and stays readable from outside the browser.
         #
-        # The output is also teed to a file and summarised on the run page, because
-        # a failure that is not a test failure — an unhandled rejection after the
-        # last test, a crash in teardown — produces no annotations at all and
-        # would otherwise be completely opaque.
-        # Redirected to a file rather than piped.
-        #
-        # A pipeline here was tried and reverted: `set -o pipefail` is a bashism,
-        # and combined with the runner's `bash -e` it ended the step at the test
-        # command before the summary could be written — so the step failed with no
-        # output of its own, which is the exact opacity it was meant to remove.
-        # A plain redirect has no such failure mode, and the exit code still
-        # propagates because the command is the last one in the step.
-        run: npm run test -- --reporter=github-actions > test-output.log 2>&1
-
-      # Always runs, so a red build says what broke on the run page itself.
-      # Kept separate from the test step on purpose: anything that can prevent the
-      # test step from producing output must not be in the same step.
-      #
-      # The interesting lines are emitted as ::error:: annotations as well as
-      # going into the job summary. Annotations land on the run page *and* are
-      # readable through the API without authentication, which is what makes this
-      # diagnosable by someone who is not sitting at the browser. A job summary
-      # alone is only visible in the UI.
-      - name: Summarise the test run
-        if: always()
-        working-directory: frontend
+        # Kept in one step on purpose. Splitting the reporting into a second step
+        # with `if: always()` looks safer, and was the previous version, but it
+        # re-introduced the same blindness: the reporting step succeeded while
+        # saying nothing useful, which is the worst of both.
         run: |
-          if [ ! -f test-output.log ]; then
-            echo "::error title=Vitest::no log file was produced at all"
-            exit 0
-          fi
+          set +e
 
-          # Size and the first lines, unconditionally. Narrow greps hide the
-          # failure they were meant to expose: a command that dies before Vitest
-          # prints anything contains none of the words being grepped for, so the
-          # report is empty and the real cause stays invisible.
-          bytes=$(wc -c < test-output.log)
-          echo "::error title=Vitest::test-output.log is $bytes bytes"
-          head -30 test-output.log | cut -c1-500 | while IFS= read -r line; do
-            echo "::error title=Vitest::${line}"
-          done
+          npm run test -- --reporter=github-actions > test-output.log 2>&1
+          code=$?
+
+          {
+            echo "::error title=Vitest::exit=$code bytes=$(wc -c < test-output.log) node=$(node --version)"
+            head -25 test-output.log | cut -c1-400 | while IFS= read -r line; do
+              echo "::error title=Vitest::${line}"
+            done
+          }
+
+          exit "$code"
 
       - name: Coverage
         working-directory: frontend
