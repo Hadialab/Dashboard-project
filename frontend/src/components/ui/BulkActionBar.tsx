@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import Button from "./Button";
 import Select from "./Select";
 import Modal from "./Modal";
+import type { BulkResult } from "../../types";
 
 /**
  * The bar that appears once rows are selected.
@@ -17,6 +18,22 @@ import Modal from "./Modal";
  * irreversible and easy to trigger by accident, so it goes through a dialog that
  * names how many records are about to go.
  */
+
+/** A bulk handler returns nothing on success and throws when nothing landed. */
+type BulkOutcome = BulkResult | void | null;
+
+type BulkActionBarProps = {
+  count: number;
+  /** The statuses this resource can be set to. Empty disables the control. */
+  statusOptions: readonly string[];
+  onBulkStatusChange: (status: string) => Promise<BulkOutcome> | BulkOutcome;
+  onBulkDelete: () => Promise<BulkOutcome> | BulkOutcome;
+  /** Plural, e.g. "customers". Singularised for a single row. */
+  noun?: string;
+  disableStatus?: boolean;
+  disableDelete?: boolean;
+};
+
 function BulkActionBar({
   count,
   statusOptions,
@@ -25,29 +42,42 @@ function BulkActionBar({
   noun = "records",
   disableStatus = false,
   disableDelete = false,
-}) {
+}: BulkActionBarProps) {
   const [status, setStatus] = useState("");
   const [working, setWorking] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   // A delete that partially fails should say so, rather than reporting a flat
   // success for the rows that happened to work.
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<BulkResult | null>(null);
 
-  async function run(action) {
+  const EMPTY: BulkResult = { ok: 0, failed: 0, errors: [] };
+
+  async function run(action: () => Promise<BulkOutcome> | BulkOutcome) {
     setWorking(true);
     setResult(null);
 
     try {
       const outcome = await action();
-      setResult(outcome ?? { ok: 0, failed: 0 });
-      return outcome ?? { ok: 0, failed: 0 };
+      // `??` rather than a truthiness check: a handler returning 0 rows updated
+      // is a real, successful outcome and must not be replaced with a fresh
+      // empty result that reads as "nothing happened".
+      //
+      // The void arm is excluded explicitly because a `??` on a `void | T` union
+      // stays `void | T`, which is not assignable to the state type. The `as`
+      // is the narrowest one available and the branch below makes it true:
+      // `void` is what a handler that reports nothing returns.
+      const resolved = (outcome ?? EMPTY) as BulkResult;
+      setResult(resolved);
+      return resolved;
     } catch (error) {
       // The page handlers report their own success and partial-failure toasts,
       // so this is only for an action that threw outright — where nothing is
       // known about how many rows landed. Previously that escaped as an
       // unhandled rejection and the user saw the bar simply stop working.
       toast.error(
-        error?.response?.data?.error ?? `Could not update the selected ${noun}.`,
+        error instanceof Error && error.message
+          ? error.message
+          : `Could not update the selected ${noun}.`,
       );
       return null;
     } finally {
@@ -58,6 +88,8 @@ function BulkActionBar({
   async function handleStatusChange() {
     if (!status) return;
 
+    // Captured before clearing, because the select is reset immediately so the
+    // control shows its placeholder again rather than a stale choice.
     const chosen = status;
     setStatus("");
 
@@ -76,11 +108,16 @@ function BulkActionBar({
   const succeeded = result?.ok ?? 0;
   const failed = result?.failed ?? 0;
 
+  // "customers" -> "customer". Done here rather than at each call site so the
+  // singular can never disagree with the plural it is derived from.
+  const singular = noun.replace(/s$/, "");
+  const label = count === 1 ? singular : noun;
+
   return (
     <>
       <div className="sticky bottom-4 z-20 mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg sm:flex-row sm:items-center dark:border-slate-800 dark:bg-slate-950">
         <p className="text-sm font-medium text-slate-900 dark:text-white">
-          {count} {count === 1 ? noun.replace(/s$/, "") : noun} selected
+          {count} {label} selected
         </p>
 
         <div className="flex flex-1 flex-wrap items-center gap-2 sm:justify-end">
@@ -109,7 +146,7 @@ function BulkActionBar({
             onClick={handleStatusChange}
             disabled={!status || working || disableStatus}
           >
-            {working ? <Loader2 size={14} className="animate-spin" /> : null}
+            {working ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : null}
             Apply
           </Button>
 
@@ -142,7 +179,7 @@ function BulkActionBar({
       <Modal
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        title={`Delete ${count} ${count === 1 ? noun.replace(/s$/, "") : noun}?`}
+        title={`Delete ${count} ${label}?`}
         description="This cannot be undone. The records and everything attached to them — notes, follow-ups — are removed."
         size="sm"
         footer={
@@ -158,8 +195,7 @@ function BulkActionBar({
         }
       >
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          You are about to permanently delete {count}{" "}
-          {count === 1 ? noun.replace(/s$/, "") : noun}.
+          You are about to permanently delete {count} {label}.
         </p>
 
         {failed > 0 && (

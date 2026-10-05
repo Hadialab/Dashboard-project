@@ -1,28 +1,49 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import type { ReactNode } from "react";
 
-// Modal overlay. Full-screen on mobile, centred with a max width above sm, so
-// a form is never a cramped fixed-width box on a phone.
-//
-// Behaviour is unchanged from the modals it replaces: the caller controls open
-// state, this only handles escape-to-close, body scroll lock, and backdrop click.
-function Modal({
-  open,
-  onClose,
-  title,
-  description,
-  size = "md",
-  children,
-  footer,
-}) {
+/**
+ * Modal overlay. Full-screen on mobile, centred with a max width above sm, so
+ * a form is never a cramped fixed-width box on a phone.
+ *
+ * Behaviour is unchanged from the modals it replaces: the caller controls open
+ * state, this only handles escape-to-close, body scroll lock, and backdrop click.
+ */
+
+const WIDTHS = {
+  sm: "sm:max-w-md",
+  md: "sm:max-w-2xl",
+  lg: "sm:max-w-4xl",
+} as const;
+
+export type ModalSize = keyof typeof WIDTHS;
+
+type ModalProps = {
+  open: boolean;
+  onClose: () => void;
+  /**
+   * A plain string becomes the dialog's accessible name. A node does not — there
+   * is no safe way to derive text from arbitrary children — so a modal with a
+   * non-string title has no accessible name and needs `aria-label` on itself.
+   */
+  title?: ReactNode;
+  description?: ReactNode;
+  size?: ModalSize;
+  children?: ReactNode;
+  footer?: ReactNode;
+};
+
+function Modal({ open, onClose, title, description, size = "md", children, footer }: ModalProps) {
   // Lock background scroll and close on Escape while open.
   useEffect(() => {
     if (!open) return;
 
-    const onKeyDown = (event) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
 
+    // Saved rather than cleared: two modals could otherwise be open in sequence,
+    // and clearing on unmount would unlock the page behind the second one.
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
@@ -34,12 +55,6 @@ function Modal({
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const widths = {
-    sm: "sm:max-w-md",
-    md: "sm:max-w-2xl",
-    lg: "sm:max-w-4xl",
-  };
 
   return (
     <div
@@ -57,7 +72,7 @@ function Modal({
           "dark:border-slate-800 dark:bg-slate-950",
           // Rounded on all sides once it is a centred dialog rather than a sheet.
           "sm:rounded-2xl",
-          widths[size] ?? widths.md,
+          WIDTHS[size] ?? WIDTHS.md,
         ].join(" ")}
       >
         {title && (
@@ -80,7 +95,7 @@ function Modal({
               aria-label="Close dialog"
               className="-m-1 shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
-              <X size={18} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
         )}

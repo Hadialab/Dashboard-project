@@ -1,16 +1,34 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import type { ReactNode } from "react";
 
-// Side drawer. Slides in from the right on desktop; on mobile it takes the full
-// width so detail content is readable rather than squeezed into a sliver.
-function Drawer({ open, onClose, title, children, footer }) {
+/**
+ * Side drawer. Slides in from the right on desktop; on mobile it takes the full
+ * width so detail content is readable rather than squeezed into a sliver.
+ */
+type DrawerProps = {
+  open: boolean;
+  onClose: () => void;
+  /**
+   * A plain string becomes the drawer's accessible name. A node does not, for the
+   * same reason as Modal: there is no safe way to derive text from arbitrary
+   * children.
+   */
+  title?: ReactNode;
+  children?: ReactNode;
+  footer?: ReactNode;
+};
+
+function Drawer({ open, onClose, title, children, footer }: DrawerProps) {
   useEffect(() => {
     if (!open) return;
 
-    const onKeyDown = (event) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
 
+    // Saved rather than cleared, so a drawer opened from inside a modal does not
+    // unlock the page behind the modal when it closes.
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
@@ -49,7 +67,7 @@ function Drawer({ open, onClose, title, children, footer }) {
               aria-label="Close drawer"
               className="-m-1 shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
-              <X size={18} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
         )}
