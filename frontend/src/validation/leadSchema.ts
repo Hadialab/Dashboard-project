@@ -1,5 +1,13 @@
 import * as yup from "yup";
 
+/**
+ * The single-create form's schema for a lead, reused by the CSV import.
+ *
+ * assignedRep is not validated here. The server derives it from the record's
+ * owner, so whatever the browser sends is ignored — requiring it would only
+ * produce a confusing "required" error on a field the user cannot meaningfully
+ * fill in.
+ */
 export const leadSchema = yup.object({
   name: yup
     .string()
@@ -20,7 +28,7 @@ export const leadSchema = yup.object({
     .required("Phone number is required")
     .matches(
       /^[+]?[0-9\s\-()]{7,20}$/,
-      "Invalid phone number"
+      "Invalid phone number",
     ),
 
   status: yup
@@ -32,7 +40,7 @@ export const leadSchema = yup.object({
     .required("Source is required"),
 });
 
-// assignedRep is not validated here. The server derives it from the record's
-// owner, so whatever the browser sends is ignored — requiring it would only
-// produce a confusing "required" error on a field the user cannot meaningfully
-// fill in.
+/** What `validate` returns once the schema is satisfied. */
+export type LeadInput = yup.InferType<typeof leadSchema>;
+
+export default leadSchema;

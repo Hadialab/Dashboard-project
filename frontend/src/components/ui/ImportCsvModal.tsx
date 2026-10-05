@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileUp } from "lucide-react";
+import type { ChangeEvent } from "react";
 
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
@@ -9,20 +10,37 @@ import { customerSchema } from "../../validation/customerSchema";
 import { leadSchema } from "../../validation/leadSchema";
 import { createCustomer } from "../../services/customerService";
 import { createLead } from "../../services/leadService";
-import { CUSTOMER_STATUSES, LEAD_STATUSES, LEAD_SOURCES } from "../../utils/crmConstants";
+import {
+  CUSTOMER_STATUSES,
+  LEAD_SOURCES,
+  LEAD_STATUSES,
+  firstOr,
+  isOneOf,
+} from "../../utils/crmConstants";
+import { getApiErrorMessage } from "../../utils/apiError";
+import type { Customer, Lead } from "../../types";
 
-// papaparse is a few tens of KB and only needed when someone actually imports a
-// file, so it is pulled in on demand rather than sitting in the route chunk.
-const loadPapa = () => import("papaparse").then((m) => m.default);
+/**
+ * papaparse is a few tens of KB and only needed when someone actually imports a
+ * file, so it is pulled in on demand rather than sitting in the route chunk.
+ *
+ * It ships no types, so the one call is typed at the boundary. `default` is used
+ * because the package is CJS and the ESM interop wrapper hangs it there.
+ */
+const loadPapa = () =>
+  import("papaparse").then((m) =>
+    (m.default ?? m) as unknown as typeof import("papaparse"),
+  );
 
-// The fields an import can fill, per resource. Used to build the mapping
-// dropdowns and to decide what the preview table shows.
-const FIELD_SETS = {
+type Resource = "customer" | "lead";
+
+/** The fields an import can fill, per resource. Drives the mapping dropdowns. */
+const FIELD_SETS: Record<Resource, string[]> = {
   customer: ["name", "company", "email", "phone", "status"],
   lead: ["name", "company", "email", "phone", "status", "source"],
 };
 
-const LABELS = {
+const LABELS: Record<string, string> = {
   name: "Name",
   company: "Company",
   email: "Email",
@@ -31,6 +49,9 @@ const LABELS = {
   source: "Source",
 };
 
+/** One parsed CSV line, keyed by its header text. */
+type CsvRow = Record<string, string>;
+
 /**
  * Guesses the mapping from CSV headers to fields.
  *
@@ -38,10 +59,10 @@ const LABELS = {
  * wrong guess silently writes bad data. Matching is on a normalised header so
  * "Email Address", "email_address" and "EMAIL" all land on the email field.
  */
-function guessMapping(headers, fields) {
-  const normalise = (value) => value.toLowerCase().replace(/[^a-z]/g, "");
+function guessMapping(headers: string[], fields: string[]): Record<string, string> {
+  const normalise = (value: string) => value.toLowerCase().replace(/[^a-z]/g, "");
 
-  const mapping = {};
+  const mapping: Record<string, string> = {};
   for (const field of fields) {
     const target = normalise(field);
     const match = headers.find((header) => {
@@ -55,34 +76,62 @@ function guessMapping(headers, fields) {
   return mapping;
 }
 
+/** Per-field messages from a rejected row, or null when it validated. */
+type RowValidation =
+  | { value: (Partial<Customer> & Partial<Lead>) | null; errors: Record<string, string> | null };
+
 /** Validates one row against the same schema the single-create form uses. */
-async function validateRow(resource, row) {
+async function validateRow(resource: Resource, row: Record<string, string>): Promise<RowValidation> {
   const schema = resource === "customer" ? customerSchema : leadSchema;
 
   try {
-    const value = await schema.validate(row, { abortEarly: false });
+    const value = (await schema.validate(row, { abortEarly: false })) as Record<string, string>;
 
     // Status and source are free text in the CSV; snap them to a real value
-    // rather than letting an unrecognised one through to be stored.
+    // rather than letting an unrecognised one through to be stored. isOneOf is
+    // used because the constant lists are literal unions, so a plain
+    // `includes` cannot be handed an arbitrary string.
     if (value.status) {
       const allowed = resource === "customer" ? CUSTOMER_STATUSES : LEAD_STATUSES;
-      value.status = allowed.includes(value.status) ? value.status : allowed[0];
+      value.status = isOneOf(allowed, value.status) ? value.status : firstOr(allowed, value.status);
     }
 
     if (value.source) {
-      value.source = LEAD_SOURCES.includes(value.source) ? value.source : LEAD_SOURCES[0];
+      value.source = isOneOf(LEAD_SOURCES, value.source)
+        ? value.source
+        : firstOr(LEAD_SOURCES, value.source);
     }
 
-    return { value, errors: null };
+    return { value: value as RowValidation["value"], errors: null };
   } catch (err) {
-    const errors = {};
-    err.inner?.forEach((error) => {
-      errors[error.path] = error.message;
-    });
+    // Yup's abortEarly:false puts every field's error in `inner`, keyed by path.
+    // Without abortEarly there would be exactly one, and this would show only
+    // the first thing wrong with a row.
+    const errors: Record<string, string> = {};
+    const inner = (err as { inner?: { path?: string; message: string }[] }).inner ?? [];
+
+    for (const error of inner) {
+      if (error.path) errors[error.path] = error.message;
+    }
 
     return { value: null, errors };
   }
 }
+
+type Step = "pick" | "map" | "review" | "importing" | "done";
+
+type ImportResult = {
+  ok: number;
+  failed: { name: string; message: string }[];
+};
+
+type ImportCsvModalProps = {
+  open: boolean;
+  onClose: () => void;
+  resource?: Resource;
+  /** Existing emails, used to flag a duplicate rather than silently creating one. */
+  existingEmails?: readonly string[];
+};
 
 /**
  * CSV import with a mapping step and a validation preview.
@@ -92,18 +141,23 @@ async function validateRow(resource, row) {
  * skipped, because an import that half-works and reports "done" is the worst
  * possible outcome — the user has no idea which records now exist.
  */
-function ImportCsvModal({ open, onClose, resource = "customer", existingEmails = [] }) {
-  const fileInputRef = useRef(null);
+function ImportCsvModal({
+  open,
+  onClose,
+  resource = "customer",
+  existingEmails = [],
+}: ImportCsvModalProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [step, setStep] = useState("pick");
-  const [rows, setRows] = useState([]);
-  const [headers, setHeaders] = useState([]);
+  const [step, setStep] = useState<Step>("pick");
+  const [rows, setRows] = useState<CsvRow[]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
-  const [mapping, setMapping] = useState({});
-  const [validation, setValidation] = useState({});
-  const [duplicates, setDuplicates] = useState(new Set());
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [validation, setValidation] = useState<Record<number, RowValidation>>({});
+  const [duplicates, setDuplicates] = useState<Set<number>>(new Set());
   const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState("");
 
   const fields = FIELD_SETS[resource];
@@ -128,7 +182,7 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
     onClose();
   }
 
-  async function handleFile(event) {
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -138,15 +192,15 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
     try {
       const Papa = await loadPapa();
 
-      Papa.parse(file, {
+      Papa.parse<CsvRow>(file, {
         header: true,
         // Left to the field schemas: trimming here would hide a stray space that
         // would otherwise be caught and reported.
         skipEmptyLines: "greedy",
         complete: (parsed) => {
           const parsedHeaders = (parsed.meta?.fields ?? []).filter(Boolean);
-          const data = (parsed.data ?? []).filter(
-            (row) => Object.values(row).some((value) => String(value ?? "").trim() !== ""),
+          const data = (parsed.data ?? []).filter((row) =>
+            Object.values(row).some((value) => String(value ?? "").trim() !== ""),
           );
 
           if (data.length === 0) {
@@ -159,7 +213,7 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
           setMapping(guessMapping(parsedHeaders, fields));
           setStep("map");
         },
-        error: (parseError) => {
+        error: (parseError: { message: string }) => {
           setError(`Could not read the file: ${parseError.message}`);
         },
       });
@@ -178,7 +232,7 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
    */
   const reviewRows = useMemo(() => {
     return rows.map((row, index) => {
-      const mapped = {};
+      const mapped: Record<string, string> = {};
 
       for (const field of fields) {
         const header = mapping[field];
@@ -196,12 +250,12 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
     setDuplicates(new Set());
 
     const known = new Set(existingEmails.map((value) => String(value).toLowerCase()));
-    const found = new Set();
-    const results = {};
+    const found = new Set<number>();
+    const results: Record<number, RowValidation> = {};
 
     for (const row of reviewRows) {
-      const { value, errors } = await validateRow(resource, row.mapped);
-      results[row.index] = { value, errors };
+      const outcome = await validateRow(resource, row.mapped);
+      results[row.index] = outcome;
 
       const email = row.mapped.email?.toLowerCase();
       if (email && known.has(email)) found.add(row.index);
@@ -217,32 +271,45 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
   const invalidRows = reviewRows.filter((row) => validation[row.index]?.errors);
   const duplicateRows = reviewRows.filter((row) => duplicates.has(row.index));
 
-  const create = resource === "customer" ? createCustomer : createLead;
+  /**
+   * The two create functions do not agree: createLead returns the created row
+   * while createCustomer returns the whole Axios response. Only the throw matters
+   * here — the row is re-fetched by the table — so both are wrapped to a
+   * uniform `(payload) => Promise<void>`. The day createCustomer is made to
+   * match, this collapses to one function.
+   */
+  const create = async (payload: NonNullable<RowValidation["value"]>): Promise<void> => {
+    if (resource === "customer") {
+      await createCustomer(payload);
+    } else {
+      await createLead(payload);
+    }
+  };
 
   async function handleImport() {
     setStep("importing");
     setProgress({ done: 0, total: validRows.length });
 
     let ok = 0;
-    const failed = [];
+    const failed: ImportResult["failed"] = [];
 
     for (const [index, row] of validRows.entries()) {
       try {
-        await create(validation[row.index].value);
+        await create(validation[row.index]!.value!);
         ok += 1;
       } catch (createError) {
         failed.push({
           name: row.mapped.name ?? `Row ${row.index + 1}`,
-          message: createError.response?.data?.error ?? "Could not be created.",
+          message: getApiErrorMessage(createError, "Could not be created."),
         });
       }
 
       setProgress({ done: index + 1, total: validRows.length });
 
-      // Hand control back periodically so the bar actually moves.
-      if ((index + 1) % 5 === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+      // Hand control back periodically so the bar actually moves. Every row,
+      // not every fifth: the setState above only paints if the event loop gets
+      // a turn, and a 200-row file with no yield renders one frozen 0%.
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
     setResult({ ok, failed });
@@ -273,10 +340,7 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
           )}
 
           {step === "review" && (
-            <Button
-              onClick={handleImport}
-              disabled={validRows.length === 0}
-            >
+            <Button onClick={handleImport} disabled={validRows.length === 0}>
               Import {validRows.length} {validRows.length === 1 ? "record" : "records"}
             </Button>
           )}
@@ -448,6 +512,7 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
                           <CheckCircle2
                             size={16}
                             className="text-emerald-600"
+                            role="img"
                             aria-label="Ready to import"
                           />
                         ) : (
@@ -517,16 +582,18 @@ function ImportCsvModal({ open, onClose, resource = "customer", existingEmails =
   );
 }
 
-function SummaryTile({ value, label, tone }) {
-  const tones = {
-    good: "text-emerald-700 dark:text-emerald-400",
-    warn: "text-amber-700 dark:text-amber-400",
-    bad: "text-rose-700 dark:text-rose-400",
-  };
+type TileTone = "good" | "warn" | "bad";
 
+const TILE_TONES: Record<TileTone, string> = {
+  good: "text-emerald-700 dark:text-emerald-400",
+  warn: "text-amber-700 dark:text-amber-400",
+  bad: "text-rose-700 dark:text-rose-400",
+};
+
+function SummaryTile({ value, label, tone }: { value: number; label: string; tone: TileTone }) {
   return (
     <div className="rounded-lg border border-slate-200 p-3 text-center dark:border-slate-800">
-      <p className={`text-xl font-semibold ${tones[tone]}`}>{value}</p>
+      <p className={`text-xl font-semibold ${TILE_TONES[tone]}`}>{value}</p>
       <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{label}</p>
     </div>
   );

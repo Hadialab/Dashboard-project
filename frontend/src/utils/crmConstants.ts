@@ -17,6 +17,34 @@ import type { DealStage, LeadStatus, Deal } from "../types";
 
 export { DEAL_STAGES, OPEN_STAGES, LEAD_STATUSES, LEAD_SOURCES, CUSTOMER_STATUSES };
 
+/**
+ * Whether `value` is one of `options`, narrowing to the union in the true branch.
+ *
+ * Exists because `OPTION_LIST.includes(value)` cannot do this job: the lists are
+ * declared `as const`, so `includes` takes the literal union and rejects any
+ * plain `string`. That is correct — it is exactly the mistake this guards
+ * against — but it leaves the "is this one of our values?" question unanswerable,
+ * which is what a CSV import has to ask about arbitrary text.
+ *
+ * The cast is confined here and documented rather than sprinkled at call sites.
+ */
+export function isOneOf<T extends string>(
+  options: readonly T[],
+  value: string,
+): value is T {
+  return (options as readonly string[]).includes(value);
+}
+
+/**
+ * The first real value in `options`, or `fallback` when the list is empty.
+ *
+ * Present so callers that need a default can do it without a non-null assertion
+ * on an index they cannot see is non-empty.
+ */
+export function firstOr<T>(options: readonly T[], fallback: T): T {
+  return options[0] ?? fallback;
+}
+
 export const WON_STAGE = "Won" satisfies DealStage;
 export const LOST_STAGE = "Lost" satisfies DealStage;
 export const CONVERTED_STATUS = "Converted" satisfies LeadStatus;
