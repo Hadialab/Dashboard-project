@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, Trash2 } from "lucide-react";
+import type { FormEvent } from "react";
+
 import { createNote, deleteNote, getNotes } from "../../services/noteService";
 import useAuthStore from "../../store/authStore";
 import Button from "./Button";
 import { formatRelative } from "../../utils/time";
+import { getApiErrorMessage, normalizeError } from "../../utils/apiError";
+import type { Note, NoteEntityType } from "../../types";
 
 /**
  * The activity timeline for a record.
@@ -20,23 +24,42 @@ import { formatRelative } from "../../utils/time";
  * of a record is the combination: "stage moved to Negotiation" only makes sense
  * next to the note written just before it.
  */
-function NotesTimeline({ entityType, entityId }) {
+type NotesTimelineProps = {
+  /**
+   * Which table the parent record lives in. The union rather than `string`,
+   * because noteService already demands it — a timeline for a table that cannot
+   * hold notes is a mistake worth catching at the call site.
+   */
+  entityType?: NoteEntityType | null;
+  entityId?: string | null;
+};
+
+/** Server-side cap, mirrored so the counter cannot disagree with the API. */
+const MAX_LENGTH = 2000;
+
+function NotesTimeline({ entityType, entityId }: NotesTimelineProps) {
   const currentUser = useAuthStore((state) => state.user);
-  const [notes, setNotes] = useState([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    if (!entityType || !entityId) return;
+    // A timeline with no parent has nothing to load. Returning early rather than
+    // requesting a malformed id also leaves `loading` false, so the empty state
+    // shows instead of a spinner that never resolves.
+    if (!entityType || !entityId) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setNotes(await getNotes({ entityType, entityId }));
       setError("");
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not load activity.");
+      setError(getApiErrorMessage(err, "Could not load activity."));
     } finally {
       setLoading(false);
     }
@@ -46,7 +69,7 @@ function NotesTimeline({ entityType, entityId }) {
     load();
   }, [load]);
 
-  async function handleSubmit(event) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmed = body.trim();
@@ -54,27 +77,28 @@ function NotesTimeline({ entityType, entityId }) {
 
     try {
       setSaving(true);
-      const created = await createNote({ entityType, entityId, body: trimmed });
+      const created = await createNote({ entityType: entityType!, entityId: entityId!, body: trimmed });
+      // Prepended rather than re-fetched: the server's row is authoritative, and
+      // a refetch here would make the newly typed note flash before appearing.
       setNotes((prev) => [created, ...prev]);
       setBody("");
       setError("");
     } catch (err) {
-      setError(
-        err.response?.data?.details?.body ??
-          err.response?.data?.error ??
-          "Could not save note.",
-      );
+      // A 400 carries a per-field message, and for a textarea that is far more
+      // useful than the generic "error" alongside it.
+      const fieldError = normalizeError(err).fieldErrors?.body;
+      setError(fieldError ?? getApiErrorMessage(err, "Could not save note."));
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id: string) {
     try {
       await deleteNote(id);
       setNotes((prev) => prev.filter((note) => note.id !== id));
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not delete note.");
+      setError(getApiErrorMessage(err, "Could not delete note."));
     }
   }
 
@@ -89,14 +113,16 @@ function NotesTimeline({ entityType, entityId }) {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}
-          maxLength={2000}
+          maxLength={MAX_LENGTH}
           placeholder="Add a note about this record..."
           aria-label="New note"
           className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
         />
 
         <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="text-xs text-slate-400">{body.length}/2000</span>
+          <span className="text-xs text-slate-400">
+            {body.length}/{MAX_LENGTH}
+          </span>
 
           <Button type="submit" size="sm" disabled={saving || !body.trim()}>
             {saving ? "Saving..." : "Add note"}
@@ -118,6 +144,8 @@ function NotesTimeline({ entityType, entityId }) {
         <ol className="mt-3 space-y-2">
           {notes.map((note) => {
             const isEvent = note.kind === "event";
+            // Events are part of the record's history and are not deletable by
+            // anyone, admin included.
             const canDelete =
               !isEvent &&
               (currentUser?.role === "admin" || note.authorId === currentUser?.id);
@@ -164,7 +192,7 @@ function NotesTimeline({ entityType, entityId }) {
                       aria-label="Delete note"
                       className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} aria-hidden="true" />
                     </button>
                   )}
                 </div>
