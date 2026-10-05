@@ -13,7 +13,7 @@ function DashboardLayout() {
 
   // Cmd+K on macOS, Ctrl+K elsewhere. Bound once here rather than in the palette
   // so it works from anywhere in the app, including inside a table's search box.
-  const onKeyDown = useCallback((event) => {
+  const onKeyDown = useCallback((event: globalThis.KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       setPaletteOpen((open) => !open);

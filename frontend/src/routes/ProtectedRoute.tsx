@@ -1,10 +1,13 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { ShieldAlert } from "lucide-react";
+import type { ReactNode } from "react";
+
 import useAuthStore from "../store/authStore";
 import usePermissions from "../hooks/usePermissions";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import type { PermissionResource } from "../types";
 
 /**
  * Gate for protected routes.
@@ -16,7 +19,13 @@ import Button from "../components/ui/Button";
  * The API enforces the same rules independently, so this only stops the user
  * landing on a page that would render nothing.
  */
-function ProtectedRoute({ children, permission }) {
+type ProtectedRouteProps = {
+  children: ReactNode;
+  /** The resource this route belongs to. Omit for pages anyone signed in can reach. */
+  permission?: PermissionResource | string;
+};
+
+function ProtectedRoute({ children, permission }: ProtectedRouteProps) {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const isChecking = useAuthStore((state) => state.isChecking);
   const restoreSession = useAuthStore((state) => state.restoreSession);
@@ -39,6 +48,8 @@ function ProtectedRoute({ children, permission }) {
   if (isChecking) return null;
 
   if (!isLoggedIn) {
+    // `state.from` so the login page can return the user to where they were
+    // headed rather than dumping them on the dashboard.
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
@@ -55,7 +66,7 @@ function NoAccess() {
     <div className="flex min-h-[60vh] items-center justify-center">
       <Card className="max-w-md p-6 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-          <ShieldAlert size={24} className="text-amber-600 dark:text-amber-400" />
+          <ShieldAlert size={24} className="text-amber-600 dark:text-amber-400" aria-hidden="true" />
         </div>
 
         <h1 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">

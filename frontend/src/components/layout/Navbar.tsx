@@ -1,28 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Check, Menu, Search, X } from "lucide-react";
+import type { KeyboardEvent } from "react";
 
 import ThemeToggle from "../ui/ThemeToggle";
 import UserMenu from "./UserMenu";
 import useNotificationStore, { selectUnreadCount } from "../../store/notificationStore";
 import { formatRelative } from "../../utils/time";
+import type { Notification } from "../../types";
 
-function Navbar({ onToggleSidebar, onOpenSearch }) {
+type NavbarProps = {
+  onToggleSidebar: () => void;
+  /** Opens the command palette — the discoverable route to it. */
+  onOpenSearch: () => void;
+};
+
+function Navbar({ onToggleSidebar, onOpenSearch }: NavbarProps) {
   const navigate = useNavigate();
 
+  // The whole store rather than selected slices: this component reads four
+  // separate fields, and one subscription beats four.
   const notifications = useNotificationStore();
   const unreadCount = useNotificationStore(selectUnreadCount);
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const notificationRef = useRef(null);
-  const notificationButtonRef = useRef(null);
-  const notificationPanelRef = useRef(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const notificationButtonRef = useRef<HTMLButtonElement>(null);
+  const notificationPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const listener = (event) => {
+    const listener = (event: MouseEvent) => {
       if (
         notificationRef.current &&
-        !notificationRef.current.contains(event.target)
+        !notificationRef.current.contains(event.target as Node)
       ) {
         setShowNotifications(false);
       }
@@ -42,7 +52,7 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
   useEffect(() => {
     if (!showNotifications) return undefined;
 
-    const onKeyDown = (event) => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
 
       setShowNotifications(false);
@@ -65,11 +75,20 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
    * Marked before navigating: if the click navigates away, marking it afterwards
    * would be updating a store nobody is looking at any more.
    */
-  function openNotification(notification) {
+  function openNotification(notification: Notification) {
     notifications.markRead(notification.key);
     setShowNotifications(false);
 
     if (notification.link) navigate(notification.link);
+  }
+
+  /** Enter and Space activate a button natively; this is only for Escape. */
+  function handlePanelKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      setShowNotifications(false);
+      notificationButtonRef.current?.focus();
+    }
   }
 
   return (
@@ -80,7 +99,7 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
         className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-blue-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-900 md:hidden"
         aria-label="Toggle navigation"
       >
-        <Menu size={20} />
+        <Menu size={20} aria-hidden="true" />
       </button>
 
       {/* The discoverable entry point for the palette. The keyboard shortcut is
@@ -118,12 +137,15 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
             aria-haspopup="dialog"
             aria-controls="notifications-panel"
           >
-            <Bell size={20} />
+            <Bell size={20} aria-hidden="true" />
 
             {/* Only shown when there is something unread. A permanent dot that
                 never changes state is noise, not information. */}
             {unreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-950">
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-950"
+              >
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
@@ -136,6 +158,7 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
               role="dialog"
               aria-label="Notifications"
               tabIndex={-1}
+              onKeyDown={handlePanelKeyDown}
               className="fixed inset-x-3 top-16 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg focus:outline-none sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-96 dark:border-slate-800 dark:bg-slate-950"
             >
               <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
@@ -150,7 +173,7 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
                       onClick={notifications.markAllRead}
                       className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-blue-600 transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/50"
                     >
-                      <Check size={13} />
+                      <Check size={13} aria-hidden="true" />
                       Mark all read
                     </button>
                   )}
@@ -165,7 +188,7 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
                       aria-label="Clear all notifications"
                       className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                     >
-                      <X size={15} />
+                      <X size={15} aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -173,7 +196,7 @@ function Navbar({ onToggleSidebar, onOpenSearch }) {
 
               {notifications.notifications.length === 0 ? (
                 <p className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                  Nothing yet. You'll be told when a deal closes, is won, or a
+                  Nothing yet. You&apos;ll be told when a deal closes, is won, or a
                   lead comes in.
                 </p>
               ) : (

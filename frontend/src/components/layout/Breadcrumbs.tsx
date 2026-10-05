@@ -1,6 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 
-const routeNames = {
+/**
+ * Friendly names for the segments that are not already readable. Only the ones
+ * that need it — anything else falls through to its own slug, which is why
+ * /follow-ups reads as "follow-ups" rather than a sentence.
+ */
+const ROUTE_NAMES: Record<string, string> = {
   dashboard: "Dashboard",
   analytics: "Analytics",
   settings: "Settings",
@@ -11,6 +16,9 @@ function Breadcrumbs() {
   const location = useLocation();
   const segments = location.pathname.split("/").filter(Boolean);
 
+  // The root path has no segments, so there is no trail to show. Returning null
+  // rather than a lone "Home" link, which would be a breadcrumb to where you
+  // already are.
   if (segments.length === 0) {
     return null;
   }
@@ -27,8 +35,11 @@ function Breadcrumbs() {
           </Link>
         </li>
         {segments.map((segment, index) => {
+          // Cumulative, so each crumb points at its own ancestor rather than at
+          // the current page. The last one is a link to itself, which is mildly
+          // redundant but keeps the markup uniform and the styles consistent.
           const path = `/${segments.slice(0, index + 1).join("/")}`;
-          const name = routeNames[segment] || segment;
+          const name = ROUTE_NAMES[segment] ?? segment;
 
           return (
             <li key={path} className="flex items-center gap-2">
