@@ -8,6 +8,8 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
+import type { FormEvent } from "react";
+
 import {
   createFollowUp,
   deleteFollowUp,
@@ -21,20 +23,12 @@ import {
   followUpTypeLabel,
   isOverdue,
 } from "../../utils/calendar";
+import type { FollowUpContact } from "../../utils/calendar";
+import { getApiErrorMessage, normalizeError } from "../../utils/apiError";
 import useAuthStore from "../../store/authStore";
 import Button from "./Button";
 import Select from "./Select";
-
-const TYPES = ["call", "email", "meeting", "task"];
-
-const TYPE_ICONS = {
-  call: Phone,
-  email: Mail,
-  meeting: Users,
-  task: Check,
-};
-
-const emptyForm = { title: "", type: "call", dueAt: "", details: "" };
+import type { FollowUp, FollowUpType, NoteEntityType } from "../../types";
 
 /**
  * Scheduled follow-ups for one record.
@@ -44,24 +38,66 @@ const emptyForm = { title: "", type: "call", dueAt: "", details: "" };
  * The server-side sender is used when it is configured, and the UI says so
  * rather than silently doing nothing.
  */
-function FollowUpsPanel({ entityType, entityId, contact }) {
+
+const TYPES: FollowUpType[] = ["call", "email", "meeting", "task"];
+
+/**
+ * A fallback is given for every type, so `TYPE_ICONS[followUp.type]` is total
+ * and the `?? Check` at the call site is genuinely unreachable rather than
+ * quietly covering a bad value.
+ */
+const TYPE_ICONS: Record<FollowUpType, typeof Check> = {
+  call: Phone,
+  email: Mail,
+  meeting: Users,
+  task: Check,
+};
+
+type FollowUpForm = {
+  title: string;
+  type: FollowUpType;
+  /** YYYY-MM-DD, empty until chosen. */
+  dueAt: string;
+  details: string;
+};
+
+/**
+ * A fresh object each time rather than a shared constant: spreading it into
+ * state and then mutating that state would otherwise leak one form's values into
+ * the next.
+ */
+const emptyForm = (): FollowUpForm => ({ title: "", type: "call", dueAt: "", details: "" });
+
+type FollowUpsPanelProps = {
+  entityType?: NoteEntityType | null;
+  entityId?: string | null;
+  /** Whoever to address a reminder to. Absent for records with no contact. */
+  contact?: FollowUpContact | null;
+};
+
+function FollowUpsPanel({ entityType, entityId, contact }: FollowUpsPanelProps) {
   const currentUser = useAuthStore((state) => state.user);
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<FollowUpForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    if (!entityType || !entityId) return;
+    // No parent means nothing to load. Returning early also leaves `loading`
+    // false, so the empty state renders instead of a spinner that never ends.
+    if (!entityType || !entityId) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setItems(await getFollowUps({ entityType, entityId }));
       setError("");
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not load follow-ups.");
+      setError(getApiErrorMessage(err, "Could not load follow-ups."));
     } finally {
       setLoading(false);
     }
@@ -71,7 +107,7 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
     load();
   }, [load]);
 
-  async function handleCreate(event) {
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!form.title.trim() || !form.dueAt) {
@@ -82,53 +118,57 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
     try {
       setSaving(true);
       const created = await createFollowUp({
-        entityType,
-        entityId,
+        entityType: entityType!,
+        entityId: entityId!,
         title: form.title.trim(),
         type: form.type,
         dueAt: form.dueAt,
         details: form.details.trim(),
       });
 
-      setItems((prev) => [...prev, created].sort((a, b) => a.dueAt.localeCompare(b.dueAt)));
-      setForm(emptyForm);
+      // Re-sorted on insert: the list is ordered by due date, and appending
+      // would put a new follow-up for last month at the bottom.
+      setItems((prev) =>
+        [...prev, created].sort((a, b) => a.dueAt.localeCompare(b.dueAt)),
+      );
+      setForm(emptyForm());
       setShowForm(false);
       setError("");
       toast.success("Follow-up scheduled.");
     } catch (err) {
-      const detail = err.response?.data?.details;
-      setError(
-        detail
-          ? Object.values(detail)[0]
-          : (err.response?.data?.error ?? "Could not schedule follow-up."),
-      );
+      // A 400's per-field message is more useful than the generic error beside
+      // it, so the first one wins.
+      const fieldError = Object.values(normalizeError(err).fieldErrors ?? {})[0];
+      setError(fieldError ?? getApiErrorMessage(err, "Could not schedule follow-up."));
     } finally {
       setSaving(false);
     }
   }
 
-  async function toggleDone(followUp) {
+  async function toggleDone(followUp: FollowUp) {
     try {
       const updated = await updateFollowUp(followUp.id, {
         status: followUp.status === "done" ? "pending" : "done",
       });
 
+      // The server row replaces the local one, so an overdue flag that just
+      // became false does not linger on the stale copy.
       setItems((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not update follow-up.");
+      setError(getApiErrorMessage(err, "Could not update follow-up."));
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id: string) {
     try {
       await deleteFollowUp(id);
       setItems((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not delete follow-up.");
+      setError(getApiErrorMessage(err, "Could not delete follow-up."));
     }
   }
 
-  async function handleNotify(followUp) {
+  async function handleNotify(followUp: FollowUp) {
     try {
       const result = await notifyFollowUp(followUp.id);
 
@@ -147,11 +187,13 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
         toast.error(result.reason ?? "No email address to send to.");
       }
     } catch (err) {
+      // A mailto: link always works, so the server's failure is not fatal —
+      // only having no address at all is worth showing as an error.
       const mailto = buildMailtoForFollowUp(followUp, contact);
       if (mailto) {
         window.location.href = mailto;
       } else {
-        setError(err.response?.data?.error ?? "Could not send reminder.");
+        setError(getApiErrorMessage(err, "Could not send reminder."));
       }
     }
   }
@@ -190,7 +232,7 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
               label="Type"
               name="type"
               value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              onChange={(e) => setForm({ ...form, type: e.target.value as FollowUpType })}
             >
               {TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -250,6 +292,9 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
             const Icon = TYPE_ICONS[followUp.type] ?? Check;
             const done = followUp.status === "done";
             const overdue = isOverdue(followUp);
+            // An admin may delete anyone's follow-up; everyone else only their
+            // own. A null createdBy means the author was deleted, so nobody but
+            // an admin can remove it.
             const canDelete =
               currentUser?.role === "admin" || followUp.createdBy === currentUser?.id;
 
@@ -298,7 +343,7 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
                         : "text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800"
                     }`}
                   >
-                    <Check size={15} />
+                    <Check size={15} aria-hidden="true" />
                   </button>
                 </div>
 
@@ -311,7 +356,7 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
                     }}
                     className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
-                    <CalendarPlus size={14} />
+                    <CalendarPlus size={14} aria-hidden="true" />
                     Calendar
                   </button>
 
@@ -320,7 +365,7 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
                     onClick={() => handleNotify(followUp)}
                     className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
-                    <Mail size={14} />
+                    <Mail size={14} aria-hidden="true" />
                     Email
                   </button>
 
@@ -331,7 +376,7 @@ function FollowUpsPanel({ entityType, entityId, contact }) {
                       aria-label="Delete follow-up"
                       className="ml-auto inline-flex min-h-11 items-center rounded-lg px-2.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} aria-hidden="true" />
                     </button>
                   )}
                 </div>

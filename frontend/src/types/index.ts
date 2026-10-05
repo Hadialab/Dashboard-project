@@ -202,6 +202,15 @@ export type FollowUp = {
   dueAt: DateOnly;
   details?: string;
   status: FollowUpStatus;
+  /**
+   * The author's user id. Nullable because the schema is ON DELETE SET NULL — a
+   * deleted account leaves its follow-ups behind with nobody owning them.
+   *
+   * Present because the panel decides who may delete a follow-up by comparing
+   * this to the signed-in user. It was missing from this type, which meant the
+   * comparison compiled as an error rather than as the check it is.
+   */
+  createdBy?: ID | null;
   createdByName?: string;
   createdByEmail?: string;
 };
