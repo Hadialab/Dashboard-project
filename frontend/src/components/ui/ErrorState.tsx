@@ -1,4 +1,5 @@
 import { AlertTriangle, RefreshCcw } from "lucide-react";
+import type { ReactNode } from "react";
 
 /**
  * Shown when a list request fails, as distinct from EmptyState.
@@ -9,7 +10,22 @@ import { AlertTriangle, RefreshCcw } from "lucide-react";
  * first" while the real problem is that the server is unreachable. So this says
  * what happened and offers a retry.
  */
-function ErrorState({ title = "Something went wrong", message, onRetry, retrying = false }) {
+type ErrorStateProps = {
+  title?: ReactNode;
+  /** Overrides the generic explanation below. */
+  message?: ReactNode;
+  /** Without this, no retry button renders — there is nothing to retry. */
+  onRetry?: () => void;
+  /** Disables the button and swaps its label, so a retry cannot be double-fired. */
+  retrying?: boolean;
+};
+
+function ErrorState({
+  title = "Something went wrong",
+  message,
+  onRetry,
+  retrying = false,
+}: ErrorStateProps) {
   return (
     <div
       role="alert"

@@ -5,10 +5,25 @@
  * reachable by keyboard, and so the current choice is real form state rather
  * than styling that only looks selected.
  *
- * "Mine" matches on ownerId, not on the display name — see utils/myWork.js.
+ * "Mine" matches on ownerId, not on the display name — see utils/myWork.ts.
  */
-function ScopeToggle({ scope, onScopeChange, noun }) {
-  const options = [
+
+/**
+ * The only two values. Typed as a union so a caller cannot pass something the
+ * component has no label for: `option.label` would be undefined and the control
+ * would render a nameless button.
+ */
+export type Scope = "all" | "mine";
+
+type ScopeToggleProps = {
+  scope: Scope;
+  onScopeChange: (scope: Scope) => void;
+  /** Plural noun for the resource, e.g. "Leads". Both labels are built from it. */
+  noun: string;
+};
+
+function ScopeToggle({ scope, onScopeChange, noun }: ScopeToggleProps) {
+  const options: { value: Scope; label: string }[] = [
     { value: "all", label: `All ${noun}` },
     { value: "mine", label: `My ${noun}` },
   ];

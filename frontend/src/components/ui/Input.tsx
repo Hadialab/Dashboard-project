@@ -1,5 +1,30 @@
-// The field shape used by every form in the app: rounded-lg, px-4 py-3, a label
-// above and an error message below. Icon is an optional leading lucide icon.
+import type { ComponentType, InputHTMLAttributes, ReactNode } from "react";
+
+/**
+ * The field shape used by every form in the app: rounded-lg, px-4 py-3, a label
+ * above and an error message below. Icon is an optional leading lucide icon.
+ */
+
+/** Narrower than lucide's icon type: this is the whole of what is passed. */
+type FieldIcon = ComponentType<{
+  size?: number;
+  className?: string;
+  "aria-hidden"?: boolean | "true" | "false";
+}>;
+
+type InputProps = {
+  label?: ReactNode;
+  /** A validation message. Its presence is what sets aria-invalid. */
+  error?: string;
+  /** Helper text, shown only when there is no error. */
+  hint?: ReactNode;
+  icon?: FieldIcon;
+  className?: string;
+  /** Classes for the wrapping div, which owns the label, hint and error. */
+  containerClassName?: string;
+  id?: string;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "className" | "id">;
+
 function Input({
   label,
   error,
@@ -9,7 +34,9 @@ function Input({
   containerClassName = "",
   id,
   ...props
-}) {
+}: InputProps) {
+  // Falling back to `name` means a labelled field without an explicit id still
+  // wires up, which is what keeps `getByLabel` working across the whole app.
   const inputId = id ?? props.name;
 
   return (

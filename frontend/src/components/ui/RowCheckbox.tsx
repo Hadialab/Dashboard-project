@@ -5,7 +5,22 @@
  * keyboard behaviour, its place in the tab order and its checked state for
  * assistive technology. A styled span draws the box and the tick.
  */
-function RowCheckbox({ checked, indeterminate = false, onChange, label, disabled }) {
+type RowCheckboxProps = {
+  checked: boolean;
+  /** The mixed state. Only meaningful when `checked` is false. */
+  indeterminate?: boolean;
+  /** Receives the new checked state, not the event. */
+  onChange: (checked: boolean) => void;
+  /**
+   * Required in practice: the real input is `sr-only`, so it has no visible
+   * text. Without a label there is nothing for a screen reader to announce, and
+   * every row on the page reads as an unlabelled checkbox.
+   */
+  label: string;
+  disabled?: boolean;
+};
+
+function RowCheckbox({ checked, indeterminate = false, onChange, label, disabled }: RowCheckboxProps) {
   return (
     <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
       <input

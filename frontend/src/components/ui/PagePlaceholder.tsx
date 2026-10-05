@@ -1,10 +1,19 @@
+import type { ReactNode } from "react";
+
 import PageHeader from "./PageHeader";
 import Card from "./Card";
 
-// Shared shell for pages that exist as routes but have no content yet. Keeps
-// them looking like the rest of the app instead of a bare <h1> on a page
-// background. Replace the body when the page is actually built.
-function PagePlaceholder({ title, description }) {
+/**
+ * Shared shell for pages that exist as routes but have no content yet. Keeps
+ * them looking like the rest of the app instead of a bare <h1> on a page
+ * background. Replace the body when the page is actually built.
+ */
+type PagePlaceholderProps = {
+  title: ReactNode;
+  description?: ReactNode;
+};
+
+function PagePlaceholder({ title, description }: PagePlaceholderProps) {
   return (
     <div className="space-y-6">
       <PageHeader title={title} description={description} />
