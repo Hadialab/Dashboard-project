@@ -13,25 +13,37 @@ const SERVER_OWNED = new Set(["id", "createdAt", "updatedAt", "createdDate"]);
 /**
  * Compares two values the way the database would.
  *
- * Everything here arrives either from Postgres or from a JSON body, and the same
- * logical value can appear as a number in one and a string in the other: a
- * NUMERIC(14,2) column hands back a string, while a form sends "12000". Compared
- * with `===`, "12000" !== 12000, so saving a form without touching the deal
- * value would log a change on every keystroke-save and bury the real edits.
+ * The subtlety is numeric columns. Postgres returns NUMERIC as a string carrying
+ * the column's scale — a NUMERIC(14,2) holding 12000 arrives as "12000.00" —
+ * while a JSON body carries the number 12000. Compared as strings those differ,
+ * so saving a form without touching the deal's value would log a change on every
+ * save and bury the real edits under thousands of phantom ones.
  *
- * null and undefined are treated as equivalent, for the same reason: clearing an
- * owner that was already unset is not a change.
+ * So: if both sides parse as finite numbers, compare them numerically, which
+ * ignores scale and formatting. Otherwise compare as strings, so "12000" and
+ * "12,000" stay distinct — a form would never send a separator into a numeric
+ * field, and treating them as equal would hide a genuine edit.
+ *
+ * null and undefined are equivalent, for the same reason: clearing an owner that
+ * was already unset is not a change.
  */
 function isSameValue(from, to) {
   if (from === null || from === undefined) return to === null || to === undefined;
+  if (to === null || to === undefined) return false;
 
   if (typeof from === "object" || typeof to === "object") {
     return JSON.stringify(from) === JSON.stringify(to);
   }
 
-  // Compared as strings, so 12000 and "12000" match but "12,000" does not —
-  // which is correct, since a form would never send a thousands separator into a
-  // numeric field.
+  // Guarded by isFinite rather than isNaN: an empty string and a non-numeric
+  // label both parse to NaN and must fall through to the string comparison.
+  if (typeof from === "number" || typeof to === "number") {
+    const a = Number(from);
+    const b = Number(to);
+
+    if (Number.isFinite(a) && Number.isFinite(b)) return a === b;
+  }
+
   return String(from) === String(to);
 }
 

@@ -47,7 +47,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          # Both lockfiles, so a frontend-only change does not re-resolve the
+          # backend's and vice versa.
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
 
       - name: Install dependencies
         working-directory: frontend
@@ -142,6 +146,14 @@ jobs:
       # RAM-backed and untouched pages are never resident.
       - name: Raise the shared memory limit
         run: sudo mount -o remount,size=1G /dev/shm
+
+      # The API's own tests. Separate from the frontend's because they are a
+      # different process with different assumptions, and because the frontend's
+      # coverage gate is scoped to its own layers — folding these in would dilute
+      # it. They need no database: everything tested here is pure logic.
+      - name: API tests
+        working-directory: backend
+        run: npm ci && npm test
 
       - name: Unit and integration tests
         working-directory: frontend
@@ -271,6 +283,8 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
+        # Vitest is a devDependency, and this job runs before the build, so it
+        # needs the full tree. `npm ci` rather than --omit=dev on purpose.
         run: npm ci
 
       - name: Install Playwright browsers
