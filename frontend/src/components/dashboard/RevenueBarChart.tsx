@@ -6,12 +6,14 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+
 import Card from "../ui/Card";
 import { formatAxisMoney, formatMoney } from "../../utils/chartFormat";
+import type { RevenueTrendPoint } from "../../utils/reportAnalytics";
 
 // Data comes from the API via getRevenueTrend(). Renders an empty state rather
 // than a hardcoded placeholder series when there is no data.
-function RevenueBarChart({ revenueData = [] }) {
+function RevenueBarChart({ revenueData = [] }: { revenueData?: RevenueTrendPoint[] }) {
   return (
     <Card className="p-4">
       <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">

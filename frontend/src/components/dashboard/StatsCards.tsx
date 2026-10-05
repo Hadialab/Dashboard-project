@@ -1,9 +1,16 @@
 import { DollarSign, Users, UserPlus, BriefcaseBusiness } from "lucide-react";
+
 import StatCard from "./StatCard";
+import { formatMoney } from "../../utils/chartFormat";
+import type { SummaryMetrics } from "../../utils/reportAnalytics";
 
 // Figures are derived from the API response via getSummaryMetrics(), so these
 // match the Reports page instead of being hardcoded placeholders.
-function StatsCards({ summary }) {
+type StatsCardsProps = {
+  summary: SummaryMetrics;
+};
+
+function StatsCards({ summary }: StatsCardsProps) {
   const {
     totalCustomers,
     totalLeads,
@@ -30,13 +37,17 @@ function StatsCards({ summary }) {
     {
       title: "Deals",
       value: totalDeals.toLocaleString(),
-      change: `Avg $${Math.round(averageDealValue).toLocaleString()}`,
+      // formatMoney rather than a manual `$` + round, so this matches the
+      // figure on the Deal Value tile exactly. The two used to disagree by a
+      // rounding step, which is the kind of thing that makes a dashboard look
+      // broken rather than merely inconsistent.
+      change: `Avg ${formatMoney(Math.round(averageDealValue))}`,
       icon: BriefcaseBusiness,
       color: "text-blue-600",
     },
     {
       title: "Deal Value",
-      value: `$${totalRevenue.toLocaleString()}`,
+      value: formatMoney(totalRevenue),
       change: "Sum of all deals",
       icon: DollarSign,
       color: "text-green-600",

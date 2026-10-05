@@ -1,20 +1,9 @@
 import RevenueBarChart from "./RevenueBarChart";
 import DealsPipelineChart from "./DealsPipelineChart";
-
-/** One month of the revenue trend. */
-type RevenuePoint = {
-  month: string;
-  revenue: number;
-};
-
-/** One stage's deal count. */
-type StageCount = {
-  stage: string;
-  count: number;
-};
+import type { RevenueTrendPoint, StageCount } from "../../utils/reportAnalytics";
 
 type ChartsSectionProps = {
-  revenueData: RevenuePoint[];
+  revenueData: RevenueTrendPoint[];
   dealsStageData: StageCount[];
 };
 
