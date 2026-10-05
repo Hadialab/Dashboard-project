@@ -1,17 +1,48 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Users, Target, Handshake, CornerDownLeft, Clock } from "lucide-react";
+import type { KeyboardEvent } from "react";
 
 import Modal from "./Modal";
 import Spinner from "./Spinner";
 import api from "../../api/axios";
 import usePermissions from "../../hooks/usePermissions";
 import useRecentlyViewedStore from "../../store/recentlyViewedStore";
+import type { Customer, Deal, Lead } from "../../types";
 
-const TYPES = {
+/** The three searchable collections, and how each is labelled and routed. */
+type PaletteType = "customer" | "lead" | "deal";
+
+const TYPES: Record<PaletteType, { label: string; icon: typeof Users; noun: string; to: string }> = {
   customer: { label: "Customers", icon: Users, noun: "customer", to: "/customers" },
   lead: { label: "Leads", icon: Target, noun: "lead", to: "/leads" },
   deal: { label: "Deals", icon: Handshake, noun: "deal", to: "/deals" },
+};
+
+/** URL to fetch each collection from. */
+const ENDPOINTS: Record<PaletteType, string> = {
+  customer: "/customers",
+  lead: "/leads",
+  deal: "/deals",
+};
+
+/**
+ * A record from any of the three, tagged with which one it came from.
+ *
+ * The fields are a union of the three shapes rather than a common subset,
+ * because searching needs the ones that differ: `title` only exists on a deal,
+ * and `customer` only on a deal. Every access below is optional for that reason,
+ * and the fallbacks are what make a customer row with no title render sensibly.
+ */
+type PaletteRecord = (Customer | Lead | Deal) & {
+  type: PaletteType;
+  /** Namespaced key, unique across the three collections. */
+  id: string;
+};
+
+type CommandPaletteProps = {
+  open: boolean;
+  onClose: () => void;
 };
 
 /**
@@ -24,19 +55,21 @@ const TYPES = {
  * Data is fetched the first time it opens and then cached for the session, so
  * the first keystroke is not waiting on three requests.
  */
-function CommandPalette({ open, onClose }) {
+function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { can } = usePermissions();
   const recent = useRecentlyViewedStore((state) => state.items);
 
   const [query, setQuery] = useState("");
-  const [records, setRecords] = useState(null);
+  // null means "not fetched yet", which is distinct from an empty result. The
+  // fetch keys off it, so collapsing the two would refetch on every render.
+  const [records, setRecords] = useState<PaletteRecord[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const listRef = useRef(null);
-  const inputRef = useRef(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const canSeeCustomers = can("customers", "view");
   const canSeeLeads = can("leads", "view");
@@ -49,24 +82,26 @@ function CommandPalette({ open, onClose }) {
 
     let cancelled = false;
 
+    const sources: PaletteType[] = [
+      ...(canSeeCustomers ? (["customer"] as const) : []),
+      ...(canSeeLeads ? (["lead"] as const) : []),
+      ...(canSeeDeals ? (["deal"] as const) : []),
+    ];
+
     (async () => {
       setLoading(true);
 
-      const sources = [
-        canSeeCustomers ? ["customer", "/customers"] : null,
-        canSeeLeads ? ["lead", "/leads"] : null,
-        canSeeDeals ? ["deal", "/deals"] : null,
-      ].filter(Boolean);
-
       try {
         const responses = await Promise.all(
-          sources.map(([, url]) => api.get(url)),
+          sources.map((type) => api.get<Array<Customer | Lead | Deal>>(ENDPOINTS[type])),
         );
 
         if (cancelled) return;
 
-        const merged = [];
-        sources.forEach(([type], index) => {
+        // Flattened rather than kept per-type, because the keyboard walks one
+        // list. The grouping is rebuilt for display below.
+        const merged: PaletteRecord[] = [];
+        sources.forEach((type, index) => {
           for (const row of responses[index].data) {
             merged.push({ ...row, type, id: `${type}:${row.id}` });
           }
@@ -92,7 +127,9 @@ function CommandPalette({ open, onClose }) {
     setQuery("");
     setActiveIndex(0);
     // Focus after a frame, or the dialog's own focus handling wins the race.
-    requestAnimationFrame(() => inputRef.current?.focus());
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   const matches = useMemo(() => {
@@ -104,11 +141,11 @@ function CommandPalette({ open, onClose }) {
     return pool
       .filter((record) => {
         const haystack = [
-          record.name,
-          record.title,
-          record.company,
-          record.customer,
-          record.email,
+          (record as Customer).name,
+          (record as Deal).title,
+          (record as Customer).company,
+          (record as Deal).customer,
+          (record as Customer).email,
         ]
           .filter(Boolean)
           .join(" ")
@@ -119,30 +156,29 @@ function CommandPalette({ open, onClose }) {
       // An exact-ish match on the leading field is far more likely to be what
       // was meant than a substring hit buried in a company name.
       .sort((a, b) => {
-        const first = (row) =>
-          String(row.name ?? row.title ?? "").toLowerCase().startsWith(term) ? 0 : 1;
-        return first(a) - first(b);
+        const leading = (row: PaletteRecord) => {
+          const value = (row as Customer).name ?? (row as Deal).title ?? "";
+          return String(value).toLowerCase().startsWith(term) ? 0 : 1;
+        };
+        return leading(a) - leading(b);
       })
       .slice(0, 20);
   }, [query, records]);
 
   // Grouped for display, but the keyboard walks one flat list.
   const groups = useMemo(() => {
-    const byType = { customer: [], lead: [], deal: [] };
+    const byType: Record<PaletteType, PaletteRecord[]> = { customer: [], lead: [], deal: [] };
 
     for (const record of matches) {
       byType[record.type]?.push(record);
     }
 
-    return Object.entries(byType)
-      .filter(([, rows]) => rows.length > 0)
-      .map(([type, rows]) => ({ type, rows }));
+    return (Object.keys(byType) as PaletteType[])
+      .filter((type) => byType[type].length > 0)
+      .map((type) => ({ type, rows: byType[type] }));
   }, [matches]);
 
-  const flat = useMemo(
-    () => groups.flatMap((group) => group.rows),
-    [groups],
-  );
+  const flat = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
 
   // Keep the highlight in range as the result list changes under the cursor.
   useEffect(() => {
@@ -150,7 +186,7 @@ function CommandPalette({ open, onClose }) {
   }, [flat.length]);
 
   const go = useCallback(
-    (record) => {
+    (record?: PaletteRecord) => {
       if (!record) return;
 
       // `?open=` makes the target page open that record's drawer, so Enter lands
@@ -163,7 +199,7 @@ function CommandPalette({ open, onClose }) {
     [navigate, onClose],
   );
 
-  function handleKeyDown(event) {
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((index) => (flat.length === 0 ? 0 : (index + 1) % flat.length));
@@ -196,15 +232,20 @@ function CommandPalette({ open, onClose }) {
   useEffect(() => {
     if (!open) return;
 
-    const node = listRef.current?.querySelector(`[data-index="${activeIndex}"]`);
+    const node = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
     node?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, open]);
 
-  const titleFor = (record) =>
-    record.name ?? record.title ?? record.company ?? record.customer;
+  const titleFor = (record: PaletteRecord) =>
+    (record as Customer).name ??
+    (record as Deal).title ??
+    (record as Customer).company ??
+    (record as Deal).customer;
 
-  const subtitleFor = (record) =>
-    record.type === "deal" ? record.customer : record.company;
+  const subtitleFor = (record: PaletteRecord) =>
+    record.type === "deal"
+      ? (record as Deal).customer
+      : (record as Customer).company;
 
   return (
     <Modal open={open} onClose={onClose} size="lg" title="Search">

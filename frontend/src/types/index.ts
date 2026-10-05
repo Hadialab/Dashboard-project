@@ -234,12 +234,23 @@ export type Notification = {
   read: boolean;
 };
 
-/** What a drawer records. Only what the palette needs to render a result. */
+/**
+ * What a drawer records when it opens. Only what the palette needs to render a
+ * result and navigate back.
+ *
+ * `id` is the namespaced key (`customer:c041`) used as the store's dedupe key.
+ * `recordId` is the bare id, because the palette builds a `?open=` param from it
+ * and a namespaced key would not match what the list pages look for.
+ *
+ * The two cannot be merged: the palette splits the key back apart with
+ * `split(":")[1]` elsewhere, and `?open=customer:c041` finds nothing.
+ */
 export type RecentlyViewed = {
   id: ID;
+  /** The bare record id, without the `type:` prefix. */
+  recordId: ID;
   type: "customer" | "lead" | "deal";
   label: string;
-  route: string;
 };
 
 // ===== API envelopes =====
