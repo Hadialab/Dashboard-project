@@ -1,5 +1,11 @@
 import { Link } from "react-router-dom";
 
+/**
+ * The catch-all route.
+ *
+ * A dashboard link rather than "go back": the URL that 404'd is the one the
+ * browser's back button would return to, which is how someone lands in a loop.
+ */
 function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-4 text-center dark:bg-slate-950">
