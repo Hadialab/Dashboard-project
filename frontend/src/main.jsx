@@ -10,7 +10,16 @@ import { initErrorTracking, reportError } from './services/errorTracking.js'
 // nothing anywhere and need no account.
 initErrorTracking();
 
-createRoot(document.getElementById('root')).render(
+const rootElement = document.getElementById('root');
+
+// Checked rather than passed straight to createRoot, which throws a bare
+// "Target container is not a DOM element" with no mention of the id that was
+// missing. This says what to look for.
+if (!rootElement) {
+  throw new Error('index.html is missing <div id="root">, so the app has nowhere to mount.')
+}
+
+createRoot(rootElement).render(
   <StrictMode>
     {/* The outermost boundary: nothing in the app can blank the page. A crash
         inside a page boundary is recoverable without a reload; this one is the

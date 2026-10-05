@@ -1,4 +1,23 @@
 import DealCard from "./DealCard";
+import { formatAxisMoney } from "../../utils/chartFormat";
+import type { Deal, DealStage } from "../../types";
+import type { DragEvent } from "react";
+
+type PipelineColumnProps = {
+  stage: DealStage;
+  deals: Deal[];
+  /** Whether a dragged card is currently over this column. */
+  isOver?: boolean;
+  canEdit: boolean;
+  onDragOver?: (event: DragEvent<HTMLElement>, stage: DealStage) => void;
+  onDragLeave?: (event: DragEvent<HTMLElement>) => void;
+  onDrop?: (event: DragEvent<HTMLElement>) => void;
+  onDragStart?: (event: DragEvent<HTMLDivElement>, deal: Deal) => void;
+  /** Id of the card being dragged, so it alone renders dimmed. */
+  draggingId?: string;
+  onOpenDeal: (deal: Deal) => void;
+  onMoveStage: (deal: Deal, stage: DealStage) => void;
+};
 
 /**
  * One stage of the pipeline: a heading with the running count and value, and the
@@ -20,8 +39,13 @@ function PipelineColumn({
   draggingId,
   onOpenDeal,
   onMoveStage,
-}) {
-  const total = deals.reduce((sum, deal) => sum + Number(deal.value ?? 0), 0);
+}: PipelineColumnProps) {
+  // Summed in a loop rather than reduce-with-NaN-guard: pg returns NUMERIC as a
+  // string, and a single unparseable value would poison the whole total.
+  const total = deals.reduce((sum, deal) => {
+    const value = Number(deal.value ?? 0);
+    return sum + (Number.isFinite(value) ? value : 0);
+  }, 0);
 
   return (
     <section
@@ -47,8 +71,10 @@ function PipelineColumn({
           </span>
         </div>
 
+        {/* Abbreviated rather than toLocaleString: six columns have to fit
+            side by side, and "$48000.00" is wider than the column. */}
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          ${total.toLocaleString()}
+          {formatAxisMoney(total)}
         </p>
       </header>
 

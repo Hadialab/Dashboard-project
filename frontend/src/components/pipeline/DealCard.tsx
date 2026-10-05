@@ -1,5 +1,18 @@
 import { Calendar, GripVertical, User } from "lucide-react";
-import { DEAL_STAGES } from "../../utils/crmConstants";
+import type { DragEvent } from "react";
+
+import { DEAL_STAGES, isOneOf } from "../../utils/crmConstants";
+import { formatMoney } from "../../utils/chartFormat";
+import type { Deal, DealStage } from "../../types";
+
+type DealCardProps = {
+  deal: Deal;
+  onOpen: (deal: Deal) => void;
+  onMoveStage: (deal: Deal, stage: DealStage) => void;
+  onDragStart?: (event: DragEvent<HTMLDivElement>, deal: Deal) => void;
+  canEdit: boolean;
+  isDragging: boolean;
+};
 
 /**
  * One deal on the pipeline board.
@@ -12,14 +25,15 @@ import { DEAL_STAGES } from "../../utils/crmConstants";
  * The card is a button, not a div with a click handler, so Enter opens it and it
  * is reachable by tab.
  */
-function DealCard({ deal, onOpen, onMoveStage, onDragStart, canEdit, isDragging }) {
+function DealCard({ deal, onOpen, onMoveStage, onDragStart, canEdit, isDragging }: DealCardProps) {
+  // NUMERIC arrives from pg as a string, so this is a real conversion rather than
+  // a defensive one — `Number(undefined)` would be NaN and render "NaN".
   const value = Number(deal.value ?? 0);
 
   return (
     <div
       draggable={canEdit}
       onDragStart={(event) => onDragStart?.(event, deal)}
-      aria-grabbed={isDragging ? "true" : undefined}
       className={[
         "group rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition",
         "hover:border-slate-300 hover:shadow-md",
@@ -51,7 +65,7 @@ function DealCard({ deal, onOpen, onMoveStage, onDragStart, canEdit, isDragging 
           </p>
 
           <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-            ${value.toLocaleString()}
+            {formatMoney(value)}
           </p>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -75,14 +89,14 @@ function DealCard({ deal, onOpen, onMoveStage, onDragStart, canEdit, isDragging 
           <span className="sr-only">Move {deal.title} to another stage</span>
           <select
             value={deal.stage}
-            onChange={(event) => onMoveStage(deal, event.target.value)}
+            onChange={(event) => onMoveStage(deal, event.target.value as DealStage)}
             aria-label={`Stage for ${deal.title}`}
             className="min-h-9 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
           >
             {/* A stage the data contains but DEAL_STAGES does not list still
                 renders as the current value, rather than silently resetting the
                 select to the first option. */}
-            {!DEAL_STAGES.includes(deal.stage) && (
+            {!isOneOf(DEAL_STAGES, deal.stage) && (
               <option value={deal.stage}>{deal.stage}</option>
             )}
 

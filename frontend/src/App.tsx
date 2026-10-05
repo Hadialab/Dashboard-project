@@ -39,6 +39,9 @@ function App() {
   const theme = useThemeStore((state) => state.theme);
 
   useEffect(() => {
+    // On the documentElement rather than a wrapper, because the dark variants
+    // throughout the app are written as `dark:` on elements that live outside
+    // any single component's subtree.
     const root = document.documentElement;
     root.classList.toggle("dark", theme !== "light");
   }, [theme]);
@@ -71,7 +74,10 @@ function App() {
           {/* Public Route */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          {/* Protected Routes */}
+
+          {/* Protected Routes. The outer gate only checks the session; the inner
+              ones check the permission for the section, because "signed in" and
+              "may see this" are different questions. */}
           <Route
             element={
               <ProtectedRoute>
