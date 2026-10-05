@@ -1,6 +1,20 @@
-// One page title pattern for the whole app. Stacks cleanly on mobile because
-// the action button drops below the title instead of squeezing it.
-function PageHeader({ eyebrow, title, description, action, className = "" }) {
+import type { ReactNode } from "react";
+
+/**
+ * One page title pattern for the whole app. Stacks cleanly on mobile because
+ * the action button drops below the title instead of squeezing it.
+ */
+type PageHeaderProps = {
+  /** Small uppercase label above the title, e.g. "ANALYTICS". */
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  /** Buttons, usually. Kept as a node so a caller can pass a fragment. */
+  action?: ReactNode;
+  className?: string;
+};
+
+function PageHeader({ eyebrow, title, description, action, className = "" }: PageHeaderProps) {
   return (
     <div
       className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 ${className}`}

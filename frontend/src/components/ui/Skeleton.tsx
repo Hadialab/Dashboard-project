@@ -1,6 +1,12 @@
-// Loading placeholder. `className` lets callers match the shape of whatever is
-// loading — a table row height or a stat card height.
-function Skeleton({ className = "" }) {
+/**
+ * Loading placeholder. `className` lets callers match the shape of whatever is
+ * loading — a table row height or a stat card height.
+ */
+type SkeletonProps = {
+  className?: string;
+};
+
+function Skeleton({ className = "" }: SkeletonProps) {
   return (
     <div
       aria-hidden="true"
@@ -11,7 +17,12 @@ function Skeleton({ className = "" }) {
 
 // Table-shaped skeleton: a header strip plus a configurable number of rows.
 // Matches the real table's cell padding so nothing jumps when data lands.
-export function SkeletonTable({ rows = 5, columns = 4 }) {
+type SkeletonTableProps = {
+  rows?: number;
+  columns?: number;
+};
+
+export function SkeletonTable({ rows = 5, columns = 4 }: SkeletonTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900">

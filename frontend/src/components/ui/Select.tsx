@@ -1,5 +1,20 @@
-// Select matching Input's field styling, so dropdowns line up with the text
-// fields beside them.
+import type { ReactNode, SelectHTMLAttributes } from "react";
+
+/**
+ * Select matching Input's field styling, so dropdowns line up with the text
+ * fields beside them.
+ */
+type SelectProps = {
+  label?: ReactNode;
+  /** A validation message. Its presence is what sets aria-invalid. */
+  error?: string;
+  className?: string;
+  /** Classes for the wrapping div, which owns the label and the error text. */
+  containerClassName?: string;
+  id?: string;
+  children?: ReactNode;
+} & Omit<SelectHTMLAttributes<HTMLSelectElement>, "className" | "children" | "id">;
+
 function Select({
   label,
   error,
@@ -8,7 +23,9 @@ function Select({
   id,
   children,
   ...props
-}) {
+}: SelectProps) {
+  // Falling back to `name` means a labelled field without an explicit id still
+  // wires up, which is what keeps `getByLabel` working across the whole app.
   const selectId = id ?? props.name;
 
   return (
