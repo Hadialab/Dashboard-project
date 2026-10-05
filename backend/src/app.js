@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.routes.js";
 import notesRoutes from "./routes/notes.routes.js";
 import followUpsRoutes from "./routes/followUps.routes.js";
 import leadConversionRoutes from "./routes/leadConversion.routes.js";
+import auditRoutes from "./routes/audit.routes.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { config } from "./config.js";
 import { ping } from "./db/migrate.js";
@@ -43,6 +44,11 @@ export function createApp() {
   // Mounted before the generic /leads router so the conversion route is matched
   // by its own rules rather than relying on the factory falling through.
   app.use("/leads", leadConversionRoutes);
+
+  // Read-only and admin-only, applied inside the router. Not a CRM collection, so
+  // it does not go through the resource factory — there is nothing here to create,
+  // edit or delete, by design.
+  app.use("/audit", auditRoutes);
 
   // Every CRM collection sits behind requireAuth. This is the guard that makes
   // the API useless to anyone without a valid token, regardless of whether they

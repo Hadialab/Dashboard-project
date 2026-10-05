@@ -1,11 +1,13 @@
 import express from "express";
 import { repo } from "../db/repos/crm.js";
 import { notesRepo } from "../db/repos/activity.js";
+import { insertAuditEntry } from "../db/repos/audit.js";
 import { findUserById } from "../db/repos/users.js";
 import { runQuery } from "../utils/query.js";
 import { asyncHandler, badRequest, conflict, forbidden, notFound } from "../utils/asyncHandler.js";
 import { validate, TIMELINE, resources } from "../validation/resources.js";
 import { describeChange } from "../validation/noteSchema.js";
+import { describeCreation, describeDeletion, diffRecord, hasChanges } from "../audit/diff.js";
 import { can, canViewRow, isAdmin } from "../auth/permissions.js";
 
 // Builds CRUD routes for one collection. Two independent gates apply to every
@@ -95,6 +97,11 @@ export function createResourceRouter(name, config) {
       // view is never an unexplained blank page.
       await recordEvent(req, config.entityType, created.id, `${singular(name)} created`);
 
+      // And a row in the audit log, carrying every field as written. Written from
+      // the row the database stored, so the log cannot claim values the insert
+      // did not accept.
+      await audit(req, "create", config.entityType, created.id, describeCreation(created, config.fields));
+
       res.status(201).json(created);
     }),
   );
@@ -122,6 +129,15 @@ export function createResourceRouter(name, config) {
       // stored — so the entry cannot claim a change that did not happen.
       await recordChanges(req, name, existing, updated);
 
+      // The audit entry carries the full diff rather than the timeline's subset,
+      // so an edit to an email address is as traceable as a stage move. Skipped
+      // entirely when nothing changed: a PUT that submits the same form — which
+      // the frontend does on every save — must not fill the log with noise.
+      const diff = diffRecord(existing, updated);
+      if (hasChanges(diff)) {
+        await audit(req, "update", config.entityType, updated.id, diff);
+      }
+
       res.json(updated);
     }),
   );
@@ -130,7 +146,20 @@ export function createResourceRouter(name, config) {
     "/:id",
     asyncHandler(async (req, res) => {
       const row = await findEditable(req.params.id, req, "delete");
-      res.json(await records.remove(req.organizationId, row.id));
+      const removed = await records.remove(req.organizationId, row.id);
+
+      // After the delete, not before: an entry describing a removal that then
+      // failed would be worse than no entry. The prior values are captured in the
+      // entry itself, since the row no longer exists to read them from.
+      await audit(
+        req,
+        "delete",
+        config.entityType,
+        row.id,
+        describeDeletion(row, config.fields),
+      );
+
+      res.json(removed);
     }),
   );
 
@@ -224,6 +253,49 @@ function guardConverted(name, existing, value) {
     `This lead has already been converted to customer ${existing.convertedCustomerId}, so its status cannot be changed to "${nextStatus}".`,
     { customerId: existing.convertedCustomerId },
   );
+}
+
+// ===== Audit log =====
+//
+// Every write above funnels through here, so the audit log cannot be bypassed by
+// a new caller. That is the same argument the activity timeline makes, and the
+// reason both live in this file rather than in the pages: the pipeline board, a
+// form and a CSV import all reach the same place, so all three leave the same
+// trace.
+//
+// Written after the business write commits, so an entry can never describe a
+// change that rolled back. The actor is taken from the authenticated session, not
+// from the body — a client cannot write an audit entry in someone else's name.
+
+async function audit(req, action, entityType, entityId, changes) {
+  await insertAuditEntry(req.organizationId, {
+    actorId: req.user.id,
+    actorName: req.user.name,
+    action,
+    entityType,
+    entityId,
+    changes,
+  });
+}
+
+/**
+ * Records a permission change.
+ *
+ * Separate from `audit` because it runs on a different router, and because the
+ * "entity" being changed is a user rather than a CRM record. Exported so
+ * auth.routes.js writes it through the same repo and the same rules.
+ */
+export async function auditPermissionChange(req, targetUserId, changes) {
+  if (!hasChanges(changes)) return;
+
+  await insertAuditEntry(req.organizationId, {
+    actorId: req.user.id,
+    actorName: req.user.name,
+    action: "permission_change",
+    entityType: "user",
+    entityId: targetUserId,
+    changes,
+  });
 }
 
 // ===== Activity timeline =====

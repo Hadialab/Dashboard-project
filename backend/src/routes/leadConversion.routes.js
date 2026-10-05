@@ -2,10 +2,12 @@ import express from "express";
 
 import { repo } from "../db/repos/crm.js";
 import { notesRepo } from "../db/repos/activity.js";
+import { insertAuditEntry } from "../db/repos/audit.js";
 import { transaction } from "../db/pool.js";
 import { requireAuth } from "../auth/requireAuth.js";
 import { can } from "../auth/permissions.js";
 import { resources, validate } from "../validation/resources.js";
+import { describeCreation, diffRecord } from "../audit/diff.js";
 import { asyncHandler, badRequest, conflict, forbidden, notFound } from "../utils/asyncHandler.js";
 
 const router = express.Router();
@@ -88,6 +90,41 @@ router.post(
       );
 
       return created;
+    });
+
+    // After the transaction commits, never inside it. The audit table has its own
+    // write, and putting it in the transaction would mean an audit failure rolled
+    // back a conversion the user had every right to — the same reason the
+    // timeline entries above are part of the transaction but a failed log write
+    // here would only log.
+    //
+    // Two entries, because two things changed: a customer appeared, and a lead
+    // became Converted. An audit log with one row for that would be ambiguous
+    // about which record the question "who did this to?" refers to.
+    await insertAuditEntry(req.organizationId, {
+      actorId: req.user.id,
+      actorName: req.user.name,
+      action: "create",
+      entityType: "customer",
+      entityId: result.id,
+      changes: {
+        ...describeCreation(result, resources.customers.fields),
+        // Recorded because it is the fact that makes this entry traceable back to
+        // the lead it came from, and nothing else on the customer records it.
+        convertedFromLead: { from: null, to: lead.id },
+      },
+    });
+
+    await insertAuditEntry(req.organizationId, {
+      actorId: req.user.id,
+      actorName: req.user.name,
+      action: "convert",
+      entityType: "lead",
+      entityId: lead.id,
+      changes: {
+        ...diffRecord(lead, { ...lead, status: "Converted", convertedCustomerId: result.id }),
+        convertedCustomerId: { from: null, to: result.id },
+      },
     });
 
     res.status(201).json({

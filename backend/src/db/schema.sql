@@ -160,6 +160,56 @@ CREATE INDEX IF NOT EXISTS followups_org_idx ON followups (organization_id);
 CREATE INDEX IF NOT EXISTS followups_entity_idx ON followups (entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS followups_due_idx ON followups (organization_id, due_at);
 
+-- ===== Audit log: who changed what =====
+--
+-- Deliberately a separate table from notes rather than more note rows, even
+-- though the two are shown together. They have different jobs and different
+-- lifetimes:
+--
+--   notes         human prose on one record's timeline. A user can delete their
+--                 own, and it is written for someone reading it.
+--   audit_log     machine-queryable record of every mutation. Append-only, with
+--                 before/after values rather than a sentence, and readable only
+--                 by an admin.
+--
+-- An audit trail a user can delete is not an audit trail, and one that stores a
+-- sentence instead of the values cannot answer "who changed this email address,
+-- and what was it before" — which is the question an audit log exists to answer.
+-- So the two stay paired in the UI and separate in storage.
+--
+-- `changes` holds full fidelity: every field that actually changed, with its old
+-- and new value. Recording only the fields the timeline narrates would silently
+-- omit a changed email or phone number, which is exactly the kind of change an
+-- audit log is consulted about. The cost is a wider JSONB payload on a
+-- row-per-mutation table, which is not a trade worth making.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id               BIGSERIAL PRIMARY KEY,
+  organization_id  INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  -- Nullable rather than NOT NULL: a deleted account must not erase the fact
+  -- that it did something. The name below keeps the row readable regardless.
+  actor_id         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  -- Denormalised for the same reason notes.author_name is: the log has to stay
+  -- readable after the user is gone.
+  actor_name       TEXT NOT NULL,
+  action           TEXT NOT NULL
+                     CONSTRAINT audit_log_action_allowed
+                     CHECK (action IN ('create', 'update', 'delete', 'convert', 'permission_change')),
+  entity_type      TEXT NOT NULL
+                     CONSTRAINT audit_log_entity_type_allowed
+                     CHECK (entity_type IN ('customer', 'lead', 'deal', 'user')),
+  entity_id        TEXT NOT NULL,
+  -- { "field": { "from": ..., "to": ... } }. Empty on a delete is not an error;
+  -- it is a row saying a record went away.
+  changes          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Every read is "this org's log, newest first", so that pair is the index.
+CREATE INDEX IF NOT EXISTS audit_log_org_idx ON audit_log (organization_id, created_at DESC);
+-- The filters the admin view offers.
+CREATE INDEX IF NOT EXISTS audit_log_actor_idx ON audit_log (organization_id, actor_id);
+CREATE INDEX IF NOT EXISTS audit_log_entity_idx ON audit_log (organization_id, entity_type, entity_id);
+
 -- ===== Upgrades for databases created before the columns above existed =====
 --
 -- Everything above is CREATE ... IF NOT EXISTS, which by design never touches a

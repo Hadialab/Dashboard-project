@@ -11,6 +11,7 @@ import {
   updateUser,
 } from "../db/repos/users.js";
 import { releaseCreator } from "../db/repos/activity.js";
+import { insertAuditEntry } from "../db/repos/audit.js";
 import { signToken } from "../auth/tokens.js";
 import { requireAuth } from "../auth/requireAuth.js";
 import { ROLES, requireRole } from "../auth/roles.js";
@@ -21,6 +22,7 @@ import {
   validatePermissions,
 } from "../auth/permissions.js";
 import { validateLogin, validateNewUser, validateRegistration } from "../validation/userSchema.js";
+import { describeCreation, describeDeletion, diffRecord, hasChanges } from "../audit/diff.js";
 import { asyncHandler, badRequest, conflict, notFound, unauthorized } from "../utils/asyncHandler.js";
 
 const router = express.Router();
@@ -128,6 +130,61 @@ router.get(
 );
 
 // ===== Admin-only: team management, scoped to the caller's own company =====
+//
+// Every mutation to a user is audited, because a permission change is the one
+// thing in this app where "who did this, and what did they change it from" has to
+// survive the account being deleted afterwards. That is why these entries name
+// the actor's user id as well as their name: actor_id goes null when the account
+// is removed, but actor_name stays, and so does the log.
+
+// Writes one entry after the change has been applied. Kept in one place so the
+// five handlers below cannot drift into auditing different things.
+async function auditUserChange(req, action, targetId, changes) {
+  if (!hasChanges(changes)) return;
+
+  await insertAuditEntry(req.organizationId, {
+    actorId: req.user.id,
+    actorName: req.user.name,
+    action,
+    entityType: "user",
+    entityId: String(targetId),
+    changes,
+  });
+}
+
+/**
+ * Turns a permission change into a flat, readable diff.
+ *
+ * Flat, because the audit log is read by a person in a table: `customers.edit`
+ * appearing as one row with an old and new value beats a nested object that has
+ * to be unfolded to say anything.
+ *
+ * Only the actions that actually differ are listed, and the resource is named in
+ * each key, so "granted access to view every customer's deals" is legible without
+ * cross-referencing two blobs.
+ */
+function flattenPermissionDiff(before, after) {
+  const changes = {};
+  const resources_ = new Set([
+    ...Object.keys(before ?? {}),
+    ...Object.keys(after ?? {}),
+  ]);
+
+  const actions = ["view", "create", "edit", "delete"];
+
+  for (const resource of resources_) {
+    for (const action of actions) {
+      const from = before?.[resource]?.[action] ?? null;
+      const to = after?.[resource]?.[action] ?? null;
+
+      if (String(from) !== String(to)) {
+        changes[`${resource}.${action}`] = { from, to };
+      }
+    }
+  }
+
+  return changes;
+}
 
 router.get(
   "/users",
@@ -172,6 +229,17 @@ router.post(
         : DEFAULT_PERMISSIONS,
     });
 
+    // Recorded as a permission_change rather than a plain create, because adding
+    // someone to the team *is* a permission grant — it is how access is given in
+    // the first place. The permissions themselves are logged individually, since
+    // "was given access to customers" is the question being asked months later.
+    await auditUserChange(
+      req,
+      "permission_change",
+      created.id,
+      describeCreation(publicUser(created), ["name", "email", "role", "permissions"]),
+    );
+
     res.status(201).json(publicUser(created));
   }),
 );
@@ -201,7 +269,13 @@ router.patch(
       if (admins.length <= 1) throw conflict("Cannot demote the last administrator");
     }
 
-    res.json(publicUser(await updateUser(req.organizationId, target.id, { role })));
+    const updated = await updateUser(req.organizationId, target.id, { role });
+
+    await auditUserChange(req, "permission_change", target.id, {
+      role: { from: target.role, to: updated.role },
+    });
+
+    res.json(publicUser(updated));
   }),
 );
 
@@ -226,9 +300,19 @@ router.patch(
       ...value,
     });
 
-    res.json(
-      publicUser(await updateUser(req.organizationId, target.id, { permissions: merged })),
+    const updated = await updateUser(req.organizationId, target.id, { permissions: merged });
+
+    // Diffed per resource rather than storing two permission blobs, because
+    // "what exactly changed" is the question. Two blobs would require the reader
+    // to hold them side by side and spot the difference themselves.
+    await auditUserChange(
+      req,
+      "permission_change",
+      target.id,
+      flattenPermissionDiff(target.permissions, merged, target.name),
     );
+
+    res.json(publicUser(updated));
   }),
 );
 
@@ -244,11 +328,21 @@ router.post(
       throw conflict("Administrators always have full access, so there is nothing to reset");
     }
 
-    res.json(
-      publicUser(
-        await updateUser(req.organizationId, target.id, { permissions: DEFAULT_PERMISSIONS }),
-      ),
+    const updated = await updateUser(req.organizationId, target.id, {
+      permissions: DEFAULT_PERMISSIONS,
+    });
+
+    // Recorded as a change rather than as a special "reset" action: a reset is
+    // just a permission diff, and keeping it in the same shape means the audit
+    // view needs no separate handling for it.
+    await auditUserChange(
+      req,
+      "permission_change",
+      target.id,
+      flattenPermissionDiff(target.permissions, DEFAULT_PERMISSIONS),
     );
+
+    res.json(publicUser(updated));
   }),
 );
 
@@ -272,7 +366,20 @@ router.delete(
     // Their follow-ups become unowned rather than being removed.
     await releaseCreator(req.organizationId, target.id);
 
-    res.json(publicUser(await deleteUser(req.organizationId, target.id)));
+    const removed = await deleteUser(req.organizationId, target.id);
+
+    // Written after the delete. This is the entry that has to survive: once the
+    // user row is gone, this is the only record that they existed and what they
+    // could reach. That is why actor_id on this entry is the *admin's* id and the
+    // target is the removed user, rather than the entry disappearing with them.
+    await auditUserChange(
+      req,
+      "permission_change",
+      target.id,
+      describeDeletion(publicUser(target), ["name", "email", "role", "permissions"]),
+    );
+
+    res.json(publicUser(removed));
   }),
 );
 
