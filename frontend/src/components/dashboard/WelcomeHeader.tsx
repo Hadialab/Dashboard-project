@@ -6,12 +6,14 @@ function WelcomeHeader() {
 
   return (
     <Card className="p-4 sm:p-6">
+      {/* The name is omitted rather than replaced when signed out, so there is no
+          leading comma. */}
       <h1 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-        Welcome back{user ? `, ${user.name}` : ""} 👋
+        {user ? `Welcome back, ${user.name}` : "Welcome back"}
       </h1>
 
       <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-        Here's what's happening with your dashboard today.
+        Here&apos;s what&apos;s happening with your dashboard today.
       </p>
     </Card>
   );
