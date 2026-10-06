@@ -11,6 +11,21 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+
+    // A dummy DATABASE_URL, so tests that build the app can.
+    //
+    // config.js throws at module load when this is unset — correctly, because
+    // running an API without a database is not something to allow. But the OpenAPI
+    // drift guard walks the real Express router, and importing the app means
+    // importing config.
+    //
+    // The pool is lazy and no test here runs a query, so nothing ever connects to
+    // this. It is a placeholder that satisfies a deliberate startup check, not a
+    // real database: the address does not resolve and never needs to.
+    env: {
+      DATABASE_URL: "postgresql://unused:unused@localhost:5432/unused",
+      JWT_SECRET: "test-secret-not-used-in-production",
+    },
     // Only the pure-logic tests, and deliberately not the route or repo layers.
     //
     // Those need a real database and a running app, which is what the frontend's

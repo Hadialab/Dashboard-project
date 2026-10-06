@@ -8,6 +8,7 @@ import followUpsRoutes from "./routes/followUps.routes.js";
 import leadConversionRoutes from "./routes/leadConversion.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
+import docsRoutes from "./routes/docs.routes.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { config } from "./config.js";
 import { ping } from "./db/migrate.js";
@@ -22,6 +23,10 @@ export function createApp() {
     }),
   );
   app.use(express.json());
+
+  // Mounted before everything else so /docs and /openapi.json are reachable without
+  // a token, and so they cannot be shadowed by a collection router's /:id.
+  app.use(docsRoutes);
 
   // Reports whether the API is up *and* whether it can reach PostgreSQL, so a
   // deployment that started but cannot talk to the database is visibly broken
