@@ -113,7 +113,7 @@ export default defineConfig({
         // without this would leave every request blocked with nothing visible in
         // the UI: the page renders and every list stays empty.
         CORS_ORIGIN: `http://localhost:${WEB_PORT}`,
-        DATABASE_URL: resolveE2eDatabaseUrl() ?? process.env.DATABASE_URL,
+        DATABASE_URL: resolveE2eDatabaseUrl(),
         JWT_SECRET: process.env.E2E_JWT_SECRET ?? "e2e-secret-never-used-in-production",
         // The origin the emailed reset link is built from, pointing at this run's
         // preview server. Without it the link would point at the developer's dev
