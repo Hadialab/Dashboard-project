@@ -7,6 +7,7 @@ import notesRoutes from "./routes/notes.routes.js";
 import followUpsRoutes from "./routes/followUps.routes.js";
 import leadConversionRoutes from "./routes/leadConversion.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
+import eventsRoutes from "./routes/events.routes.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { config } from "./config.js";
 import { ping } from "./db/migrate.js";
@@ -49,6 +50,10 @@ export function createApp() {
   // it does not go through the resource factory — there is nothing here to create,
   // edit or delete, by design.
   app.use("/audit", auditRoutes);
+
+  // Live updates. The stream hangs open by design, so it is mounted before
+  // anything that could try to answer it with a list of records.
+  app.use("/events", eventsRoutes);
 
   // Every CRM collection sits behind requireAuth. This is the guard that makes
   // the API useless to anyone without a valid token, regardless of whether they

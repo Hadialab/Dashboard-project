@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -21,6 +21,7 @@ import DealDetailsDrawer from "../components/deals/DealDetailsDrawer";
 import DealTableSkeleton from "../components/deals/DealTableSkeleton";
 import ErrorState from "../components/ui/ErrorState";
 import EmptyState from "../components/deals/EmptyState";
+import { useLiveUpdates } from "../hooks/useLiveUpdates";
 
 function Deals() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,7 +29,7 @@ function Deals() {
 
   const [deals, setDeals] = useState([]);
 
-  // "all" or "mine" — see the note in Leads.jsx.
+  // "all" or "mine" â€” see the note in Leads.jsx.
   const [scope, setScope] = useState(searchParams.get("scope") || "all");
 
   // Deep link from the dashboard widget, the command palette or a notification.
@@ -111,6 +112,13 @@ function Deals() {
     rowsPerPage,
     setSearchParams,
   ]);
+
+  // Refetch when someone else changes a deal. A refetch rather than a local patch,
+  // because a pipeline drag changes the stage, which changes which board column the
+  // card belongs in and the page totals besides â€” more than an event carries.
+  useLiveUpdates(() => {
+    fetchDeals();
+  }, ["deal"]);
 
   const filteredDeals = useMemo(() => {
     let filtered = [...deals];

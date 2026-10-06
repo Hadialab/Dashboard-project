@@ -6,10 +6,21 @@ import Navbar from "./Navbar";
 import CommandPalette from "../ui/CommandPalette";
 import ErrorBoundary from "../ErrorBoundary";
 import { reportError } from "../../services/errorTracking";
+import { useLiveIndicator } from "../../hooks/useLiveUpdates";
+import { connectLiveUpdates, watchForSessionEnd } from "../../services/liveSession";
+import useAuthStore from "../../store/authStore";
 
 function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const indicator = useLiveIndicator();
+
+  useEffect(() => {
+    if (isLoggedIn) void connectLiveUpdates();
+    return watchForSessionEnd();
+  }, [isLoggedIn]);
 
   // Cmd+K on macOS, Ctrl+K elsewhere. Bound once here rather than in the palette
   // so it works from anywhere in the app, including inside a table's search box.
@@ -39,6 +50,9 @@ function DashboardLayout() {
         <Navbar
           onToggleSidebar={() => setSidebarOpen(true)}
           onOpenSearch={() => setPaletteOpen(true)}
+          // Rendered inside the navbar so it sits with the other status items,
+          // rather than floating over the page as a toast would.
+          liveStatus={indicator.status}
         />
 
         <main className="min-w-0 flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">

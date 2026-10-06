@@ -9,6 +9,7 @@ import AuditFilterBar from "../components/audit/AuditFilterBar";
 import AuditEntryTable from "../components/audit/AuditEntryTable";
 import { getAuditLog } from "../services/auditService";
 import { normalizeError } from "../utils/apiError";
+import { useLiveUpdates } from "../hooks/useLiveUpdates";
 import type { AppError } from "../utils/apiError";
 import type { AuditFilters, AuditLogResponse } from "../types";
 
@@ -49,6 +50,10 @@ function AuditLogPage() {
   // The whole error rather than just its message, because a 403 needs a different
   // explanation than a connection failure and a retry button would be wrong.
   const [error, setError] = useState<AppError | null>(null);
+  // Bumped to re-run the fetch effect without changing the filters. This is what
+  // makes a live update actually refetch: re-sending identical filters would
+  // produce an identical URL, and the effect keys off the URL.
+  const [refetch, setRefetch] = useState(0);
 
   /**
    * Re-fetches whenever the filters change.
@@ -84,7 +89,21 @@ function AuditLogPage() {
     return () => {
       current = false;
     };
-  }, [searchParams]);
+    // `refetch` is the dependency that makes the live update work: re-sending the
+    // same filters would produce the same URL, so the effect would not re-run and
+    // nothing would refresh.
+  }, [searchParams, refetch]);
+
+  // Refresh when anything changes, so an admin watching the log sees activity as it
+  // happens rather than on a manual refresh.
+  //
+  // A refetch rather than prepending a row: the event carries no field values, and
+  // an entry built from it would be missing the before/after detail that is the
+  // whole reason to read this log. "Something changed, go and ask the server" is
+  // both correct by construction and never stale.
+  useLiveUpdates(() => {
+    setRefetch((n) => n + 1);
+  });
 
   const updateFilters = useCallback(
     (next: AuditFilters) => {

@@ -5,6 +5,8 @@ import type { KeyboardEvent } from "react";
 
 import ThemeToggle from "../ui/ThemeToggle";
 import UserMenu from "./UserMenu";
+import LiveIndicator from "./LiveIndicator";
+import type { LiveStatus } from "../../services/liveEvents";
 import useNotificationStore, { selectUnreadCount } from "../../store/notificationStore";
 import { formatRelative } from "../../utils/time";
 import type { Notification } from "../../types";
@@ -13,9 +15,11 @@ type NavbarProps = {
   onToggleSidebar: () => void;
   /** Opens the command palette — the discoverable route to it. */
   onOpenSearch: () => void;
+  /** Connection state of the live-update stream, rendered only when it is broken. */
+  liveStatus: LiveStatus;
 };
 
-function Navbar({ onToggleSidebar, onOpenSearch }: NavbarProps) {
+function Navbar({ onToggleSidebar, onOpenSearch, liveStatus }: NavbarProps) {
   const navigate = useNavigate();
 
   // The whole store rather than selected slices: this component reads four
@@ -119,6 +123,10 @@ function Navbar({ onToggleSidebar, onOpenSearch }: NavbarProps) {
       </button>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        {/* Only renders when the stream is broken, so normally there is nothing
+            here and no visual weight spent on a connection that is fine. */}
+        <LiveIndicator status={liveStatus} />
+
         <div className="relative" ref={notificationRef}>
           <button
             type="button"

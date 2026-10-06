@@ -22,6 +22,7 @@ import EmptyState from "../components/customers/EmptyState";
 import CustomerTableSkeleton from "../components/customers/CustomerTableSkeleton";
 import ErrorState from "../components/ui/ErrorState";
 import RowsPerPage from "../components/customers/RowsPerPage";
+import { useLiveUpdates } from "../hooks/useLiveUpdates";
 
 function Customers() {
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -309,6 +310,17 @@ function Customers() {
   useEffect(() => {
     selection.sync(customers);
   }, [customers, selection.sync]);
+
+  // Refetch when someone else changes a customer.
+  //
+  // A refetch rather than an in-place patch, because the server is the only thing
+  // that knows the result of a write: a name edit, a status change and a bulk
+  // action can all touch rows this list is showing, and patching locally would mean
+  // guessing at fields the event never carried. Placed after fetchCustomers is
+  // declared so the reference is not into the temporal dead zone.
+  useLiveUpdates(() => {
+    fetchCustomers();
+  }, ["customer"]);
 
   // Deleting the last row on a page can leave currentPage past the end, which
   // renders an empty table with no way back. Pull it back to the last page.

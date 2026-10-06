@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -25,6 +25,7 @@ import DeleteLeadModal from "../components/leads/DeleteLeadModal";
 import LeadDetailDrawer from "../components/leads/LeadDetailDrawer";
 import LeadTableSkeleton from "../components/leads/LeadTableSkeleton";
 import EmptyState from "../components/leads/EmptyState";
+import { useLiveUpdates } from "../hooks/useLiveUpdates";
 
 function Leads() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,8 +73,8 @@ function Leads() {
   const [leadToConvert, setLeadToConvert] = useState(null);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
 
-  // Deep link from elsewhere in the app — the dashboard's "needs attention"
-  // widget, the command palette, a notification — lands on /leads?open=l001 and
+  // Deep link from elsewhere in the app â€” the dashboard's "needs attention"
+  // widget, the command palette, a notification â€” lands on /leads?open=l001 and
   // opens that lead's drawer. Cleared afterwards so a later refresh does not
   // reopen it over whatever the user has navigated to since.
   const openLeadId = searchParams.get("open");
@@ -132,6 +133,13 @@ function Leads() {
   // will not load.
   const [knownEmails, setKnownEmails] = useState([]);
   const [customerEmails, setCustomerEmails] = useState([]);
+
+  // Refetch when someone else changes a lead. A refetch rather than a local patch,
+  // because a conversion can change a lead's status *and* create a customer, and
+  // only the server knows both happened.
+  useLiveUpdates(() => {
+    fetchLeads();
+  }, ["lead"]);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,7 +307,7 @@ function Leads() {
   }, [paginatedLeads, selection.sync]);
 
   // Opens a lead requested by ?open=. Runs once the data has arrived, and only
-  // for a lead this user can actually see — an id they cannot see is simply
+  // for a lead this user can actually see â€” an id they cannot see is simply
   // ignored rather than producing an error.
   useEffect(() => {
     if (!openLeadId || loading || leads.length === 0) return;
@@ -397,7 +405,7 @@ function Leads() {
 
   const handleBulkStatus = async (status) => {
     // Read the current rows rather than the selection ids, so each PUT sends a
-    // complete row — the API treats PUT as a full replace.
+    // complete row â€” the API treats PUT as a full replace.
     const records = leads.filter((lead) => selection.selected.includes(lead.id));
 
     const result = await bulkSetLeadStatus(records, status);

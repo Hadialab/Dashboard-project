@@ -2,6 +2,7 @@ import express from "express";
 import { repo } from "../db/repos/crm.js";
 import { notesRepo } from "../db/repos/activity.js";
 import { insertAuditEntry } from "../db/repos/audit.js";
+import { publishChange } from "../db/events.js";
 import { findUserById } from "../db/repos/users.js";
 import { runQuery } from "../utils/query.js";
 import { asyncHandler, badRequest, conflict, forbidden, notFound } from "../utils/asyncHandler.js";
@@ -286,6 +287,18 @@ function guardConverted(name, existing, value) {
 // from the body — a client cannot write an audit entry in someone else's name.
 
 async function audit(req, action, entityType, entityId, changes, label) {
+  // Live update and audit entry from one call site, on purpose. Both describe the
+  // same mutation, and having the notification written in a second place would let
+  // the two drift — the log claiming a change the stream never announced, or the
+  // reverse. Neither throws, so neither can turn a committed write into an error.
+  await publishChange({
+    organizationId: req.organizationId,
+    entityType,
+    entityId,
+    action,
+    actorName: req.user.name,
+  });
+
   await insertAuditEntry(req.organizationId, {
     actorId: req.user.id,
     actorName: req.user.name,
