@@ -114,21 +114,24 @@ gate as an authorisation decision.
 
 ## The data model
 
-Nine tables. `organizations` is the tenant; everything else belongs to one and
+Twelve tables. `organizations` is the tenant; everything else belongs to one and
 cascades from it.
 
 ```
 organizations
    │
-   ├── users                 who can sign in, and what they may do
-   ├── customers             the people and companies you sell to
-   ├── leads                 unqualified contacts, before they become customers
-   ├── deals                 revenue, moving through a pipeline
-   ├── notes                 activity timeline, hanging off any of the three
-   ├── followups             what is still to do, hanging off any of the three
-   ├── audit_log             who changed what, with before and after values
-   ├── password_reset_tokens one-shot links back into an account
-   └── sent_email            every send attempt, successful or not
+   ├── users                    who can sign in, and what they may do
+   ├── customers                the people and companies you sell to
+   ├── leads                    unqualified contacts, before they become customers
+   ├── deals                    revenue, moving through a pipeline
+   ├── notes                    activity timeline, hanging off any of the three
+   ├── followups                what is still to do, hanging off any of the three
+   ├── audit_log                who changed what, with before and after values
+   ├── password_reset_tokens    one-shot links back into an account
+   ├── sent_email               every send attempt, successful or not
+   ├── organization_settings    how a company presents itself
+   ├── api_keys                 credentials for scripts, stored hashed
+   └── webhooks                 outbound integrations, with delivery attempts
 ```
 
 Full column-level detail is in [`backend/src/db/schema.sql`](backend/src/db/schema.sql).
@@ -241,6 +244,66 @@ so it survives a restart — a rate limit that resets when the server does is no
 `APP_URL` builds the emailed link and is required in production. The failure mode
 without it is silent: the link is still a correctly-signed token, nothing errors, and
 the mail goes somewhere that is not this app.
+
+## Live updates
+
+**Server-Sent Events, not WebSockets.** The application only ever needs
+server-to-client messages — changes are broadcast, a client never sends anything over
+the stream. SSE gives that over plain HTTP with no upgrade handshake, no framing
+library, and automatic reconnection; a WebSocket buys nothing here and costs a
+connection upgrade through every proxy, which is where they silently fail.
+
+**Carried over Postgres `LISTEN/NOTIFY`, not an in-process emitter.** An emitter
+would mean each API process only sees writes it handled itself: run two replicas
+behind a load balancer and a client connected to process A never hears about a change
+written through process B — with nothing erroring, which looks like working software
+quietly showing stale data. Postgres is already a shared dependency, so publishing is
+a normal statement every process is already listening for. The costs are real and
+worth naming: an 8000-byte payload, no delivery guarantee, and coalescing under load.
+None matter for "a record changed", which is idempotent by nature — the client
+reacts by refetching, so a missed event costs a refresh rather than a wrong value.
+
+**Authenticated by a single-use ticket, not by the session token.** `EventSource`
+cannot send an `Authorization` header, so the only alternative was the session token
+in a query string — where it lands in proxy logs, browser history and Referer headers,
+and cannot be revoked. `POST /events/ticket` returns a 30-second ticket instead.
+
+**Subscribers refetch; nothing is patched in place.** The event carries identifiers
+and an actor's display name, deliberately no record data, so tenant data never
+crosses a wire that does not need it and a subscriber is never wrong.
+
+## Tenant administration
+
+**API keys are stored hashed and shown once.** An API key and a webhook signing
+secret are both bearer credentials and both generated, so neither is in the database
+after the moment it is created — a dump yields no working key for any company in it.
+SHA-256 rather than bcrypt, because the key is 32 CSPRNG bytes and therefore not
+guessable: there is nothing for a slow hash to protect against.
+
+**A key is a different way of proving who you are, not a weaker way in.** It
+authenticates in front of `requireAuth` and then goes through exactly the same
+permission checks, org scoping and audit entries as a person. Three things it can
+never do, regardless of scopes: reach `/auth`, `/audit` or `/tenant`, which are about
+people rather than records; act as an admin, because an admin bypasses the permission
+table and a key with no meaningful scope would have no point; or attribute an audit
+entry to a person, because it is labelled as the key.
+
+**Webhook delivery is fire-and-forget, at-least-once, and never retried.** A
+third party's downtime must not fail a save, so a failed attempt is recorded against
+the subscription and otherwise ignored. Signing is an HMAC over `timestamp.body`, with
+the timestamp inside the signed material — otherwise a captured payload could be
+replayed indefinitely, because the signature would still verify. Payloads identify the
+record rather than containing it. `https` is required for the target, except for
+loopback: it is fetched by the server, so arbitrary addresses would make this a
+request forwarder.
+
+**API documentation is generated and guarded.** The CRM collection paths and bodies
+come from the same `resources` config the API validates against, so a field added to
+a record type is documented without anyone touching the spec. A test probes the real
+Express router and fails when a path is undocumented — or documented but gone. The
+reference itself is server-rendered with nothing fetched from a network: a CDN-hosted
+Swagger UI breaks behind a corporate proxy and offline, which is where a lot of this
+app's users are.
 
 **Escaping is not optional.** Every interpolated value goes through `escapeHtml` in
 the HTML part and `safeSubject` in headers — customer names and follow-up titles are
@@ -516,6 +579,19 @@ mitigation yet.
 there is no admin view over it. That is the obvious next thing to build on this
 table, along with a bounce webhook — a provider reporting a hard bounce currently
 has nowhere to go.
+
+**Webhooks are never retried and never replayed.** A delivery that failed is
+recorded and lost. That is a deliberate trade — blocking a save on a third party's
+uptime is worse — but it means a transient failure needs a manual re-trigger, and
+there is not one yet.
+
+**An API key with no scopes can do nothing at all.** That is the safe default rather
+than a bug, but it is a sharp edge: a key created without ticking anything looks
+broken rather than locked, and the UI has to say so in words.
+
+**Logout does not revoke an issued token**, and neither does a password reset: a JWT
+cannot be revoked, so a session opened before either survives it. Closing this means a
+token version or deny list.
 
 **Password reset does not end existing sessions.** A JWT cannot be revoked, so an
 attacker's session survives the victim resetting their password. Closing this means

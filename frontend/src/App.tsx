@@ -26,6 +26,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Team = lazy(() => import("./pages/Team"));
 const FollowUps = lazy(() => import("./pages/FollowUps"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
+const Tenant = lazy(() => import("./pages/Tenant"));
 
 // Full-height placeholder while a route chunk downloads.
 function RouteFallback() {
@@ -145,6 +146,7 @@ function App() {
             {/* Same shape as Team: the page checks the role itself and explains
                 the refusal, while the API independently enforces admin-only. */}
             <Route path="/audit" element={<AuditLog />} />
+            <Route path="/company" element={<Tenant />} />
           </Route>
 
           {/* 404 */}

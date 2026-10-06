@@ -3,6 +3,7 @@ import { repo } from "../db/repos/crm.js";
 import { notesRepo } from "../db/repos/activity.js";
 import { insertAuditEntry } from "../db/repos/audit.js";
 import { publishChange } from "../db/events.js";
+import { dispatchWebhooks } from "../services/webhooks.js";
 import { findUserById } from "../db/repos/users.js";
 import { runQuery } from "../utils/query.js";
 import { asyncHandler, badRequest, conflict, forbidden, notFound } from "../utils/asyncHandler.js";
@@ -287,17 +288,22 @@ function guardConverted(name, existing, value) {
 // from the body — a client cannot write an audit entry in someone else's name.
 
 async function audit(req, action, entityType, entityId, changes, label) {
-  // Live update and audit entry from one call site, on purpose. Both describe the
-  // same mutation, and having the notification written in a second place would let
-  // the two drift — the log claiming a change the stream never announced, or the
-  // reverse. Neither throws, so neither can turn a committed write into an error.
-  await publishChange({
+  const event = {
     organizationId: req.organizationId,
     entityType,
-    entityId,
+    entityId: String(entityId),
     action,
     actorName: req.user.name,
-  });
+  };
+
+  // Live update, outbound webhook, and audit entry from one call site, on purpose.
+  // All three describe the same mutation, and writing any of them in a second place
+  // would let them drift — the log claiming a change the stream never announced, or
+  // a customer's integration never firing. None of them throws, so none can turn a
+  // committed write into an error.
+  await publishChange(event);
+
+  dispatchWebhooks(event);
 
   await insertAuditEntry(req.organizationId, {
     actorId: req.user.id,

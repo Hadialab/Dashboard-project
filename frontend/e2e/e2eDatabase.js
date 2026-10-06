@@ -57,5 +57,16 @@ function preferredE2eDatabaseUrl() {
 export const E2E_API_PORT = process.env.E2E_API_PORT ?? "5001";
 export const E2E_WEB_PORT = process.env.E2E_WEB_PORT ?? "5174";
 
-/** The origin the emailed reset link points at during an E2E run. */
+export const E2E_API_URL = `http://localhost:${E2E_API_PORT}`;
 export const E2E_APP_URL = `http://localhost:${E2E_WEB_PORT}`;
+
+/**
+ * The API origin, for calls made with Playwright's `request` fixture.
+ *
+ * That fixture inherits `use.baseURL` from the config, which is the *frontend*.
+ * A relative path therefore hits the Vite preview, which serves the SPA for any
+ * unknown path — so `/customers` answers 200 with a page of HTML and `/audit`
+ * answers 200 as well. Assertions against it pass or fail for reasons that have
+ * nothing to do with the API, which is worse than not asserting at all.
+ */
+export const apiUrl = (path) => `${E2E_API_URL}${path}`;

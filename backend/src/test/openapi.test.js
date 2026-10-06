@@ -65,6 +65,8 @@ async function servedPaths() {
     "/auth/forgot-password", "/auth/reset-password",
     "/notes", "/notes/1", "/followups", "/followups/x001", "/followups/x001/notify",
     "/leads/x001/convert", "/audit", "/events", "/events/ticket",
+    "/tenant/settings", "/tenant/settings/defaults", "/tenant/api-keys", "/tenant/api-keys/1",
+    "/tenant/webhooks", "/tenant/webhooks/1", "/tenant/api-keys/check-label",
     "/openapi.json", "/docs", "/health",
   ]) {
     candidates.add(path);
@@ -103,6 +105,7 @@ function declaredOperations() {
     "leadConversion.routes.js": "/leads",
     "audit.routes.js": "/audit",
     "events.routes.js": "/events",
+    "tenant.routes.js": "/tenant",
   };
 
   const declared = [];

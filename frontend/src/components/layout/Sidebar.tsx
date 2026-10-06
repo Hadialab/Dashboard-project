@@ -12,6 +12,7 @@ import {
   UserCog,
   Columns3,
   ScrollText,
+  Building2,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -66,6 +67,10 @@ const LINKS: NavLinkSpec[] = [
   // refuses this section to a rep regardless of the permission table, because it
   // is metadata about the company rather than CRM data.
   { name: "Audit Log", path: "/audit", icon: ScrollText, adminOnly: true },
+  // Admin only, same reason: company settings, API keys and webhooks are about
+  // the company rather than its records, and a rep who can read them can read which
+  // integrations it runs.
+  { name: "Company", path: "/company", icon: Building2, adminOnly: true },
 ];
 
 type SidebarProps = {

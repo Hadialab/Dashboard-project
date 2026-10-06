@@ -207,6 +207,104 @@ CREATE TABLE IF NOT EXISTS sent_email (
 CREATE INDEX IF NOT EXISTS sent_email_org_idx ON sent_email (organization_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS sent_email_user_idx ON sent_email (user_id, created_at DESC);
 
+-- ===== Tenant administration =====
+--
+-- Per-company configuration. The data model was already multi-tenant — every row
+-- belongs to an organization and every read filters on it — what was missing is
+-- the ability for a company to *configure* itself.
+
+-- Company settings.
+--
+-- Nullable with defaults rather than NOT NULL with defaults, so a row written by
+-- an older schema keeps working and `ALTER TABLE ADD COLUMN ... DEFAULT` does not
+-- rewrite the table. `locale` and `timezone` are stored but not yet used to format
+-- anything: they are here so an admin can set them once rather than every user
+-- setting them individually later, and the UI says plainly that they do not change
+-- anything yet rather than implying they do.
+CREATE TABLE IF NOT EXISTS organization_settings (
+  organization_id  INTEGER PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+  -- Shown in the app's own header and in outbound email. Denormalised from
+  -- organizations.name rather than being the single source of truth, so this is a
+  -- *display* name; the legal or billing name stays where it was.
+  display_name     TEXT,
+  -- A URL, not an upload. Branding that requires storing and serving a binary
+  -- brings content-type sniffing, size limits and a CDN question; a URL does not,
+  -- and it lets a company point at whatever they already host.
+  logo_url         TEXT,
+  website          TEXT,
+  support_email    TEXT,
+  -- What a new teammate gets unless an admin says otherwise, rather than every
+  -- signup inventing its own defaults.
+  default_role     TEXT NOT NULL DEFAULT 'rep' CHECK (default_role IN ('admin', 'rep')),
+  default_permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+  locale           TEXT NOT NULL DEFAULT 'en-GB',
+  timezone         TEXT NOT NULL DEFAULT 'UTC',
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ===== API keys =====
+--
+-- For scripts and integrations: a machine calling the API as itself, with its own
+-- scoped key that can be revoked without touching a person.
+--
+-- The secret is stored hashed, for the same reason password hashes are: this table
+-- is the one an attacker with a read-only database dump wants, and a dump that
+-- yielded usable API keys would be a full breach of every company in it. SHA-256
+-- rather than bcrypt, because the key is 32 CSPRNG bytes and therefore not
+-- guessable — there is nothing for a slow hash to protect against.
+CREATE TABLE IF NOT EXISTS api_keys (
+  id               BIGSERIAL PRIMARY KEY,
+  organization_id  INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  -- The name is for the humans reading the list later. It is the first thing
+  -- anyone asks when a key has to be revoked: which one was this?
+  label            TEXT NOT NULL,
+  key_prefix       TEXT NOT NULL,
+  key_hash         TEXT NOT NULL UNIQUE,
+  -- Narrower than a session token on purpose. Null means the keys in `scopes`;
+  -- a key with no scopes array can reach nothing.
+  scopes           TEXT[] NOT NULL DEFAULT '{}',
+  created_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_by_name  TEXT,
+  last_used_at     TIMESTAMPTZ,
+  expires_at       TIMESTAMPTZ,
+  revoked_at       TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS api_keys_org_idx ON api_keys (organization_id, created_at DESC);
+
+-- ===== Webhooks =====
+--
+-- Outbound notifications on real events, for systems that are not the CRM: a
+-- Slack channel that says a deal closed, or a warehouse that wants the row.
+--
+-- The delivery attempt is recorded next to the subscription, in the same table,
+-- because "did the webhook fire" is the first question asked of any integration
+-- and an answerable one is worth more than a clean schema. The body is not stored:
+-- the payload is reconstructible from the record, and an unbounded copy of every
+-- event this company ever sent is exactly the kind of thing that never gets
+-- pruned.
+CREATE TABLE IF NOT EXISTS webhooks (
+  id               BIGSERIAL PRIMARY KEY,
+  organization_id  INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  label            TEXT NOT NULL,
+  target_url       TEXT NOT NULL,
+  -- Empty means every event. Anything here narrows it.
+  events           TEXT[] NOT NULL DEFAULT '{}',
+  -- An HMAC secret, so the receiver can tell the payload came from this app and
+  -- was not modified in transit.
+  signing_secret   TEXT NOT NULL,
+  is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+  -- The delivery attempts, newest last, capped per subscription. JSONB because
+  -- the shape is small, varies by event, and is only ever read whole.
+  last_deliveries  JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_by_name  TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS webhooks_org_idx ON webhooks (organization_id, created_at DESC);
+
 -- ===== Follow-ups: scheduled work =====
 
 CREATE TABLE IF NOT EXISTS followups (

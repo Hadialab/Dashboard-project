@@ -251,6 +251,10 @@ export function buildOpenApiDocument({ appUrl = "http://localhost:5000" } = {}) 
       { name: "Follow-ups", description: "Scheduled work, and reminders." },
       { name: "Audit", description: "Who changed what, admin only." },
       { name: "Live", description: "Server-sent change notifications." },
+      {
+        name: "Tenant",
+        description: "Company settings, API keys and webhooks. Admin only.",
+      },
       ...Object.keys(resources).map((name) => ({
         name: name.replace(/s$/, "").replace(/^./, (c) => c.toUpperCase()),
       })),
@@ -893,6 +897,289 @@ export function buildOpenApiDocument({ appUrl = "http://localhost:5000" } = {}) 
       },
 
       // ===== The docs themselves =====
+      // ===== Tenant administration =====
+      "/tenant/settings": {
+        get: {
+          tags: ["Tenant"],
+          summary: "Your company's settings",
+          description:
+            "Admin only. Returns the company's display name, logo, website, support address, " +
+            "what a new teammate gets by default, and the default locale and timezone.",
+          security: bearerAuth,
+          responses: {
+            "200": {
+              description: "The settings.",
+              content: {
+                "application/json": {
+                  schema: { type: "object", properties: {
+                    displayName: { type: "string" },
+                    logoUrl: { type: "string", nullable: true },
+                    website: { type: "string", nullable: true },
+                    supportEmail: { type: "string", nullable: true },
+                    defaultRole: { type: "string", enum: ["admin", "rep"] },
+                    defaultPermissions: { $ref: "#/components/schemas/Permissions" },
+                    locale: { type: "string" },
+                    timezone: { type: "string" },
+                  } },
+                },
+              },
+            },
+            "401": errorResponse("Not signed in."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+        patch: {
+          tags: ["Tenant"],
+          summary: "Update your company's settings",
+          description:
+            "Admin only. A partial update — an omitted field keeps its current value. " +
+            "`logoUrl` and `website` must be `http` or `https`, because they are rendered " +
+            "into every user's session and a `javascript:` value would be stored XSS.",
+          security: bearerAuth,
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object" } } },
+          },
+          responses: {
+            "200": { description: "The updated settings." },
+            "400": errorResponse("Validation failed."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+      },
+
+      "/tenant/settings/defaults": {
+        get: {
+          tags: ["Tenant"],
+          summary: "What a new teammate would get right now",
+          description:
+            "Admin only. Reports the company's configured defaults alongside the " +
+            "server's own fallback, so the UI can explain what a new account receives " +
+            "without hard-coding a second copy of the policy.",
+          security: bearerAuth,
+          responses: {
+            "200": { description: "The defaults, and the built-in fallback." },
+            "403": errorResponse("Admin only."),
+          },
+        },
+      },
+
+      "/tenant/api-keys/check-label": {
+        post: {
+          tags: ["Tenant"],
+          summary: "Check whether an API key name is free",
+          description:
+            "Admin only. The label is the only field with no natural key, so it is the only " +
+            "way two rows can end up indistinguishable in the list — and 'which key was " +
+            "this?' is the first question asked when one has to be revoked.",
+          security: bearerAuth,
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { required: ["label"], properties: { label: { type: "string" } } },
+              },
+            },
+          },
+          responses: {
+            "200": { description: "The name is free." },
+            "409": errorResponse("A live key already uses that name."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+      },
+
+      "/tenant/api-keys": {
+        get: {
+          tags: ["Tenant"],
+          summary: "List the company's API keys",
+          description:
+            "Admin only. Each key is shown by its label and an 8-character prefix. **The " +
+            "secret is never returned again after it is created** — only a hash is stored, " +
+            "so a database leak yields no working key for any company in it.",
+          security: bearerAuth,
+          responses: {
+            "200": { description: "The keys, and the scope names available." },
+            "403": errorResponse("Admin only."),
+          },
+        },
+        post: {
+          tags: ["Tenant"],
+          summary: "Create an API key",
+          description:
+            "Admin only. The plaintext key is returned **once**, in " +
+            "`apiKeyOneTimeSecret`, and cannot be retrieved again. " +
+            "A key authenticates in place of a session token and is scoped to what it " +
+            "carries; `write` implies `read`. A key is never an admin, cannot reach `/auth`, " +
+            "`/audit` or `/tenant`, and revoking one takes effect on its next request.",
+          security: bearerAuth,
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  required: ["label"],
+                  properties: {
+                    label: { type: "string", description: "A name you will recognise later." },
+                    scopes: {
+                      type: "array",
+                      items: { type: "string", enum: [
+                        "customers:read", "customers:write",
+                        "leads:read", "leads:write",
+                        "deals:read", "deals:write",
+                        "reports:read",
+                      ] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "201": {
+              description: "The key. `apiKeyOneTimeSecret` is the only time it is readable.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      label: { type: "string" },
+                      keyPrefix: { type: "string" },
+                      apiKeyOneTimeSecret: { type: "string", description: "Shown once." },
+                    },
+                  },
+                },
+              },
+            },
+            "400": errorResponse("Validation failed."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+      },
+
+      "/tenant/api-keys/{id}": {
+        delete: {
+          tags: ["Tenant"],
+          summary: "Revoke an API key",
+          description:
+            "Admin only. Revoked rather than deleted, so an audit reader can still see that " +
+            "the key existed and when it stopped working.",
+          security: bearerAuth,
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          responses: {
+            "200": { description: "Revoked." },
+            "404": errorResponse("Not found, or already revoked."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+      },
+
+      "/tenant/webhooks": {
+        get: {
+          tags: ["Tenant"],
+          summary: "List the company's webhooks",
+          description:
+            "Admin only. Includes the last ten delivery attempts per subscription, so " +
+            "\"did it fire\" is answerable without leaving the app.",
+          security: bearerAuth,
+          responses: {
+            "200": { description: "The subscriptions." },
+            "403": errorResponse("Admin only."),
+          },
+        },
+        post: {
+          tags: ["Tenant"],
+          summary: "Create a webhook",
+          description:
+            "Admin only. Each delivery is signed with `X-CRM-Signature`, an HMAC over the " +
+            "timestamp and the body, so the receiver can tell it came from this app and was " +
+            "not modified in transit — and can reject a replay by comparing the timestamp " +
+            "against its own clock.\n\n" +
+            "The payload carries identifiers and an actor's name, **not record data**: a " +
+            "receiver fetches the record if it needs it. Delivery is fire-and-forget — a " +
+            "failed attempt is recorded against the subscription and never retried, because " +
+            "a third party's downtime must not fail a save.\n\n" +
+            "The target must be `https`, except for `localhost` and `127.0.0.1`. It is " +
+            "fetched by the server, so allowing arbitrary addresses would make this a " +
+            "request forwarder.",
+          security: bearerAuth,
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  required: ["label", "targetUrl"],
+                  properties: {
+                    label: { type: "string" },
+                    targetUrl: { type: "string", format: "uri" },
+                    events: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Empty means every event.",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "201": {
+              description: "The subscription. `signingSecretOneTimeSecret` is returned here.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      label: { type: "string" },
+                      targetUrl: { type: "string" },
+                      signingSecretOneTimeSecret: { type: "string", description: "Shown once." },
+                    },
+                  },
+                },
+              },
+            },
+            "400": errorResponse("Validation failed, or the target is not an acceptable URL."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+      },
+
+      "/tenant/webhooks/{id}": {
+        patch: {
+          tags: ["Tenant"],
+          summary: "Enable or disable a webhook",
+          description: "Admin only. Disabling pauses delivery without losing the configuration.",
+          security: bearerAuth,
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { required: ["isActive"], properties: { isActive: { type: "boolean" } } },
+              },
+            },
+          },
+          responses: {
+            "200": { description: "Updated." },
+            "404": errorResponse("Not found."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+        delete: {
+          tags: ["Tenant"],
+          summary: "Delete a webhook",
+          security: bearerAuth,
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          responses: {
+            "200": { description: "Deleted." },
+            "404": errorResponse("Not found."),
+            "403": errorResponse("Admin only."),
+          },
+        },
+      },
+
       "/docs": {
         get: {
           tags: ["Live"],

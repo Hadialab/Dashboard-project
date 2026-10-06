@@ -116,8 +116,34 @@ export function isAdmin(user) {
 }
 
 /** Can this user perform `action` on this resource? Admins always can. */
+/**
+ * Whether an API key may do this.
+ *
+ * Scopes are flat strings (`deals:write`) rather than a nested permission object,
+ * and `write` implies `read`: a key that can create a deal can obviously fetch the
+ * list it just added to. A key with no matching scope reaches nothing, which is the
+ * safe default — and why the UI says a key with no scopes can do nothing at all.
+ */
+function apiKeyCan(user, resource, action) {
+  const scopes = new Set(user.apiKeyScopes ?? []);
+
+  const verb =
+    action === "create" || action === "edit" || action === "delete" ? "write" : "read";
+
+  return scopes.has(`${resource}:${verb}`) || scopes.has(`${resource}:write`);
+}
 export function can(user, resource, action) {
   if (isAdmin(user)) return true;
+
+  // An API key is granted by its own scope list rather than by this table.
+  //
+  // Handled here rather than at each call site because `can` is what every route
+  // already asks, and an integration should be the same code path with a different
+  // way of proving who it is — not a second, weaker way into the data.
+  //
+  // The ordering matters: `isAdmin` is checked first, but a key is deliberately
+  // never an admin, so a key can never reach that bypass.
+  if (user?.isApiKey) return apiKeyCan(user, resource, action);
 
   const permission = user?.permissions?.[resource];
   if (!permission) return false;

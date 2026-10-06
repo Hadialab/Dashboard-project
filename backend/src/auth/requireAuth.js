@@ -11,7 +11,18 @@ import { asyncHandler, unauthorized } from "../utils/asyncHandler.js";
 // Also establishes the tenant. `req.organizationId` comes from the user record,
 // never from the request, so a client cannot ask for another company's data by
 // changing a header or a query parameter.
+//
+// Runs *after* `authenticateApiKey`, and yields to it. A request already carrying
+// a `req.user` was authenticated by a key, and re-verifying the key as a JWT would
+// reject every integration with a 401 — while re-reading the user record would look
+// up `sub = null` and find nobody. Skipping is safe because a key cannot set
+// `req.user` without having presented a credential that matched a live row.
 export const requireAuth = asyncHandler(async (req, _res, next) => {
+  if (req.user?.isApiKey) {
+    next();
+    return;
+  }
+
   const token = readBearerToken(req);
   if (!token) {
     throw unauthorized("Authentication required");

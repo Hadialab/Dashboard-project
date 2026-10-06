@@ -9,7 +9,9 @@ import leadConversionRoutes from "./routes/leadConversion.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
 import docsRoutes from "./routes/docs.routes.js";
+import tenantRoutes from "./routes/tenant.routes.js";
 import { requireAuth } from "./auth/requireAuth.js";
+import { authenticateApiKey } from "./auth/apiKeyAuth.js";
 import { config } from "./config.js";
 import { ping } from "./db/migrate.js";
 import { HttpError, notFound } from "./utils/httpError.js";
@@ -27,6 +29,15 @@ export function createApp() {
   // Mounted before everything else so /docs and /openapi.json are reachable without
   // a token, and so they cannot be shadowed by a collection router's /:id.
   app.use(docsRoutes);
+
+  // Application-wide rather than on the collection routes, so a key presented to
+  // an endpoint it may not use gets a clear "API keys cannot reach this" instead of
+  // the 401 it would otherwise get from having the key re-verified as a JWT — a
+  // misleading answer, because the credential *is* valid, just not here.
+  //
+  // Free for normal traffic: the middleware only does anything when the credential
+  // starts with `crm_`, so a JWT request never touches the database.
+  app.use(authenticateApiKey);
 
   // Reports whether the API is up *and* whether it can reach PostgreSQL, so a
   // deployment that started but cannot talk to the database is visibly broken
@@ -56,6 +67,11 @@ export function createApp() {
   // edit or delete, by design.
   app.use("/audit", auditRoutes);
 
+  // Company settings, API keys and webhooks. Admin-only, enforced inside the router
+  // rather than here, so that adding a tenant route does not require remembering to
+  // gate it.
+  app.use("/tenant", tenantRoutes);
+
   // Live updates. The stream hangs open by design, so it is mounted before
   // anything that could try to answer it with a list of records.
   app.use("/events", eventsRoutes);
@@ -64,7 +80,13 @@ export function createApp() {
   // the API useless to anyone without a valid token, regardless of whether they
   // know the URL.
   for (const [name, resource] of Object.entries(resources)) {
-    app.use(`/${name}`, requireAuth, createResourceRouter(name, resource));
+    app.use(
+    `/${name}`,
+    // `authenticateApiKey` is already application-wide; only the session gate is
+    // per-collection.
+    requireAuth,
+    createResourceRouter(name, resource),
+  );
   }
 
   // Keep the catch-all last so it cannot shadow the routes above.

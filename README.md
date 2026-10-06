@@ -53,6 +53,19 @@ React front end, Express + PostgreSQL API, one repo.
 - **Audit log** — admins see every change to a customer, lead, deal, someone's
   access, or a password, with the before and after value of each changed field.
   Append-only, and filterable by person, record, action and date.
+- **Company** — admins set the company profile, create scoped **API keys** for
+  scripts, and register **webhooks** that POST a signed notification when something
+  changes.
+- **Live updates** — changes made by colleagues appear without a refresh, over
+  Server-Sent Events.
+
+## API
+
+- `GET /docs` — a rendered reference, generated from the app itself.
+- `GET /openapi.json` — the same thing as an OpenAPI 3.1 document.
+
+Both need no token. A test walks the real router and fails the build if the
+document and the code disagree, so they cannot go stale.
 - **Profile and settings** — your own details, password, light and dark theme.
 
 Everything is scoped to a company. One database serves many, and no company can
