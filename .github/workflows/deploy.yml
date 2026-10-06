@@ -38,7 +38,6 @@ env:
   # jsdom 30 alone rules out Node 20. See ci.yml for the full story.
   NODE_VERSION: "22.22"
   REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: ${{ github.repository_owner }}
 
 jobs:
   build:
@@ -52,6 +51,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # Docker requires a lowercase image name, and this repository's owner is
+      # `Hadialab`. Passing `${{ github.repository_owner }}` straight through builds
+      # `ghcr.io/Hadialab/crm-api:staging`, which buildx rejects with "repository
+      # name must be lowercase".
+      #
+      # GitHub's expression language has no `lower()`, so the namespace is derived in
+      # a shell step and consumed as a step output. This is the only place the name
+      # is produced; every reference below goes through it.
+      - name: Resolve the image namespace
+        id: image
+        run: echo "namespace=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
@@ -93,8 +104,8 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:${{ steps.target.outputs.name }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.namespace }}/crm-api:${{ steps.target.outputs.name }}
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.namespace }}/crm-api:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -129,8 +140,8 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:${{ steps.target.outputs.name }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.namespace }}/crm-app:${{ steps.target.outputs.name }}
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.namespace }}/crm-app:sha-${{ github.sha }}
           build-args: |
             VITE_API_URL=${{ vars.APP_API_URL_STAGING }}
             VITE_APP_ENV=${{ steps.target.outputs.name }}
@@ -170,6 +181,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
+      # Same derivation as the build job, and repeated rather than passed as an
+      # artifact because a job output cannot be referenced across a `needs` boundary
+      # — `steps` only refers to steps in the job it appears in. Two lines, and the
+      # alternative would be a job-level `env` that silently goes uppercase again.
+      - name: Resolve the image namespace
+        id: image
+        run: echo "namespace=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       # Decided inside the job rather than in a job-level `if`.
       #
       # A job-level `if` referencing `secrets` is evaluated by GitHub before the
@@ -195,7 +214,7 @@ jobs:
         env:
           RENDER_KEY: ${{ secrets.RENDER_API_KEY }}
           SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-api:sha-${{ github.sha }}
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.namespace }}/crm-api:sha-${{ github.sha }}
         run: |
           set -euo pipefail
           curl --fail --silent --show-error \
@@ -210,7 +229,7 @@ jobs:
         env:
           RENDER_KEY: ${{ secrets.RENDER_API_KEY }}
           SERVICE_ID: ${{ vars.RENDER_APP_SERVICE_ID }}
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/crm-app:sha-${{ github.sha }}
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.namespace }}/crm-app:sha-${{ github.sha }}
         run: |
           set -euo pipefail
           curl --fail --silent --show-error \
