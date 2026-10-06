@@ -5,11 +5,13 @@ import {
   hashResetToken,
   buildResetUrl,
   MAX_LIVE_RESET_TOKENS,
-} from "../db/repos/passwordReset.js";
+} from "../auth/resetToken.js";
 
-// The token functions are pure; the SQL around them is covered end to end by the
-// Playwright suite against a real database. What is worth pinning here is the
-// property the table's design rests on: a leaked table yields no working links.
+// These tests import from auth/resetToken.js rather than db/repos/passwordReset.js
+// for a reason worth keeping: the repo module pulls in the database pool, and the
+// pool pulls in config.js, which throws at module load when DATABASE_URL is unset.
+// Testing a pure function should not require a configured database — and this file
+// is exactly how that coupling reached CI once already.
 
 describe("generateResetToken", () => {
   it("produces 64 hex characters", () => {

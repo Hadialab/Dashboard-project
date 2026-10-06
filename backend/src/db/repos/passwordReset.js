@@ -1,29 +1,23 @@
-import { randomBytes, createHash } from "node:crypto";
 import { query } from "../pool.js";
 import { findUserByIdGlobal } from "./users.js";
+import { hashResetToken, MAX_LIVE_RESET_TOKENS } from "../../auth/resetToken.js";
 
-// Password reset tokens.
+// Persistence for password reset tokens.
 //
-// The one rule that matters here: the plaintext token exists only in the email,
-// and this table stores its hash. Everything else here is convenience —
-// single-use, expiring, one row per request — and all of it is worthless if a
-// leaked copy of this table yields working reset links.
+// Everything about the token itself — how it is generated, hashed, turned into a
+// link, and how many may exist at once — lives in auth/resetToken.js and is
+// re-exported here, because every caller that issues a token needs all of it and
+// importing from two places is how a caller ends up hashing with one rule and
+// storing with another.
 //
-// sha256, not bcrypt. bcrypt is deliberately slow, which is the right default for
-// verifying a *guessable* secret like a password. This is not guessable: it is 32
-// bytes from the CSPRNG, so an attacker who has the table has nothing to iterate
-// against and the hash costs nothing to compute. The slow-hash property would buy
-// nothing and would make every reset request noticeably slower.
-
-/** 32 bytes of CSPRNG output, hex-encoded. 256 bits: not a number worth guessing. */
-export function generateResetToken() {
-  return randomBytes(32).toString("hex");
-}
-
-/** The value actually stored. Exact for a random token, so a single pass suffices. */
-export function hashResetToken(token) {
-  return createHash("sha256").update(token).digest("hex");
-}
+// Imported as well as re-exported: `export … from` does not bring the name into
+// local scope, so a function in this file that uses it needs its own import.
+export {
+  buildResetUrl,
+  generateResetToken,
+  hashResetToken,
+  MAX_LIVE_RESET_TOKENS,
+} from "../../auth/resetToken.js";
 
 /**
  * Records a freshly issued token.
@@ -98,35 +92,6 @@ export async function consumeResetToken(token) {
 
   return result.rowCount;
 }
-
-/**
- * How many live tokens a user may hold at once.
- *
- * This is the rate limit on `POST /auth/forgot-password`, and it works without a
- * per-IP counter because the thing worth limiting is per-account: the abuse is
- * using the endpoint to send mail to a known address as fast as possible, and
- * that is bounded by how many tokens one account can hold.
- *
- * Three is enough for a user who lost the email, clicked twice because the page
- * seemed slow, and is now trying again from another device.
- */
-/**
- * The link a reset email carries.
- *
- * Its own function so it can be asserted without sending mail, which is the only
- * way to test it — the alternative is an end-to-end test that needs a working
- * provider and an inbox.
- *
- * `appUrl` is trimmed of a trailing slash first. A configured `https://crm.x.com/`
- * would otherwise produce `https://crm.x.com//reset-password`, which some routers
- * treat as a different path, and the user gets a 404 from a link that looks
- * correct in their mail client.
- */
-export function buildResetUrl(appUrl, token) {
-  return `${appUrl.replace(/\/+$/, "")}/reset-password?token=${token}`;
-}
-
-export const MAX_LIVE_RESET_TOKENS = 3;
 
 /**
  * Whether this user has room for another live reset token.
