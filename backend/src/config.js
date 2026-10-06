@@ -34,12 +34,31 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set. Copy backend/.env.example to backend/.env");
 }
 
+// Where the frontend lives, as the browser sees it.
+//
+// Needed for password reset, and the failure mode is quiet: a reset link built
+// from the wrong origin is still a working, correctly-signed token, so nothing
+// errors and nothing is logged. The emailed link simply goes somewhere that is
+// not this app, and the user concludes the feature is broken. Required in
+// production for the same reason JWT_SECRET is.
+const DEFAULT_APP_URL = "http://localhost:5173";
+
+const appUrl = (process.env.APP_URL ?? DEFAULT_APP_URL).replace(/\/+$/, "");
+
+if (!process.env.APP_URL && process.env.NODE_ENV === "production") {
+  throw new Error("APP_URL must be set in production — password reset links are built from it");
+}
+
 export const config = {
   jwtSecret: secret || DEV_SECRET,
   // Long enough for a normal work session, short enough to limit the damage
   // from a leaked token.
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "12h",
   port: Number(process.env.PORT) || 5000,
+  // Trailing slashes stripped, because they compose badly: `${appUrl}/login`
+  // against a configured `https://crm.example.com/` produces a doubled slash,
+  // which some routers treat as a different path and 404 on.
+  appUrl,
   corsOrigin: (process.env.CORS_ORIGIN ?? DEFAULT_CORS_ORIGINS.join(","))
     .split(",")
     .map((origin) => origin.trim())

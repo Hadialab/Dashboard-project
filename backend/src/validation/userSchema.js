@@ -1,5 +1,24 @@
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * The password policy, in one place.
+ *
+ * Exported rather than inlined because a reset sets a password too, and two
+ * copies of a policy is how "you can register with that but not reset to it"
+ * happens. Returns null when the password is acceptable, or the message to show.
+ *
+ * bcrypt silently truncates beyond 72 bytes, so the upper bound is a real check
+ * rather than a formality: without it, two passwords sharing a 72-byte prefix
+ * would be the same password, and the user would have no way of knowing.
+ */
+export function checkPassword(password) {
+  if (password.length < 6) return "Password must be at least 6 characters";
+
+  if (Buffer.byteLength(password, "utf8") > 72) return "Password must be at most 72 bytes";
+
+  return null;
+}
+
 // Shared field checks. `organizationName` is only required on public sign-up,
 // where it names a brand new company; an admin adding someone to their own
 // company already knows the name and must not be asked for it again.
@@ -25,11 +44,8 @@ function collectErrors(body, { requireOrganization }) {
 
   // bcrypt silently truncates beyond 72 bytes, so reject rather than accept a
   // password whose tail would be ignored.
-  if (password.length < 6) {
-    errors.password = "Password must be at least 6 characters";
-  } else if (Buffer.byteLength(password, "utf8") > 72) {
-    errors.password = "Password must be at most 72 bytes";
-  }
+  const passwordProblem = checkPassword(password);
+  if (passwordProblem) errors.password = passwordProblem;
 
   return { value: { name, organizationName, email, password }, errors };
 }

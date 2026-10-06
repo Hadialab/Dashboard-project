@@ -7,6 +7,8 @@ import { entityConfig } from "../validation/noteSchema.js";
 import { validateFollowUp, validateFollowUpUpdate } from "../validation/followUpSchema.js";
 import { can, canViewRow } from "../auth/permissions.js";
 import { isEmailConfigured, sendEmail } from "../services/email.js";
+import { templates } from "../services/emailTemplates.js";
+import { config } from "../config.js";
 import { asyncHandler, badRequest, forbidden, notFound } from "../utils/asyncHandler.js";
 
 const router = express.Router();
@@ -205,23 +207,28 @@ router.post(
       });
     }
 
+    // The template owns the subject and body, so the mail client gets the same
+    // wording as the email and neither can drift from the other.
+    const reminder = templates.followUpReminder({
+      contactName,
+      title: followUp.title,
+      dueAt: followUp.dueAt,
+      details: followUp.details,
+      appUrl: config.appUrl,
+    });
+
     const result = await sendEmail({
+      ...reminder,
       to,
-      subject: `Follow-up: ${followUp.title}`,
-      text: [
-        `Reminder for ${contactName}.`,
-        "",
-        `${followUp.title} — due ${followUp.dueAt}.`,
-        followUp.details || "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      template: "follow_up_reminder",
+      userId: req.user.id,
+      organizationId: req.organizationId,
     });
 
     res.json({
       ...result,
       // Lets the client build a mailto: without duplicating the subject/body.
-      mailto: `mailto:${to}?subject=${encodeURIComponent(`Follow-up: ${followUp.title}`)}`,
+      mailto: `mailto:${to}?subject=${encodeURIComponent(reminder.subject)}`,
       providerConfigured: isEmailConfigured(),
     });
   }),

@@ -136,6 +136,77 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE INDEX IF NOT EXISTS notes_org_idx ON notes (organization_id);
 CREATE INDEX IF NOT EXISTS notes_entity_idx ON notes (entity_type, entity_id);
 
+-- ===== Password resets =====
+--
+-- One row per reset request, so a link can be issued more than once without the
+-- earlier ones becoming invalid — a user who asked for a link and then lost the
+-- first email is not stuck.
+--
+-- The token is stored hashed, not as issued. Everything else here is a
+-- convenience; this is the security boundary. The plaintext token exists only in
+-- the email the recipient receives, so a dump of this table — a leaked backup, an
+-- over-broad analytics query, a compromised read replica — hands over no working
+-- reset links. Hashing a 32-byte random value is exact, so there is no reason to
+-- store it recoverably.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id              BIGSERIAL PRIMARY KEY,
+  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- sha256 hex of the token that was emailed. Indexed because every reset attempt
+  -- looks a token up by this and nothing else.
+  token_hash      TEXT NOT NULL UNIQUE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at      TIMESTAMPTZ NOT NULL,
+  -- Set when the token is spent. A second attempt with the same token finds a
+  -- non-null used_at and is refused, which is what makes it single-use.
+  used_at         TIMESTAMPTZ
+);
+
+-- Every lookup is "this user's live tokens", and every lookup is "this token",
+-- so both are indexed. The expiry index is for pruning rather than for reads —
+-- nothing queries by expiry, because an expired row is filtered out by the same
+-- predicate that filters out a used one.
+CREATE INDEX IF NOT EXISTS password_reset_user_idx ON password_reset_tokens (user_id);
+CREATE INDEX IF NOT EXISTS password_reset_expiry_idx ON password_reset_tokens (expires_at);
+
+-- ===== Sent email =====
+--
+-- A record of every send attempt, successful or not.
+--
+-- Without this, a failed send is invisible: `sendEmail` reports `{ sent: false }`
+-- to the caller, the caller is a request that has already returned, and the
+-- message is simply gone. "Did the reminder go out?" is the first question asked
+-- of any notification feature, and it has to be answerable without log-diving.
+--
+-- Note what is *not* stored: the body. A CRM sends mail containing customer
+-- names, phone numbers and deal values, and a table that accumulates every
+-- message would accumulate all of it indefinitely, in a place with weaker
+-- retention guarantees than the records it describes. The subject and recipient
+-- are enough to answer the operational question.
+CREATE TABLE IF NOT EXISTS sent_email (
+  id               BIGSERIAL PRIMARY KEY,
+  organization_id  INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+  -- Null when the recipient was not a known user, which happens for a password
+  -- reset on an unknown address — which is not recorded at all, deliberately (see
+  -- the route), but also for a customer contact who is not in this app.
+  user_id          INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  -- Which template, so a broken template can be told apart from a broken address.
+  template         TEXT NOT NULL,
+  recipient        TEXT NOT NULL,
+  subject          TEXT NOT NULL,
+  status           TEXT NOT NULL
+                     CONSTRAINT sent_email_status_allowed
+                     CHECK (status IN ('sent', 'failed', 'skipped')),
+  -- The provider's message id on success, or the reason on failure. One column
+  -- rather than two, because exactly one is ever meaningful.
+  detail           TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- "What has this company sent, newest first" is the only query worth optimising.
+-- The others are investigations over a small table.
+CREATE INDEX IF NOT EXISTS sent_email_org_idx ON sent_email (organization_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS sent_email_user_idx ON sent_email (user_id, created_at DESC);
+
 -- ===== Follow-ups: scheduled work =====
 
 CREATE TABLE IF NOT EXISTS followups (
@@ -193,7 +264,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   actor_name       TEXT NOT NULL,
   action           TEXT NOT NULL
                      CONSTRAINT audit_log_action_allowed
-                     CHECK (action IN ('create', 'update', 'delete', 'convert', 'permission_change')),
+                     CHECK (action IN ('create', 'update', 'delete', 'convert', 'permission_change', 'password_change')),
   entity_type      TEXT NOT NULL
                      CONSTRAINT audit_log_entity_type_allowed
                      CHECK (entity_type IN ('customer', 'lead', 'deal', 'user')),
@@ -233,6 +304,10 @@ ALTER TABLE leads     ADD COLUMN IF NOT EXISTS converted_customer_id TEXT;
 -- to the same shape without touching its rows.
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS entity_label TEXT;
 
+-- password_reset_tokens and sent_email were added after the original schema, so
+-- a database created before them needs no ALTER: their CREATE TABLE statements
+-- above are IF NOT EXISTS and will simply run for the first time. Nothing to add.
+
 -- The original entity_type constraints were auto-named by Postgres. Swap them
 -- for ones that also allow leads, but only when the old constraint is still in
 -- place — otherwise a fresh database would be altered on every single boot.
@@ -265,5 +340,18 @@ BEGIN
   ) THEN
     ALTER TABLE notes ADD CONSTRAINT notes_kind_allowed CHECK (kind IN ('note', 'event'));
   END IF;
+
+  -- audit_log's action list grew when password changes became auditable. Unlike
+  -- the two above this one is dropped and recreated unconditionally, because the
+  -- CREATE TABLE is a no-op against an existing table and the constraint has to
+  -- move regardless of whether it already exists. Dropping and re-adding within one
+  -- transaction takes effect atomically, and the window in which the column has no
+  -- constraint is not visible to another session.
+  --
+  -- Existing rows are unaffected: every value already allowed stays allowed.
+  ALTER TABLE audit_log DROP CONSTRAINT IF EXISTS audit_log_action_allowed;
+  ALTER TABLE audit_log
+    ADD CONSTRAINT audit_log_action_allowed
+    CHECK (action IN ('create', 'update', 'delete', 'convert', 'permission_change', 'password_change'));
 END $$;
 

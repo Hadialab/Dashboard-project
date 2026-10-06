@@ -124,6 +124,32 @@ export async function updateUser(organizationId, id, changes) {
   return rows[0] ?? null;
 }
 
+/**
+ * Replaces a password hash.
+ *
+ * Separate from `updateUser` on purpose. That function takes an organization id
+ * and a whitelist of ordinary profile fields; a password reset is not scoped to
+ * an organization in the same way — the caller arrives from a token, not from a
+ * session, and may not know which organization it is acting within yet. Folding
+ * `password_hash` into the whitelist would mean either weakening that scoping or
+ * passing a throwaway organization id, and both are worse than one small function.
+ *
+ * Takes a bare user id because `users.email` is unique across the whole install,
+ * so a user id identifies exactly one account with no ambiguity.
+ *
+ * Returns the user without the hash, like every other read here.
+ */
+export async function setUserPassword(userId, passwordHash) {
+  const { rows } = await query(
+    `UPDATE users SET password_hash = $2
+      WHERE id = $1
+      RETURNING id, organization_id, name, email, role, permissions, created_at`,
+    [userId, passwordHash],
+  );
+
+  return rows[0] ?? null;
+}
+
 export async function deleteUser(organizationId, id) {
   const { rows } = await query(
     `DELETE FROM users WHERE organization_id = $1 AND id = $2

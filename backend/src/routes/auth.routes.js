@@ -8,12 +8,24 @@ import {
   findUserById,
   insertUser,
   listUsers,
+  setUserPassword,
   updateUser,
 } from "../db/repos/users.js";
 import { releaseCreator } from "../db/repos/activity.js";
 import { insertAuditEntry } from "../db/repos/audit.js";
+import {
+  canIssueResetToken,
+  consumeResetToken,
+  findUserByResetToken,
+  generateResetToken,
+  insertResetToken,
+  invalidateResetTokens,
+} from "../db/repos/passwordReset.js";
+import { sendEmail, RESET_TOKEN_TTL_MINUTES } from "../services/email.js";
+import { templates } from "../services/emailTemplates.js";
 import { signToken } from "../auth/tokens.js";
 import { requireAuth } from "../auth/requireAuth.js";
+import { config } from "../config.js";
 import { ROLES, requireRole } from "../auth/roles.js";
 import {
   DEFAULT_PERMISSIONS,
@@ -22,6 +34,11 @@ import {
   validatePermissions,
 } from "../auth/permissions.js";
 import { validateLogin, validateNewUser, validateRegistration } from "../validation/userSchema.js";
+import {
+  RESET_TOKEN_PATTERN,
+  validateForgotPassword,
+  validateResetPassword,
+} from "../validation/passwordResetSchema.js";
 import { describeCreation, describeDeletion, diffRecord, hasChanges } from "../audit/diff.js";
 import { asyncHandler, badRequest, conflict, notFound, unauthorized } from "../utils/asyncHandler.js";
 
@@ -83,6 +100,20 @@ router.post(
       permissions: DEFAULT_PERMISSIONS,
     });
 
+    // Best-effort, and deliberately after the response is built. A welcome email is
+    // a courtesy: if the provider is down or slow, the signup must still succeed,
+    // and a user who cannot receive it is no less able to work. `sendEmail` never
+    // throws for that reason, and the attempt is recorded either way.
+    const welcome = templates.welcome({ name: user.name, appUrl: config.appUrl });
+
+    void sendEmail({
+      ...welcome,
+      to: user.email,
+      template: "welcome",
+      userId: user.id,
+      organizationId: user.organization_id,
+    });
+
     res.status(201).json({
       token: signToken(user),
       user: publicUser(user),
@@ -112,6 +143,138 @@ router.post(
     }
 
     res.json({ token: signToken(user), user: publicUser(user) });
+  }),
+);
+
+// ===== Password reset =====
+//
+// The two properties this section is built around, both of which are easy to get
+// subtly wrong and impossible to fix after the fact:
+//
+//   1. `forgot-password` must not reveal whether an address is registered. Same
+//      message, same status code, and — the part that is easy to skip — the same
+//      *shape* of work for both cases, so the response is also not a timing oracle.
+//      A different message for a known address turns the form into a way to
+//      enumerate every customer in the install.
+//
+//   2. A reset token is a bearer credential for a full account takeover. It is
+//      stored hashed, expires in minutes, works exactly once, and every other
+//      live token for that account is invalidated the moment it is spent.
+
+// What every caller is told, whatever actually happened.
+const RESET_REQUESTED =
+  "If an account exists with that address, a reset link is on its way.";
+
+// And the single answer for a token that cannot be used. Malformed, unknown,
+// expired and already-used all land here, deliberately indistinguishable: the
+// difference between them would tell an attacker which guesses were ever real.
+const TOKEN_REJECTED = "This reset link is no longer valid. Request a new one.";
+
+// ===== Forgot password =====
+
+/**
+ * Starts a reset.
+ *
+ * Returns the same response for every input, including a malformed one, a
+ * non-existent address, and an address whose rate limit is exhausted.
+ */
+router.post(
+  "/forgot-password",
+  asyncHandler(async (req, res) => {
+    const { value, errors } = validateForgotPassword(req.body);
+    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+
+    const user = await findUserByEmail(value.email);
+
+    if (user && (await canIssueResetToken(user.id))) {
+      const token = generateResetToken();
+      const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60_000);
+
+      await insertResetToken(user.id, token, expiresAt);
+
+      const resetUrl = `${config.appUrl}/reset-password?token=${token}`;
+
+      void sendEmail({
+        ...templates.passwordReset({
+          name: user.name,
+          resetUrl,
+          ttlMinutes: RESET_TOKEN_TTL_MINUTES,
+        }),
+        to: user.email,
+        template: "password_reset",
+        userId: user.id,
+        organizationId: user.organization_id,
+      });
+    }
+
+    // Unconditional, and returned even when the address is unknown or the limit is
+    // hit. Anything else here is an enumeration oracle.
+    res.json({ message: RESET_REQUESTED });
+  }),
+);
+
+// ===== Complete a reset =====
+
+/**
+ * Spends a token and sets a new password.
+ *
+ * The token is consumed and the password written in that order, and the
+ * consumption is a conditional UPDATE rather than a read-then-write — so of two
+ * simultaneous resets using the same token exactly one wins, and the loser gets
+ * the same rejection as a bad token rather than silently overwriting the winner's
+ * password.
+ */
+router.post(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { value, errors } = validateResetPassword(req.body);
+    if (Object.keys(errors).length > 0) throw badRequest("Validation failed", errors);
+
+    // The shape check and the lookup happen here rather than in the validator, so
+    // that a token which is malformed, unknown, expired and already-used all reach
+    // the same single rejection below. Splitting them puts a validation error on
+    // one path and a different message on the others, and the difference tells an
+    // attacker which 64-character strings were ever issued.
+    const user = RESET_TOKEN_PATTERN.test(value.token)
+      ? await findUserByResetToken(value.token)
+      : null;
+
+    // Conditional UPDATE, so of two simultaneous resets with the same token exactly
+    // one updates a row and the other matches nothing.
+    const spent = user ? await consumeResetToken(value.token) : 0;
+
+    if (!user || spent === 0) {
+      throw badRequest(TOKEN_REJECTED);
+    }
+
+    const updated = await setUserPassword(user.id, bcrypt.hashSync(value.password, 10));
+
+    // Every other outstanding link for this account stops working. A link that was
+    // forwarded before the user noticed the request should not survive the reset
+    // that fixed the problem.
+    await invalidateResetTokens(user.id);
+
+    // The single most security-relevant event in the app, so it goes in the audit
+    // log rather than only the server log. `actorId` is the user's own: a
+    // self-service reset has no admin behind it, and attributing it to the actor
+    // who performed it is both true and what an auditor needs — it means "this
+    // account was reset by its owner" rather than "by somebody".
+    await insertAuditEntry(user.organization_id, {
+      actorId: user.id,
+      actorName: user.name,
+      action: "password_change",
+      entityType: "user",
+      entityId: String(user.id),
+      entityLabel: user.name,
+      // No hash, no token, no address. What changed is the password and nothing
+      // about it is worth recording.
+      changes: { password: { from: null, to: "changed" } },
+    });
+
+    // Deliberately no token in the response. Handing back a signed-in session here
+    // would make a reset link a login bypass for anyone who found the email, and
+    // the user is already at a password prompt with the password they just chose.
+    res.json({ user: publicUser(updated) });
   }),
 );
 
