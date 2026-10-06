@@ -5,6 +5,8 @@ import { Toaster } from "react-hot-toast";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import useThemeStore from "./store/themeStore";
@@ -75,6 +77,12 @@ function App() {
           {/* Public Route */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          {/* Eager, like Login and Register: reachable from the sign-in page, and
+              shipping them in the entry chunk costs less than a second request. */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          {/* Carries ?token=... from an emailed link, so it is not lazy either: it
+              is the landing page for an email, often the first paint of a visit. */}
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes. The outer gate only checks the session; the inner
               ones check the permission for the section, because "signed in" and

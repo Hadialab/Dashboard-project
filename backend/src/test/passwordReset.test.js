@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   generateResetToken,
   hashResetToken,
+  buildResetUrl,
   MAX_LIVE_RESET_TOKENS,
 } from "../db/repos/passwordReset.js";
 
@@ -54,6 +55,46 @@ describe("hashResetToken", () => {
 
   it("separates different tokens", () => {
     expect(hashResetToken(generateResetToken())).not.toBe(hashResetToken(generateResetToken()));
+  });
+});
+
+describe("buildResetUrl", () => {
+  // Its own function precisely so this can be asserted without a provider: the
+  // alternative is an end-to-end test that needs a working inbox.
+  const token = "a".repeat(64);
+
+  it("points at the reset page with the token attached", () => {
+    expect(buildResetUrl("https://crm.example.com", token)).toBe(
+      `https://crm.example.com/reset-password?token=${token}`,
+    );
+  });
+
+  it("strips a trailing slash from the configured origin", () => {
+    // A configured `https://crm.example.com/` otherwise produces a doubled slash,
+    // which some routers treat as a different path — so the user gets a 404 from a
+    // link that looks perfectly correct in their mail client.
+    expect(buildResetUrl("https://crm.example.com/", token)).not.toContain(".com//");
+    expect(buildResetUrl("https://crm.example.com///", token)).not.toContain(".com//");
+  });
+
+  it("preserves a path prefix, so a sub-path deployment still works", () => {
+    expect(buildResetUrl("https://example.com/crm", token)).toBe(
+      `https://example.com/crm/reset-password?token=${token}`,
+    );
+  });
+
+  it("keeps a non-default port", () => {
+    // The E2E run depends on this: a link pointing at 5173 works on a developer's
+    // machine and 404s in CI, where nothing is serving that port.
+    expect(buildResetUrl("http://localhost:5174", token)).toContain("http://localhost:5174/");
+  });
+
+  it("puts the token in the query, not the path", () => {
+    // A token in the path tends to end up in server logs and referrer headers.
+    const url = buildResetUrl("https://crm.example.com", token);
+
+    expect(url).toContain(`?token=${token}`);
+    expect(url.split("/").at(-1)).toBe(`reset-password?token=${token}`);
   });
 });
 

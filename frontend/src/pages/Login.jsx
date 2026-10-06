@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Lock, Mail } from "lucide-react";
 import * as yup from "yup";
 import useAuthStore from "../store/authStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { getApiErrorMessage } from "../utils/apiError";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
@@ -13,6 +13,11 @@ function Login() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  // The reset page sends the user here after a successful change, with this flag.
+  // Without a confirmation they arrive at a login form with no idea whether the
+  // reset worked — and a failed reset looks exactly like a failed sign-in.
+  const [searchParams] = useSearchParams();
+  const justReset = searchParams.get("reset") === "1";
   const login = useAuthStore((state) => state.login);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
@@ -82,6 +87,15 @@ function Login() {
         </div>
 
         <form className="space-y-5" onSubmit={handleLogin} noValidate>
+          {justReset && (
+            <p
+              role="status"
+              className="rounded-lg border border-green-200 bg-green-50/60 p-3 text-sm text-green-800 dark:border-green-900/60 dark:bg-green-950/20 dark:text-green-300"
+            >
+              Your password has been changed. Sign in with your new one.
+            </p>
+          )}
+
           <Input
             label="Email"
             id="email"
@@ -115,6 +129,18 @@ function Login() {
           >
             {isSubmitting ? "Signing in..." : "Sign in"}
           </Button>
+
+          {/* Below the button, not above the form: a password manager's own
+              "forgot password" affordance sits in the same region, and putting
+              ours next to it means it gets filled in automatically. */}
+          <div className="text-right">
+            <Link
+              to="/forgot-password"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Forgot your password?
+            </Link>
+          </div>
         </form>
 
         <div className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">

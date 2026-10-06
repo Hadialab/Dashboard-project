@@ -50,11 +50,19 @@ function describeChange(change: AuditChange): string {
   return `${formatValue(change.from)} → ${formatValue(change.to)}`;
 }
 
-/** Action colours. Only the three that matter get a colour; the rest stay quiet. */
+/**
+ * Action colours. Only the ones worth spotting get one; the rest stay quiet.
+ *
+ * `password_change` shares the amber of a permission change deliberately — both
+ * are security events, and an auditor skimming for "who touched access" should
+ * not have to read every row to find a reset.
+ */
 const ACTION_STYLES: Record<string, string> = {
   create: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
   delete: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
   permission_change:
+    "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  password_change:
     "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 

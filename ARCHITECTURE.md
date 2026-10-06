@@ -114,19 +114,21 @@ gate as an authorisation decision.
 
 ## The data model
 
-Seven tables. `organizations` is the tenant; everything else belongs to one and
+Nine tables. `organizations` is the tenant; everything else belongs to one and
 cascades from it.
 
 ```
 organizations
    │
-   ├── users            who can sign in, and what they may do
-   ├── customers        the people and companies you sell to
-   ├── leads            unqualified contacts, before they become customers
-   ├── deals            revenue, moving through a pipeline
-   ├── notes            activity timeline, hanging off any of the three
-   ├── followups        what is still to do, hanging off any of the three
-   └── audit_log        who changed what, with before and after values
+   ├── users                 who can sign in, and what they may do
+   ├── customers             the people and companies you sell to
+   ├── leads                 unqualified contacts, before they become customers
+   ├── deals                 revenue, moving through a pipeline
+   ├── notes                 activity timeline, hanging off any of the three
+   ├── followups             what is still to do, hanging off any of the three
+   ├── audit_log             who changed what, with before and after values
+   ├── password_reset_tokens one-shot links back into an account
+   └── sent_email            every send attempt, successful or not
 ```
 
 Full column-level detail is in [`backend/src/db/schema.sql`](backend/src/db/schema.sql).
@@ -195,6 +197,57 @@ The date filter is pinned to **UTC**. `created_at` is `TIMESTAMPTZ`, so casting 
 bound to `date` would make Postgres interpret it in the server's timezone — and a
 server three hours ahead of UTC would then silently exclude the last three hours of
 yesterday from a "today" range.
+
+## Email and password reset
+
+**Email has no hard dependency on a provider.** With `EMAIL_API_KEY` and `EMAIL_FROM`
+unset, `sendEmail` reports that it is disabled and the follow-up button falls back to
+a `mailto:` link. Choosing a provider is a deployment decision, so the interface is
+small enough that swapping Resend for SES is an adapter rather than a rewrite.
+
+**Every attempt is recorded in `sent_email`** — sent, failed, or skipped for want of
+configuration. Without that, a failed send is invisible: the caller is a request that
+has already returned and the message is simply gone, and "did the reminder go out?"
+has no answer. `skipped` is distinct from `failed` so an unconfigured environment does
+not read as an outage. The body is deliberately not stored; a CRM sends mail full of
+customer names and phone numbers, and a table accumulating every message
+indefinitely is a retention problem the records it describes do not have.
+
+**Password reset tokens are stored hashed, not as issued.** Everything else in
+`password_reset_tokens` is convenience; this is the security boundary. The plaintext
+exists only in the email, so a leaked backup or an over-broad analytics query yields
+no working links. It is sha256 rather than bcrypt deliberately — bcrypt is slow to
+*verify a guessable secret*, and 32 bytes from the CSPRNG is not guessable, so the
+slow-hash property would cost a reset request its latency and buy nothing.
+
+The link works once, expires in 15 minutes, and every other live token for that
+account is invalidated when it is spent. Consumption is a conditional `UPDATE`, not a
+read-then-write, so of two simultaneous resets with the same token exactly one
+updates a row.
+
+**`POST /auth/forgot-password` is deliberately uninformative.** Same message, same
+status code, and no field error for the address — anything different turns the form
+into a way to enumerate every account in the install. The same applies to
+`reset-password`, where a malformed token, an unknown one, an expired one and an
+already-used one all reach a single rejection. The shape check that keeps arbitrary
+strings out of the database lives in the *route*, not the validator, precisely so it
+cannot produce a distinguishable response.
+
+**Rate limiting is per account, not per IP.** The abuse being bounded is sending
+mail to a known address as fast as possible, and holding at most three live tokens
+bounds that without a per-IP counter that a rotating client defeats. Counted in SQL,
+so it survives a restart — a rate limit that resets when the server does is not one.
+
+`APP_URL` builds the emailed link and is required in production. The failure mode
+without it is silent: the link is still a correctly-signed token, nothing errors, and
+the mail goes somewhere that is not this app.
+
+**Escaping is not optional.** Every interpolated value goes through `escapeHtml` in
+the HTML part and `safeSubject` in headers — customer names and follow-up titles are
+typed by whoever is using the CRM, and a message body is rendered as markup by some
+clients. A subject is an SMTP header, so a newline in one is header injection; it is
+stripped rather than escaped, because there is no legitimate reason for a subject to
+contain a newline and `\n` would be visible in the recipient's subject line.
 
 ## Multi-tenancy
 
@@ -445,19 +498,28 @@ Real gaps, not a to-do list. Each would change the design above rather than sit
 alongside it.
 
 **Logout does not revoke an issued token.** Stateless JWTs cannot be revoked
-without a server-side deny list. Bounded by `JWT_EXPIRES_IN`.
+without a server-side deny list. Bounded by `JWT_EXPIRES_IN`. The same applies to
+a password reset: it does not sign the previous owner out, so a session opened
+before the reset stays valid until it expires on its own.
 
 **Deals store a customer name, not a customer id.** So a deal follow-up has no
 email address of its own and sends from the linked customer. Changing it means
 adding `customer_id` to `deals` and migrating existing rows.
 
-**No password reset.** An admin can reset by removing and re-adding a team
-member. Self-service needs an email provider.
-
 **The audit log is never pruned.** Retention is deliberately not implemented: a log
 that quietly discards its oldest rows stops being evidence, so that belongs in a
 scheduled job or an operator's decision rather than a default. A long-lived install
-will grow the table indefinitely.
+will grow the table indefinitely. `sent_email` has the same problem and no
+mitigation yet.
+
+**Nothing reads `sent_email` back.** It exists so a failed send is diagnosable, and
+there is no admin view over it. That is the obvious next thing to build on this
+table, along with a bounce webhook — a provider reporting a hard bounce currently
+has nowhere to go.
+
+**Password reset does not end existing sessions.** A JWT cannot be revoked, so an
+attacker's session survives the victim resetting their password. Closing this means
+a token version or deny list, which is the same gap logout has.
 
 **Audit entries are written after the business write commits, and a failed write
 is logged rather than raised.** Failing the request would report a change that did

@@ -6,6 +6,8 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import AuditLogPage from "../pages/AuditLog";
 import axios from "axios";
 
+import { AUDIT_ACTIONS } from "../types";
+import { ACTION_LABELS } from "../components/audit/AuditFilterBar";
 import { getAuditLog } from "../services/auditService";
 
 /**
@@ -163,7 +165,30 @@ describe("AuditLogPage", () => {
     expect(await screen.findByText("(account removed)")).toBeInTheDocument();
   });
 
-  it("shows the record's name, not only its id", async () => {
+  it("labels every action the API can send", async () => {
+    // A missing label renders as a blank badge rather than an error, so this would
+    // not fail loudly — the audit view would just silently omit an action. The
+    // regression it guards: `password_change` was added to the API's CHECK
+    // constraint without being added here.
+    mockGetAuditLog.mockResolvedValue({
+      entries: AUDIT_ACTIONS.map((action, index) =>
+        entry({ id: String(index), action, changes: {} }),
+      ),
+      total: AUDIT_ACTIONS.length,
+      limit: 50,
+      offset: 0,
+      actors: [],
+    });
+
+    renderPage();
+
+    const table = await screen.findByRole("table");
+    for (const action of AUDIT_ACTIONS) {
+      expect(within(table).getByText(ACTION_LABELS[action]), `for "${action}"`).toBeInTheDocument();
+    }
+  });
+
+it("shows the record's name, not only its id", async () => {
     mockGetAuditLog.mockResolvedValue({
       entries: [entry()],
       total: 1,

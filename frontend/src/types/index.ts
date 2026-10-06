@@ -293,6 +293,25 @@ export type MeResponse = {
   organization: Organization;
 };
 
+// ===== Password reset =====
+
+/**
+ * `POST /auth/forgot-password` answers with this sentence and nothing else.
+ *
+ * The identical message is returned whether or not the address is registered, so
+ * the client has nothing to branch on — which is the point. A boolean here would
+ * turn the form into a way to discover who has an account.
+ */
+export type ForgotPasswordResponse = {
+  message: string;
+};
+
+export type ResetPasswordRequest = {
+  /** 64 hex characters, read from the emailed link. */
+  token: string;
+  password: string;
+};
+
 /** What `POST /leads/:id/convert` answers with. */
 export type ConvertLeadResponse = {
   customer: Customer;
@@ -321,6 +340,10 @@ export type BulkResult = {
  * `permission_change` covers adding a user and editing their access as well as a
  * role change — every one of those is a grant or a revocation, and separating
  * them would mean the filter had to know which is which.
+ *
+ * This list and the API's `audit_log_action_allowed` constraint are the same set
+ * from two ends. Adding an action to one without the other does not fail loudly:
+ * the API accepts it and the view renders a blank badge.
  */
 export const AUDIT_ACTIONS = [
   "create",
@@ -328,6 +351,7 @@ export const AUDIT_ACTIONS = [
   "delete",
   "convert",
   "permission_change",
+  "password_change",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

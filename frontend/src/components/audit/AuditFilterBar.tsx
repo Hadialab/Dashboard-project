@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   delete: "Deleted",
   convert: "Converted",
   permission_change: "Access changed",
+  password_change: "Password changed",
 };
 
 const ENTITY_LABELS: Record<AuditEntityType, string> = {

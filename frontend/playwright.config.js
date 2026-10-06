@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
-import fs from "node:fs";
+
+import { resolveE2eDatabaseUrl as resolveE2eDatabaseUrlShared } from "./e2e/e2eDatabase.js";
 
 /**
  * End-to-end configuration.
@@ -24,26 +25,11 @@ const BACKEND_DIR = path.resolve(import.meta.dirname, "..", "backend");
 /**
  * Resolves the database the E2E API should use.
  *
- * Prefers an explicit E2E_DATABASE_URL. Otherwise it reuses the credentials from
- * backend/.env and swaps in a separate database, so the E2E run needs no
- * environment setup at all and can never write to the database being developed
- * against.
+ * Lives in e2e/e2eDatabase.js so the specs open their connection to the same
+ * database this config starts the API against.
  */
 function resolveE2eDatabaseUrl() {
-  if (process.env.E2E_DATABASE_URL) return process.env.E2E_DATABASE_URL;
-
-  let devEnv;
-  try {
-    devEnv = fs.readFileSync(path.join(BACKEND_DIR, ".env"), "utf8");
-  } catch {
-    return undefined; // No .env: fall back to DATABASE_URL from the environment.
-  }
-
-  const match = devEnv.match(/^\s*DATABASE_URL\s*=\s*(.+)$/m);
-  if (!match) return undefined;
-
-  // Same host, port and credentials; a different database.
-  return match[1].trim().replace(/\/[^/?]+(\?|$)/, "/crm_e2e$1");
+  return resolveE2eDatabaseUrlShared();
 }
 
 /**
@@ -129,6 +115,17 @@ export default defineConfig({
         CORS_ORIGIN: `http://localhost:${WEB_PORT}`,
         DATABASE_URL: resolveE2eDatabaseUrl() ?? process.env.DATABASE_URL,
         JWT_SECRET: process.env.E2E_JWT_SECRET ?? "e2e-secret-never-used-in-production",
+        // The origin the emailed reset link is built from, pointing at this run's
+        // preview server. Without it the link would point at the developer's dev
+        // server on 5173 — which works locally and sends CI users to a page that is
+        // not being served, so the flow passes locally and fails there.
+        APP_URL: BASE_URL,
+        // No EMAIL_API_KEY, deliberately: the suite must not send real mail. The
+        // provider being unconfigured is a state the app has to handle anyway, and
+        // the E2E reset test reads the token out of the database instead of an
+        // inbox — so the test does not depend on a provider being available.
+        EMAIL_API_KEY: "",
+        EMAIL_FROM: "",
         NODE_ENV: "test",
       },
     },

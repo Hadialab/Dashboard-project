@@ -14,6 +14,7 @@ import {
 import { releaseCreator } from "../db/repos/activity.js";
 import { insertAuditEntry } from "../db/repos/audit.js";
 import {
+  buildResetUrl,
   canIssueResetToken,
   consumeResetToken,
   findUserByResetToken,
@@ -192,7 +193,7 @@ router.post(
 
       await insertResetToken(user.id, token, expiresAt);
 
-      const resetUrl = `${config.appUrl}/reset-password?token=${token}`;
+      const resetUrl = buildResetUrl(config.appUrl, token);
 
       void sendEmail({
         ...templates.passwordReset({

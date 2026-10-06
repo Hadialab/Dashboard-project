@@ -110,6 +110,22 @@ export async function consumeResetToken(token) {
  * Three is enough for a user who lost the email, clicked twice because the page
  * seemed slow, and is now trying again from another device.
  */
+/**
+ * The link a reset email carries.
+ *
+ * Its own function so it can be asserted without sending mail, which is the only
+ * way to test it — the alternative is an end-to-end test that needs a working
+ * provider and an inbox.
+ *
+ * `appUrl` is trimmed of a trailing slash first. A configured `https://crm.x.com/`
+ * would otherwise produce `https://crm.x.com//reset-password`, which some routers
+ * treat as a different path, and the user gets a 404 from a link that looks
+ * correct in their mail client.
+ */
+export function buildResetUrl(appUrl, token) {
+  return `${appUrl.replace(/\/+$/, "")}/reset-password?token=${token}`;
+}
+
 export const MAX_LIVE_RESET_TOKENS = 3;
 
 /**
