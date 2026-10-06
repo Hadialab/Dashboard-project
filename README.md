@@ -45,6 +45,9 @@ React front end, Express + PostgreSQL API, one repo.
   overdue / today / upcoming.
 - **Team** — admins add and remove people and set exactly what each of them can
   do, per resource.
+- **Audit log** — admins see every change to a customer, lead, deal or someone's
+  access, with the before and after value of each changed field. Append-only, and
+  filterable by person, record, action and date.
 - **Profile and settings** — your own details, password, light and dark theme.
 
 Everything is scoped to a company. One database serves many, and no company can

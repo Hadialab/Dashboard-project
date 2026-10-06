@@ -25,6 +25,21 @@ const TIMELINE = {
   deals: ["stage", "owner", "value", "expectedClose"],
 };
 
+// The field that reads as "which record was this".
+//
+// Declared per resource rather than guessed, because the two disagree: a customer
+// and a lead are named `name`, a deal is named `title`. Guessing would label half
+// the log with an empty string, which is worse than showing the id alone.
+//
+// Used to denormalise a label onto each audit row, so the log is readable without
+// looking every record up — and stays readable for a record that has since been
+// deleted, which is the case an audit log is most often consulted for.
+const LABEL_FIELD = {
+  customers: "name",
+  leads: "name",
+  deals: "title",
+};
+
 export const resources = {
   customers: {
     prefix: "c",
@@ -32,6 +47,7 @@ export const resources = {
     // Singular name the notes and follow-ups tables key on.
     entityType: "customer",
     owned: false,
+    labelField: LABEL_FIELD.customers,
     fields: ["name", "company", "email", "phone", "status"],
     searchFields: ["name", "company", "email", "phone"],
     // `status` drives the Customers toolbar filter.
@@ -53,6 +69,7 @@ export const resources = {
     permissionName: "deals",
     entityType: "deal",
     owned: true,
+    labelField: LABEL_FIELD.deals,
     fields: ["title", "customer", "owner", "ownerId", "stage", "value", "createdDate", "expectedClose"],
     searchFields: ["title", "customer", "owner"],
     // `owner` is excluded: it is the display name of `ownerId`, which the
@@ -79,6 +96,7 @@ export const resources = {
     permissionName: "leads",
     entityType: "lead",
     owned: true,
+    labelField: LABEL_FIELD.leads,
     fields: ["name", "company", "email", "phone", "status", "source", "assignedRep", "ownerId", "createdDate"],
     searchFields: ["name", "company", "email", "assignedRep"],
     // `assignedRep` is excluded for the same reason as a deal's `owner`.

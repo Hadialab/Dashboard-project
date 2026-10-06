@@ -11,6 +11,7 @@ import {
   CalendarCheck,
   UserCog,
   Columns3,
+  ScrollText,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -58,9 +59,13 @@ const LINKS: NavLinkSpec[] = [
   { name: "Follow-ups", path: "/followups", icon: CalendarCheck },
   { name: "Reports", path: "/reports", icon: FileBarChart, permission: "reports" },
   { name: "Settings", path: "/settings", icon: Settings },
-  // Admin only. A Sales user reaching this URL directly still gets a clear
+  // Admin only. A Sales user reaching these URLs directly still gets a clear
   // explanation rather than a 403.
   { name: "Team", path: "/team", icon: UserCog, adminOnly: true },
+  // Admin only for the same reason as Team, and gated the same way: the API
+  // refuses this section to a rep regardless of the permission table, because it
+  // is metadata about the company rather than CRM data.
+  { name: "Audit Log", path: "/audit", icon: ScrollText, adminOnly: true },
 ];
 
 type SidebarProps = {

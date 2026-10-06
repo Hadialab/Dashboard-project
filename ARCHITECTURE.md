@@ -114,7 +114,7 @@ gate as an authorisation decision.
 
 ## The data model
 
-Six tables. `organizations` is the tenant; everything else belongs to one and
+Seven tables. `organizations` is the tenant; everything else belongs to one and
 cascades from it.
 
 ```
@@ -125,7 +125,8 @@ organizations
    ├── leads            unqualified contacts, before they become customers
    ├── deals            revenue, moving through a pipeline
    ├── notes            activity timeline, hanging off any of the three
-   └── followups        what is still to do, hanging off any of the three
+   ├── followups        what is still to do, hanging off any of the three
+   └── audit_log        who changed what, with before and after values
 ```
 
 Full column-level detail is in [`backend/src/db/schema.sql`](backend/src/db/schema.sql).
@@ -165,6 +166,35 @@ It arrives in the API as a number and leaves as a string where precision matters
 **`followups.due_at` is `DATE`.** A follow-up is due on a day, not at an instant.
 `completed_at` is `TIMESTAMPTZ`, because *when* it was actually ticked off is a
 real event worth keeping.
+
+**`audit_log` is separate from `notes`, though the two are shown together.** They
+have different jobs and different lifetimes. `notes` is prose on one record's
+timeline, written for someone reading it, and a user can delete their own.
+`audit_log` is a machine-queryable record of every mutation — before and after
+values rather than a sentence — is append-only, and is readable only by an admin.
+An audit trail a user can delete is not one, and one that stores a sentence cannot
+answer "who changed this email address, and what was it before", which is the
+question it exists to answer. There is no `DELETE` route for it anywhere in the
+API: rows leave only when the organization is deleted, which cascades.
+
+It records every field that actually changed, not only the handful the timeline
+narrates. Recording a subset would silently omit a changed email address or phone
+number, which is exactly the kind of change an audit log is consulted about, and a
+log that answers "nothing changed" when something did is worse than no log. The
+cost is a wider `JSONB` payload on a row-per-mutation table, which is not a trade
+worth making.
+
+Three columns are denormalised on purpose: `actor_name`, `entity_label` and
+`changes`. `actor_id` and the record's own row both go away — the first on
+`ON DELETE SET NULL`, the second when the record is deleted — so a log that read
+its labels from live tables would lose precisely the entries that matter most: the
+one recording a deletion. `entity_label` is read from the resource's declared
+`labelField`, because a customer is `name` and a deal is `title`.
+
+The date filter is pinned to **UTC**. `created_at` is `TIMESTAMPTZ`, so casting a
+bound to `date` would make Postgres interpret it in the server's timezone — and a
+server three hours ahead of UTC would then silently exclude the last three hours of
+yesterday from a "today" range.
 
 ## Multi-tenancy
 
@@ -345,7 +375,16 @@ the reporting library.
 
 ## Testing
 
-Three layers, each catching what the one above cannot.
+Four layers, each catching what the one above cannot.
+
+**API unit** (`npm test` in `backend/`) — pure logic against no database, in a
+plain Node environment. Separate from the frontend suite on purpose: it is a
+different process with different assumptions, and the frontend's coverage gate is
+scoped to its own layers, so folding these in would dilute it. Deliberately does
+*not* cover the route and repo layers — those need a real database and a running
+app, which is what the Playwright suite already exercises end to end. Testing them
+again with a mocked pool would assert that the mocks behave, not that the API
+does.
 
 **Unit** (`npm test`) — services, utils, stores and hooks in isolation, with the
 service layer mocked. No database, no API, under half a minute. Run on every save.
@@ -357,7 +396,8 @@ test of the component alone would pass.
 
 **End-to-end** (`npm run test:e2e`) — Playwright against the real API and a real
 database, in a real browser. Login, add a customer, convert a lead, drag a deal
-across the board, bulk CSV import.
+across the board, bulk CSV import, and a mutation made through the UI appearing in
+the audit log with its before and after values.
 
 The split matters: the fast layers make it cheap to change anything, and the slow
 layer is what stops a cheap change from breaking a signup.
@@ -388,8 +428,8 @@ would report in a way nobody can act on.
    is advisory, `npm ci` will happily install a package that cannot run here, and
    the symptom arrives later as an unexplained error inside another tool's
    unhandled-errors section.
-2. **Lint**, then the unit and integration tests, then coverage against its
-   thresholds.
+2. **Lint**, then the API's own tests, then the unit and integration tests, then
+   coverage against its thresholds.
 3. **A production build and a staging build**, plus an inverted step asserting
    that a publish build with a placeholder API URL is *refused*.
 
@@ -413,6 +453,22 @@ adding `customer_id` to `deals` and migrating existing rows.
 
 **No password reset.** An admin can reset by removing and re-adding a team
 member. Self-service needs an email provider.
+
+**The audit log is never pruned.** Retention is deliberately not implemented: a log
+that quietly discards its oldest rows stops being evidence, so that belongs in a
+scheduled job or an operator's decision rather than a default. A long-lived install
+will grow the table indefinitely.
+
+**Audit entries are written after the business write commits, and a failed write
+is logged rather than raised.** Failing the request would report a change that did
+happen as an error. The consequence is that an audit write can fail silently apart
+from the server log — the log's own integrity is not verified against the
+records it describes.
+
+**The log is only as good as its capture points.** Every customer, lead and deal
+mutation passes through `routes/factory.js`, so those are covered by
+construction. A write that bypasses it — a direct SQL fix, or a future script run
+outside the API — leaves no trace.
 
 **The browser test run drives system Chrome.** Playwright's pinned Chromium could
 not be downloaded on the development machine. CI uses the pinned build, so the

@@ -100,7 +100,14 @@ export function createResourceRouter(name, config) {
       // And a row in the audit log, carrying every field as written. Written from
       // the row the database stored, so the log cannot claim values the insert
       // did not accept.
-      await audit(req, "create", config.entityType, created.id, describeCreation(created, config.fields));
+      await audit(
+        req,
+        "create",
+        config.entityType,
+        created.id,
+        describeCreation(created, config.fields),
+        created[config.labelField],
+      );
 
       res.status(201).json(created);
     }),
@@ -135,7 +142,17 @@ export function createResourceRouter(name, config) {
       // the frontend does on every save — must not fill the log with noise.
       const diff = diffRecord(existing, updated);
       if (hasChanges(diff)) {
-        await audit(req, "update", config.entityType, updated.id, diff);
+        // The label is read from the *updated* row, not the previous one: the log should
+      // say what the record is called now, since that is what someone reading it
+      // would search for.
+      await audit(
+        req,
+        "update",
+        config.entityType,
+        updated.id,
+        diff,
+        updated[config.labelField],
+      );
       }
 
       res.json(updated);
@@ -157,6 +174,7 @@ export function createResourceRouter(name, config) {
         config.entityType,
         row.id,
         describeDeletion(row, config.fields),
+        row[config.labelField],
       );
 
       res.json(removed);
@@ -267,13 +285,23 @@ function guardConverted(name, existing, value) {
 // change that rolled back. The actor is taken from the authenticated session, not
 // from the body — a client cannot write an audit entry in someone else's name.
 
-async function audit(req, action, entityType, entityId, changes) {
+async function audit(req, action, entityType, entityId, changes, label) {
   await insertAuditEntry(req.organizationId, {
     actorId: req.user.id,
     actorName: req.user.name,
     action,
     entityType,
     entityId,
+    // Denormalised onto the row so the log is readable without looking the record
+    // up — which matters most for a delete, where there is nothing left to look
+    // up.
+    //
+    // A string rather than a record, and passed in by the caller, because this
+    // helper is defined outside createResourceRouter and has no `config` to read
+    // `labelField` from. The caller inside the router passes
+    // `record[config.labelField]`, which is where a deal's `title` becomes a
+    // label rather than an undefined `name`.
+    entityLabel: label,
     changes,
   });
 }
@@ -285,7 +313,7 @@ async function audit(req, action, entityType, entityId, changes) {
  * "entity" being changed is a user rather than a CRM record. Exported so
  * auth.routes.js writes it through the same repo and the same rules.
  */
-export async function auditPermissionChange(req, targetUserId, changes) {
+export async function auditPermissionChange(req, targetUserId, changes, targetName) {
   if (!hasChanges(changes)) return;
 
   await insertAuditEntry(req.organizationId, {
@@ -294,6 +322,7 @@ export async function auditPermissionChange(req, targetUserId, changes) {
     action: "permission_change",
     entityType: "user",
     entityId: targetUserId,
+    entityLabel: targetName,
     changes,
   });
 }

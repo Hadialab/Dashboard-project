@@ -61,6 +61,17 @@ export function tableRow(page, name) {
 }
 
 /**
+ * One team member's card.
+ *
+ * The Team page renders a `<ul>` of cards rather than a table, so `tableRow` does
+ * not apply to it. Scoped to the list rather than the whole page, because the name
+ * also appears in the form while it is open.
+ */
+export function teamMember(page, name) {
+  return page.getByRole("list").getByRole("listitem").filter({ hasText: name });
+}
+
+/**
  * Navigates to a page and waits for it to have actually rendered.
  *
  * Waiting on the URL alone is not enough. Pages are lazy-loaded, so the URL
@@ -78,6 +89,8 @@ const PAGE_HEADINGS = {
   leads: "Leads",
   deals: "Deals",
   pipeline: "Pipeline",
+  audit: "Audit Log",
+  team: "Team",
 };
 
 async function gotoPage(page, key, navName) {
@@ -102,6 +115,79 @@ export async function gotoPipeline(page) {
 
 export async function gotoDeals(page) {
   await gotoPage(page, "deals", "Deals");
+}
+
+/** Admin-only, so it is reached through the sidebar rather than a generic goto. */
+export async function gotoAudit(page) {
+  await gotoPage(page, "audit", "Audit Log");
+}
+
+/** Admin-only too, for the same reason. */
+export async function gotoTeam(page) {
+  await gotoPage(page, "team", "Team");
+}
+
+/**
+ * Adds a team member from the Team page.
+ *
+ * The add form is an inline card, not a dialog — it is revealed by the "Add
+ * member" button and holds its own fields — so this waits for the form's heading
+ * rather than for a `dialog` role the page never renders.
+ */
+export async function addTeamMember(page, { name, email, password }) {
+  await page.getByRole("button", { name: "Add member" }).click();
+  await expect(page.getByRole("heading", { name: "New team member" })).toBeVisible();
+
+  await page.getByLabel(/full name/i).fill(name);
+  await page.getByLabel(/^email/i).fill(email);
+  await page.getByLabel(/temporary password/i).fill(password);
+  await page.getByRole("button", { name: /add team member/i }).click();
+
+  // The form closing is not the card arriving, for the same reason createCustomer
+  // waits on the list.
+  await expect(page.getByRole("heading", { name: "New team member" })).toBeHidden({
+    timeout: 15_000,
+  });
+  await expect(teamMember(page, name)).toBeVisible({ timeout: 15_000 });
+}
+
+/**
+ * Removes a team member.
+ *
+ * The page uses `window.confirm`, and Playwright's default is to *dismiss* browser
+ * dialogs — so without an explicit accept, the click opens the prompt, the
+ * dismissal answers "no", and the removal never happens. The handler is scoped to
+ * this one click and removed afterwards, so it cannot silently accept a prompt
+ * somewhere else in the run.
+ */
+export async function removeTeamMember(page, name) {
+  const accept = (dialog) => dialog.accept();
+  page.on("dialog", accept);
+
+  try {
+    await teamMember(page, name).getByRole("button", { name: `Remove ${name}` }).click();
+    await expect(teamMember(page, name)).toHaveCount(0, { timeout: 15_000 });
+  } finally {
+    page.off("dialog", accept);
+  }
+}
+
+/**
+ * Deletes a customer, confirming in the dialog.
+ *
+ * Deleting a customer opens a confirmation modal, so clicking the row's trash
+ * button alone does nothing — the two steps are wrapped together here so a call
+ * site cannot half-complete it.
+ */
+export async function deleteCustomer(page, name) {
+  await tableRow(page, name).getByRole("button", { name: `Delete ${name}` }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: /delete customer/i }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(tableRow(page, name)).toHaveCount(0, { timeout: 15_000 });
 }
 
 /**

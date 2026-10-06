@@ -310,3 +310,90 @@ export type BulkResult = {
   failed: number;
   errors: BulkFailure[];
 };
+
+// ===== Audit log =====
+
+/**
+ * What happened. Declared as a union rather than a plain string so the audit
+ * view can offer exactly these in its filter and label each in a table, with no
+ * "unexpected value" case to handle.
+ *
+ * `permission_change` covers adding a user and editing their access as well as a
+ * role change — every one of those is a grant or a revocation, and separating
+ * them would mean the filter had to know which is which.
+ */
+export const AUDIT_ACTIONS = [
+  "create",
+  "update",
+  "delete",
+  "convert",
+  "permission_change",
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+/**
+ * The record types that can be audited. A permission change targets a user, which
+ * is why "user" is here even though it is not a CRM collection.
+ */
+export const AUDIT_ENTITY_TYPES = ["customer", "lead", "deal", "user"] as const;
+
+export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
+
+/** One field's before and after. Null on either side means absent, not blank. */
+export type AuditChange = {
+  from: string | number | boolean | Record<string, unknown> | null;
+  to: string | number | boolean | Record<string, unknown> | null;
+};
+
+/**
+ * One entry.
+ *
+ * `actorId` is nullable and `actorName` is not: when an account is deleted the
+ * id goes null but the name stays, so a log entry outlives the person it names.
+ * The view shows the name and treats a null id as "(account removed)".
+ */
+export type AuditEntry = {
+  id: ID;
+  actorId: number | null;
+  actorName: string;
+  action: AuditAction;
+  entityType: AuditEntityType;
+  entityId: ID;
+  /**
+   * The record's name when it changed, denormalised onto the row by the API.
+   *
+   * Null for a record with no usable name, and for an entry written before the
+   * field existed. The view falls back to the id, which is always correct and
+   * just less readable — so this is a convenience, never the only way to tell
+   * two entries apart.
+   */
+  entityLabel: string | null;
+  /** Keyed by field name. Flat — a permission change reads `customers.edit`. */
+  changes: Record<string, AuditChange>;
+  createdAt: Timestamp;
+};
+
+/** The filter set the admin view sends. Every field is optional. */
+export type AuditFilters = {
+  actorId?: number | null;
+  /** By name, so entries from a removed account stay reachable. */
+  actorName?: string | null;
+  entityType?: AuditEntityType | null;
+  entityId?: string | null;
+  action?: AuditAction | null;
+  /** YYYY-MM-DD, inclusive. Interpreted in UTC — see the backend's note. */
+  from?: string | null;
+  to?: string | null;
+  limit?: number;
+  offset?: number;
+};
+
+export type AuditLogResponse = {
+  entries: AuditEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+  /** Everyone who has an entry, so the filter never offers a dead end. */
+  actors: { id: number | null; name: string }[];
+};

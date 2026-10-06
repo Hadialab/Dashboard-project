@@ -17,7 +17,7 @@ import { toTimestampString } from "../dates.js";
 // table nests values inside a JSONB column, and that coercion does not apply.
 const AUDIT_SELECT = `
   id, organization_id, actor_id, actor_name, action,
-  entity_type, entity_id, changes, created_at
+  entity_type, entity_id, entity_label, changes, created_at
 `;
 
 /** Serialises one row into the camelCase shape the API speaks. */
@@ -33,6 +33,10 @@ function toRow(row) {
     action: row.action,
     entityType: row.entity_type,
     entityId: row.entity_id,
+    // The name the record had when it changed. Null for a row written before the
+    // column existed, and for a record with no usable name — both render as the
+    // bare id, which is still correct, just less readable.
+    entityLabel: row.entity_label ?? null,
     // pg parses JSONB into a JS object already. The `??` covers a row written
     // before the column had a default.
     changes: row.changes ?? {},
@@ -52,8 +56,9 @@ export async function insertAuditEntry(organizationId, entry) {
   try {
     await query(
       `INSERT INTO audit_log
-         (organization_id, actor_id, actor_name, action, entity_type, entity_id, changes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         (organization_id, actor_id, actor_name, action, entity_type, entity_id,
+          entity_label, changes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         organizationId,
         entry.actorId ?? null,
@@ -61,6 +66,9 @@ export async function insertAuditEntry(organizationId, entry) {
         entry.action,
         entry.entityType,
         String(entry.entityId),
+        // Trimmed, and nulled when empty: a label of "" would render as a blank
+        // gap in the table rather than as the record's id.
+        entry.entityLabel?.trim() || null,
         // Serialised explicitly: pg would otherwise send a JS object as an
         // unparameterised literal, which is neither indexable nor safe.
         JSON.stringify(entry.changes ?? {}),

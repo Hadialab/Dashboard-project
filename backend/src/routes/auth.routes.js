@@ -139,7 +139,7 @@ router.get(
 
 // Writes one entry after the change has been applied. Kept in one place so the
 // five handlers below cannot drift into auditing different things.
-async function auditUserChange(req, action, targetId, changes) {
+async function auditUserChange(req, action, targetId, changes, targetName) {
   if (!hasChanges(changes)) return;
 
   await insertAuditEntry(req.organizationId, {
@@ -148,6 +148,9 @@ async function auditUserChange(req, action, targetId, changes) {
     action,
     entityType: "user",
     entityId: String(targetId),
+    // The target's name, so the log says who gained or lost access rather than a
+    // user id. Like the actor name, it outlives the account.
+    entityLabel: targetName,
     changes,
   });
 }
@@ -238,6 +241,7 @@ router.post(
       "permission_change",
       created.id,
       describeCreation(publicUser(created), ["name", "email", "role", "permissions"]),
+      created.name,
     );
 
     res.status(201).json(publicUser(created));
@@ -271,9 +275,13 @@ router.patch(
 
     const updated = await updateUser(req.organizationId, target.id, { role });
 
-    await auditUserChange(req, "permission_change", target.id, {
-      role: { from: target.role, to: updated.role },
-    });
+    await auditUserChange(
+      req,
+      "permission_change",
+      target.id,
+      { role: { from: target.role, to: updated.role } },
+      target.name,
+    );
 
     res.json(publicUser(updated));
   }),
@@ -310,6 +318,7 @@ router.patch(
       "permission_change",
       target.id,
       flattenPermissionDiff(target.permissions, merged, target.name),
+      target.name,
     );
 
     res.json(publicUser(updated));
@@ -340,6 +349,7 @@ router.post(
       "permission_change",
       target.id,
       flattenPermissionDiff(target.permissions, DEFAULT_PERMISSIONS),
+      target.name,
     );
 
     res.json(publicUser(updated));
@@ -377,6 +387,7 @@ router.delete(
       "permission_change",
       target.id,
       describeDeletion(publicUser(target), ["name", "email", "role", "permissions"]),
+      target.name,
     );
 
     res.json(publicUser(removed));

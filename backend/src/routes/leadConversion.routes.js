@@ -107,6 +107,7 @@ router.post(
       action: "create",
       entityType: "customer",
       entityId: result.id,
+      entityLabel: result.name,
       changes: {
         ...describeCreation(result, resources.customers.fields),
         // Recorded because it is the fact that makes this entry traceable back to
@@ -121,6 +122,7 @@ router.post(
       action: "convert",
       entityType: "lead",
       entityId: lead.id,
+      entityLabel: lead.name,
       changes: {
         ...diffRecord(lead, { ...lead, status: "Converted", convertedCustomerId: result.id }),
         convertedCustomerId: { from: null, to: result.id },

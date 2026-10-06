@@ -198,6 +198,12 @@ CREATE TABLE IF NOT EXISTS audit_log (
                      CONSTRAINT audit_log_entity_type_allowed
                      CHECK (entity_type IN ('customer', 'lead', 'deal', 'user')),
   entity_id        TEXT NOT NULL,
+  -- The record's display name at the time of the change, for the same reason
+  -- actor_name is denormalised: a row that reads "Customer c001" forces whoever
+  -- is reading the log to go and look every record up, and for a deleted record
+  -- there is nothing left to look up. Nullable rather than NOT NULL, because a
+  -- record with no usable name is a legitimate thing to have changed.
+  entity_label     TEXT,
   -- { "field": { "from": ..., "to": ... } }. Empty on a delete is not an error;
   -- it is a row saying a record went away.
   changes          JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -221,6 +227,11 @@ ALTER TABLE leads     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL D
 ALTER TABLE deals     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE notes     ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'note';
 ALTER TABLE leads     ADD COLUMN IF NOT EXISTS converted_customer_id TEXT;
+
+-- audit_log itself needs this one for databases created before the column existed.
+-- The CREATE TABLE above handles a fresh install; this brings an existing table up
+-- to the same shape without touching its rows.
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS entity_label TEXT;
 
 -- The original entity_type constraints were auto-named by Postgres. Swap them
 -- for ones that also allow leads, but only when the old constraint is still in
