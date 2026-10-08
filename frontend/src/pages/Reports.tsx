@@ -144,8 +144,9 @@ const Reports = () => {
 
     const matchesSearch =
       deal.title.toLowerCase().includes(query) ||
-      deal.customer.toLowerCase().includes(query) ||
-      deal.owner.toLowerCase().includes(query);
+      // Same reason as the identical line in Deals.tsx: `owner` is nullable in
+      // the database, so an unassigned deal made this throw rather than filter.
+      (deal.owner ?? "").toLowerCase().includes(query);
 
     const matchesStage =
       filters.status === "All" ||

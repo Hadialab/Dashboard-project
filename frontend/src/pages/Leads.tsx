@@ -393,6 +393,13 @@ function Leads() {
 };
 
   const handleConvertLead = async (customerFields: Partial<Customer>) => {
+    // Only reachable from the modal, which is rendered with `lead={leadToConvert}`,
+    // so it is null only if the modal could submit with nothing selected. Reading
+    // `.id` off it directly threw a TypeError inside an async handler, which is an
+    // unhandled rejection rather than anything the modal can display — so the user
+    // saw the dialog do nothing. Returning early keeps that impossible.
+    if (!leadToConvert) return;
+
     // Throws on failure, and ConvertLeadModal shows the message inline so the
     // user does not lose what they typed.
     const result = await convertLead(leadToConvert.id, customerFields);

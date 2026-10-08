@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -144,7 +144,12 @@ function Deals() {
         (deal) =>
           deal.title.toLowerCase().includes(query) ||
           deal.customer.toLowerCase().includes(query) ||
-          deal.owner.toLowerCase().includes(query)
+          // `owner` is optional and nullable in the database — a deal can be
+          // unassigned, and deleting its owner sets owner_id to null. Calling
+          // .toLowerCase() on it threw a TypeError that took the whole list down,
+          // so searching while any unassigned deal was on the page was broken.
+          // An absent owner is treated as an empty string, which matches nothing.
+          (deal.owner ?? "").toLowerCase().includes(query)
       );
     }
 
