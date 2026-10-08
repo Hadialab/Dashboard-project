@@ -8,8 +8,8 @@ React front end, Express + PostgreSQL API, one repo.
 [![CI](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
 [![E2E](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg?job=e2e)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
 ![Types](https://img.shields.io/badge/TypeScript-strictNullChecks-22c55e)
-![Tests](https://img.shields.io/badge/tests-364%20passing-22c55e)
-![E2E](https://img.shields.io/badge/e2e-19%20specs-0ea5e9)
+![Tests](https://img.shields.io/badge/tests-426%20passing-22c55e)
+![E2E](https://img.shields.io/badge/e2e-43%20specs-0ea5e9)
 ![Coverage](https://img.shields.io/badge/coverage-93%25-0ea5e9)
 
 ## Screenshots
@@ -212,7 +212,8 @@ Backend: `npm run dev` (with `--watch`), `npm start`, `npm run seed:demo`.
 
 ## Testing
 
-**364 unit and integration tests** across 18 files, and **19 end-to-end specs**.
+**426 frontend tests** across 23 files, **108 backend unit tests** across 8, and
+**43 end-to-end specs**.
 
 ```bash
 cd frontend
@@ -254,8 +255,8 @@ layers is 93% of lines and 84% of branches. The threshold lives in
 request to `main` and `dev`. Both jobs fail the workflow on error.
 
 - **Lint, test and build** — checks that every dependency's `engines` supports the
-  running Node, then oxlint, Vitest with the coverage gate, a production build and
-  a staging build. No database needed.
+  running Node, then oxlint, three typecheck passes, Vitest with the coverage gate,
+  a production build and a staging build. No database needed.
 - **End-to-end** — the full stack against a throwaway PostgreSQL 16, with the
   Playwright report and failure traces uploaded as artefacts.
 
@@ -266,6 +267,14 @@ inside Vitest's unhandled-errors section. And the test step re-emits the tail of
 its log as an annotation, because a failure that is not a failing test — a worker
 that never started — produces no annotation from Vitest at all, and a bare "exit
 code 1" that names no test and points at nothing is not a usable error.
+
+**Three typecheck passes, because one was not enough.** The shipped config catches
+type mismatches but not *missing* types — a component whose props are entirely
+untyped passes it cleanly. That is not theoretical: turning `noImplicitAny` on for
+the first time reported 47 errors in files that had already been converted and
+already passed. The third pass exists because `tsconfig.json` excludes `src/test`
+outright, and that exclusion had been hiding 28 more in three test files. Each pass
+has proved its worth by failing on a mutation that the previous one passed.
 
 One step is deliberately inverted: it asserts that a publish build with a
 placeholder API URL **fails**. A configuration guard that is never exercised is a
@@ -299,6 +308,48 @@ malformed, `http`, or still an `example.com` placeholder. Set `VITE_DEPLOY=1` to
 hold a local build to the same rules.
 
 ### Environment
+
+#### Configuring the Render deploy from GitHub
+
+The deploy workflow pushes both images to GHCR and then asks Render to roll out.
+That second half needs five things set on the **repository**, and until they are
+set the workflow still pushes images and then warns that it deployed nothing:
+
+| Name                          | Kind    | Where to find it                                       |
+| ----------------------------- | ------- | ------------------------------------------------------ |
+| `RENDER_API_KEY`              | secret  | Render → Account Settings → API Keys → Create           |
+| `RENDER_API_SERVICE_ID`       | variable | the API service's id, `srv-…`                          |
+| `RENDER_APP_SERVICE_ID`       | variable | the frontend service's id, `srv-…`                    |
+| `APP_API_URL_STAGING`         | variable | the API's public URL, e.g. `https://crm-api.onrender.com` |
+| `STAGING_API_HEALTH_URL`      | variable | the same plus `/health`                                |
+
+Set them all at once:
+
+```bash
+RENDER_API_KEY=rnd_... node scripts/setup-render.mjs
+```
+
+It prompts for the four non-secret values, and takes them as arguments instead if
+you would rather script it. Needs `gh auth login` (or a token with `actions:write`);
+the secret goes through `gh secret set`, so it never appears in argv or shell
+history.
+
+Under **Settings → Secrets and variables → Actions**. Note the *variables* and
+*secrets* are two separate tabs — a value in the wrong one is invisible to the
+workflow, which is the most likely reason a deploy reports itself unconfigured
+when you are looking at a value that plainly is there.
+
+#### What the deploy does
+
+Staging on every merge to `main`; production only via `workflow_dispatch`, because
+that one should take a person to trigger. Both build the same way on purpose —
+otherwise staging stops being evidence about production.
+
+The rollout is verified by polling `STAGING_API_HEALTH_URL` after Render reports
+the deploy live, so a service that starts but cannot reach its database fails the
+job instead of being called successful.
+
+#### Backend and frontend variables
 
 Backend secrets are read at run time and never reach the browser.
 
