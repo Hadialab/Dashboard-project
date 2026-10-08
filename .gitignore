@@ -46,3 +46,9 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# Written by the password-rotation script. Holds a live database credential in
+# clear text, so it must never be committed — add the password to your password
+# manager and delete the file.
+rotated-password.txt
+*.password.txt
