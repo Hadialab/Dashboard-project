@@ -38,9 +38,13 @@ const Pagination = ({
   };
 
   const getVisiblePages = () => {
-    const pages = [];
-    let start;
-    let end;
+    // `number[]` rather than a bare `[]`: an empty array literal infers `any[]`,
+    // and then `push(i)` has nothing to check i against, so a non-number would
+    // slip in unnoticed. start/end are number for the same reason — the arithmetic
+    // below is all numeric, and saying so lets the compiler check it.
+    const pages: number[] = [];
+    let start: number;
+    let end: number;
 
     if (totalPages <= 5) {
       start = 1;

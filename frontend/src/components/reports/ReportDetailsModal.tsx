@@ -119,7 +119,11 @@ const ReportDetailsModal = ({ report, open, onClose }: ReportDetailsModalProps) 
           </div>
 
           <span
-            className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${statusStyles[report.status]}`}
+            // `?? ""` because ReportExtras.status is optional. Indexing with `undefined`
+            // used to interpolate the literal text "undefined" into the class list
+            // — an inert class, so it looked fine, but it was a real string in the
+            // DOM. An absent status now contributes nothing.
+            className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${statusStyles[report.status ?? ""]}`}
           >
             {report.status}
           </span>

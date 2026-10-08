@@ -13,8 +13,16 @@ type PipelineColumnProps = {
   onDragLeave?: (event: DragEvent<HTMLElement>) => void;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
   onDragStart?: (event: DragEvent<HTMLDivElement>, deal: Deal) => void;
-  /** Id of the card being dragged, so it alone renders dimmed. */
-  draggingId?: string;
+  /**
+   * Id of the card being dragged, so it alone renders dimmed.
+   *
+   * `null` as well as absent: the page holds this as `useState<ID | null>(null)`,
+   * where "nothing is being dragged" is null rather than undefined, and it passes
+   * that straight through. Only ever compared against a deal id, so the two
+   * "nothing" values behave identically — the union just stops the page having to
+   * translate one into the other.
+   */
+  draggingId?: string | null;
   onOpenDeal: (deal: Deal) => void;
   onMoveStage: (deal: Deal, stage: DealStage) => void;
 };

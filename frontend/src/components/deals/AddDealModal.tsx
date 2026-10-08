@@ -165,7 +165,14 @@ function AddDealModal({
       // carries one entry per failed field, which is why `validate` above is
       // asked for abortEarly: false. Same shape as AddCustomerModal.
       (err.inner as { path?: string; message: string }[]).forEach((error) => {
-        validationErrors[error.path] = error.message;
+        // Skipped when `path` is absent. Yup uses that for an error on the object
+        // as a whole rather than on a field, and there is no field to attach it
+        // to: these errors are keyed by field name and rendered against an input,
+        // so writing it under the key "undefined" would produce a message no user
+        // can see and no input can clear.
+        if (error.path) {
+          validationErrors[error.path] = error.message;
+        }
       });
 
       setErrors(validationErrors);

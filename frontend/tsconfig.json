@@ -27,21 +27,28 @@
     "forceConsistentCasingInFileNames": true,
 
     // === Migration state ===
-    // Still-converted JavaScript is allowed and not type-checked. Flip both to
-    // false once the last .js file under src is gone, which is the last step of
-    // the migration and the point at which `npm run typecheck` covers the app.
-    "allowJs": true,
+    // The migration is finished: no JavaScript is left under src except in
+    // `src/test`, which is excluded below. These two flags therefore have nothing
+    // left to allow, and `npm run typecheck` covers the whole app.
+    "allowJs": false,
     "checkJs": false,
 
     // === Strictness ===
-    // Deliberately off while untyped code is still being compiled. Turning it on
-    // before the migration finishes produces thousands of implicit-any errors
-    // in files nobody has touched yet, which buries the real ones. Raise these
-    // one at a time once the data layer is typed, in this order:
-    //   noImplicitAny -> strictNullChecks -> strict
+    // `noImplicitAny` is still off, and is the last step. Turning it on is a real
+    // change rather than a formality: it reported 47 errors across files that had
+    // already been converted and passed `npm run typecheck`, because an untyped
+    // prop is invisible until this flag is on. `npm run typecheck:strict` is that
+    // same config, run separately, so the flag can be flipped once the remaining
+    // call sites are worth changing.
+    //
+    // `strictNullChecks` is on. It cost ten fixes, and three of them were crashes
+    // rather than type noise: two unguarded `deal.owner.toLowerCase()` calls that
+    // threw whenever a list contained an unassigned deal, and a null check missing
+    // off the lead-conversion path. None of those had a failing test, because
+    // none of them had a test.
     "strict": false,
     "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
 
     // Worth having from the start in any project that will be handed on.
     "noUnusedLocals": true,
