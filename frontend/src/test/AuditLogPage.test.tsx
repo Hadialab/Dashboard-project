@@ -6,7 +6,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import AuditLogPage from "../pages/AuditLog";
 import axios from "axios";
 
-import { AUDIT_ACTIONS } from "../types";
+import { AUDIT_ACTIONS, type AuditEntry } from "../types";
 import { ACTION_LABELS } from "../components/audit/AuditFilterBar";
 import { getAuditLog } from "../services/auditService";
 
@@ -38,7 +38,13 @@ const mockGetAuditLog = vi.mocked(getAuditLog);
 
 // Entry fixture. entityLabel defaults to a real name because that is the common
 // case; the tests that care about the fallback pass it as null explicitly.
-const entry = (over: Record<string, unknown> = {}) => ({
+//
+// Return type stated, and `over` is a partial rather than `Record<string, unknown>`.
+// Without both, the object literal infers `action: string` and `entityType: string`,
+// which is not assignable to AuditEntry — the union types those fields. A test
+// fixture that cannot be type-checked against the type it is standing in for is a
+// fixture that will drift from the real shape without complaining.
+const entry = (over: Partial<AuditEntry> = {}): AuditEntry => ({
   id: "1",
   actorId: 7,
   actorName: "Nadia Labbassi",

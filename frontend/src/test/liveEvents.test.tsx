@@ -261,7 +261,11 @@ describe("useLiveUpdates", () => {
     return { get listener() { return listener; }, on };
   }
 
-  const delivered = (over: Partial<LiveEvent> = {}) => ({
+  // Return type stated because `over: Partial<LiveEvent>` on the parameter does not
+  // type the result: the literal's `entityType` and `action` widen to `string`,
+  // which is not assignable to LiveEvent's two literal unions. Without this, every
+  // call below is an error at the call site rather than here.
+  const delivered = (over: Partial<LiveEvent> = {}): LiveEvent => ({
     eventId: 1,
     organizationId: 1,
     entityType: "customer",
@@ -301,10 +305,16 @@ describe("useLiveUpdates", () => {
     // would tear down and rebuild a deliberately long-lived subscription each time.
     const captured = captureListener();
 
-    const { rerender } = renderHook(({ tag }: { tag: string }) => {
-      useLiveUpdates(() => received.push(tag), ["customer"]);
-      return null;
-    }, { initialProps: { tag: "first" } });
+    // `null` stated so the callback's return type is not inferred: with no annotation
+    // TypeScript infers `any` from the pushes, and the props generic then has
+    // nothing to work from.
+    const { rerender } = renderHook(
+      ({ tag }: { tag: string }): null => {
+        useLiveUpdates(() => received.push(tag), ["customer"]);
+        return null;
+      },
+      { initialProps: { tag: "first" } },
+    );
 
     const subscriptionsAfterMount = captured.on.mock.calls.length;
     rerender({ tag: "second" });

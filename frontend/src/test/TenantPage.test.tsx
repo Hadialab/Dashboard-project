@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import axios from "axios";
 
 import TenantPage from "../pages/Tenant";
+import type { ApiKey, ApiKeyWithSecret, TenantSettings } from "../services/tenantService";
 import {
   createApiKey,
   createWebhook,
@@ -36,20 +37,37 @@ vi.mock("../services/tenantService", () => ({
 const adminUser = { id: 1, name: "Admin", email: "a@t.local", role: "admin" };
 const repUser = { id: 2, name: "Rep", email: "r@t.local", role: "rep" };
 
-const settings = {
+// Typed as TenantSettings. Without it, `logoUrl: null` and the other three nulls
+// infer as implicit `any` — a bare `null` with no contextual type has none — and
+// `defaultPermissions: {}` satisfies nothing: the field is a full Permissions
+// object, so an empty one would be a fixture that cannot reach the API's shape.
+const settings: TenantSettings = {
   displayName: "Tenant Co",
   logoUrl: null,
   website: null,
   supportEmail: null,
-  defaultRole: "rep" as const,
-  defaultPermissions: {},
+  defaultRole: "rep",
+  defaultPermissions: {
+    customers: { view: "all", create: true, edit: true, delete: true },
+    leads: { view: "all", create: true, edit: true, delete: true },
+    deals: { view: "all", create: true, edit: true, delete: true },
+    reports: false,
+  },
   locale: "en-GB",
   timezone: "UTC",
   organizationName: "Tenant Co",
   updatedAt: "2026-10-05T00:00:00Z",
 };
 
-const keyRow = (over = {}) => ({
+// Typed for the same reason as `settings` above: the three null timestamps have no
+// contextual type in an unannotated literal, so each infers as an implicit `any`.
+//
+// `over` is a partial of ApiKeyWithSecret rather than of ApiKey, because the
+// create-key test adds `apiKeyOneTimeSecret`. That field exists only on the
+// response to a creation, which is why the base object is ApiKey — matching the
+// service's own `ApiKeyWithSecret = ApiKey & { ... }` rather than widening the
+// type that a listed key has.
+const keyRow = (over: Partial<ApiKeyWithSecret> = {}): ApiKey => ({
   id: "1",
   label: "Nightly sync",
   keyPrefix: "crm_a1b2c3d4",
@@ -111,7 +129,7 @@ beforeEach(() => {
   vi.mocked(listWebhooks).mockResolvedValue({ webhooks: [] });
   vi.mocked(updateTenantSettings).mockResolvedValue(settings);
   vi.mocked(createApiKey).mockResolvedValue(
-    keyRow({ apiKeyOneTimeSecret: "crm_" + "a".repeat(64) }) as never,
+    keyRow({ apiKeyOneTimeSecret: "crm_" + "a".repeat(64) }) as ApiKeyWithSecret,
   );
   vi.mocked(createWebhook).mockResolvedValue(
     hookRow({ signingSecretOneTimeSecret: "whsec_" + "b".repeat(48) }) as never,
