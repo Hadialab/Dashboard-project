@@ -1,0 +1,21 @@
+{
+  "//": [
+    "A stricter check over the test tree, which the shipped tsconfig excludes.",
+    "",
+    "tsconfig.json excludes `src/test` outright, so `npm run typecheck` has never",
+    "looked at a single test file. That hid 28 real errors across three test files",
+    "that were already written in TypeScript and already looked correct.",
+    "",
+    "`src/vite-env.d.ts` is in `include` because it declares the ImportMetaEnv",
+    "global that src/config.ts reads. Without it this config reports two phantom",
+    "errors in a file it was never meant to be checking.",
+    "",
+    "Verification-only: not wired to any npm script, and safe to delete."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": true
+  },
+  "include": ["src/test", "src/vite-env.d.ts"],
+  "exclude": []
+}

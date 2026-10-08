@@ -136,7 +136,7 @@ jobs:
         # the build, so a new warning cannot block a merge on its own.
         run: npm run lint
 
-      # Both typechecks, because neither alone is worth much.
+      # Three typechecks, because none alone is worth much.
       #
       # `typecheck` uses the shipped tsconfig, where noImplicitAny is off so that
       # untyped JavaScript still compiles. That means it passes on a component whose
@@ -144,12 +144,17 @@ jobs:
       # types. `typecheck:strict` turns that flag on and is the only thing that
       # catches a prop or callback parameter left implicit.
       #
-      # Both are run so neither can rot: the strict one is the real check, and the
-      # plain one is what an editor reports on. A green build here has previously
-      # been a false signal for exactly this reason.
+      # `typecheck:tests` is a separate config because tsconfig.json *excludes*
+      # `src/test` outright. That exclusion hid 28 real errors across three test
+      # files that were already written in TypeScript and already looked correct.
+      # A test suite that is excluded from the type checker is a suite whose types
+      # are decoration.
+      #
+      # All three are run so none can rot. A green build here has previously been a
+      # false signal for exactly this reason.
       - name: Typecheck
         working-directory: frontend
-        run: npm run typecheck && npm run typecheck:strict
+        run: npm run typecheck && npm run typecheck:strict && npm run typecheck:tests
 
       # Vitest's default pool is `forks`, and every test file needs a worker
       # process spawned for it. GitHub's runners give the container 64MB of

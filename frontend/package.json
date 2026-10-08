@@ -20,7 +20,8 @@
     "test:all": "npm run test && npm run test:e2e",
     "screenshots": "node scripts/capture-screenshots.mjs",
     "typecheck": "tsc --noEmit",
-    "typecheck:strict": "tsc -p tsconfig.typeproof.json --noEmit"
+    "typecheck:strict": "tsc -p tsconfig.typeproof.json --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.testcheck.json --noEmit"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
