@@ -1,8 +1,17 @@
 import { AlertTriangle } from "lucide-react";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
+import type { Lead } from "../../types";
 
-function DeleteLeadModal({ open, onClose, onConfirm, lead }) {
+type DeleteLeadModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (id: string) => void;
+  /** The lead about to go. Null or absent while closed. */
+  lead?: Lead | null;
+};
+
+function DeleteLeadModal({ open, onClose, onConfirm, lead }: DeleteLeadModalProps) {
   if (!open || !lead) return null;
 
   return (

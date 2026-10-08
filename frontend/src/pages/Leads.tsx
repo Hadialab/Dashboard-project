@@ -26,14 +26,19 @@ import LeadDetailDrawer from "../components/leads/LeadDetailDrawer";
 import LeadTableSkeleton from "../components/leads/LeadTableSkeleton";
 import EmptyState from "../components/leads/EmptyState";
 import { useLiveUpdates } from "../hooks/useLiveUpdates";
+import type { Scope } from "../components/ui/ScopeToggle";
+import type { Customer, Lead } from "../types";
 
 function Leads() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [leads, setLeads] = useState([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
+  // Held in state rather than just logged, so a failed load can be told apart
+  // from an empty list. Typed as unknown because it is only ever read by
+  // handing it back to the console.
+  const [loadError, setLoadError] = useState<unknown>(null);
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || ""
@@ -56,7 +61,9 @@ function Leads() {
   // "all" or "mine". Meaningful for an admin, who can otherwise only ever see
   // the whole team; a rep scoped to their own records sees the same list either
   // way, so the control is hidden for them rather than shown as a no-op.
-  const [scope, setScope] = useState(searchParams.get("scope") || "all");
+  const [scope, setScope] = useState<Scope>(
+    (searchParams.get("scope") as Scope) || "all"
+  );
   const currentUser = useAuthStore((state) => state.user);
   const selection = useRowSelection();
   const { can } = usePermissions();
@@ -70,7 +77,7 @@ function Leads() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const notifications = useNotificationGenerator();
 
-  const [leadToConvert, setLeadToConvert] = useState(null);
+  const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
 
   // Deep link from elsewhere in the app â€” the dashboard's "needs attention"
@@ -92,8 +99,8 @@ function Leads() {
   );
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedLead, setSelectedLead] = useState(null);
-  const [leadToDelete, setLeadToDelete] = useState(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
@@ -131,8 +138,8 @@ function Leads() {
   //
   // A failure here is swallowed: a missing warning is better than a page that
   // will not load.
-  const [knownEmails, setKnownEmails] = useState([]);
-  const [customerEmails, setCustomerEmails] = useState([]);
+  const [knownEmails, setKnownEmails] = useState<string[]>([]);
+  const [customerEmails, setCustomerEmails] = useState<string[]>([]);
 
   // Refetch when someone else changes a lead. A refetch rather than a local patch,
   // because a conversion can change a lead's status *and* create a customer, and
@@ -149,7 +156,11 @@ function Leads() {
 
       try {
         const response = await getCustomers({ page: 1, limit: 1000 });
-        const rows = response.data?.data ?? response.data ?? [];
+        // The second and third arms never fire in practice — this call always
+        // asks for a page, so the API answers with the envelope and `.data` is
+        // the rows. Kept as written, and cast, because the fallback arm is typed
+        // as the envelope rather than the rows.
+        const rows = (response.data?.data ?? response.data ?? []) as Customer[];
         const fromCustomers = rows.map((row) => row.email).filter(Boolean);
 
         if (!cancelled) {
@@ -167,7 +178,11 @@ function Leads() {
   }, [leads]);
 
   useEffect(() => {
-    const params = {};
+    // Built up key by key, so only the filters that differ from their default
+    // reach the URL. The page and row counts are numbers; createSearchParams
+    // stringifies every value on the way into URLSearchParams, so the cast is
+    // what the runtime already does rather than a change in behaviour.
+    const params: Record<string, string | number> = {};
 
     if (searchTerm) params.search = searchTerm;
     if (statusFilter !== "All") params.status = statusFilter;
@@ -178,7 +193,7 @@ function Leads() {
     if (currentPage !== 1) params.page = currentPage;
     if (rowsPerPage !== 5) params.rows = rowsPerPage;
 
-    setSearchParams(params);
+    setSearchParams(params as Record<string, string>);
   }, [
     searchTerm,
     statusFilter,
@@ -235,9 +250,11 @@ function Leads() {
 
     switch (sortBy) {
       case "oldest":
+        // `.getTime()` on both sides because `-` on two Date objects is not
+        // something TypeScript allows, and it is what the runtime does anyway.
         filtered.sort(
           (a, b) =>
-            new Date(a.createdDate) - new Date(b.createdDate)
+            new Date(a.createdDate!).getTime() - new Date(b.createdDate!).getTime()
         );
         break;
 
@@ -268,7 +285,7 @@ function Leads() {
       default:
         filtered.sort(
           (a, b) =>
-            new Date(b.createdDate) - new Date(a.createdDate)
+            new Date(b.createdDate!).getTime() - new Date(a.createdDate!).getTime()
         );
     }
 
@@ -323,7 +340,7 @@ function Leads() {
     setSearchParams(params, { replace: true });
   }, [openLeadId, loading, leads, searchParams, setSearchParams]);
 
- const handleAddLead = async (lead) => {
+ const handleAddLead = async (lead: Partial<Lead>) => {
   try {
     const newLead = {
       ...lead,
@@ -343,7 +360,7 @@ function Leads() {
   }
 };
 
- const handleUpdateLead = async (updatedLead) => {
+ const handleUpdateLead = async (updatedLead: Lead) => {
   try {
     const updated = await updateLead(updatedLead.id, updatedLead);
 
@@ -360,7 +377,7 @@ function Leads() {
   }
 };
 
-  const handleDeleteLead = async (id) => {
+  const handleDeleteLead = async (id: string) => {
   try {
     await deleteLead(id);
 
@@ -375,7 +392,7 @@ function Leads() {
   }
 };
 
-  const handleConvertLead = async (customerFields) => {
+  const handleConvertLead = async (customerFields: Partial<Customer>) => {
     // Throws on failure, and ConvertLeadModal shows the message inline so the
     // user does not lose what they typed.
     const result = await convertLead(leadToConvert.id, customerFields);
@@ -403,7 +420,7 @@ function Leads() {
     toast.success(`${result.customer.name} is now a customer`);
   };
 
-  const handleBulkStatus = async (status) => {
+  const handleBulkStatus = async (status: string) => {
     // Read the current rows rather than the selection ids, so each PUT sends a
     // complete row â€” the API treats PUT as a full replace.
     const records = leads.filter((lead) => selection.selected.includes(lead.id));

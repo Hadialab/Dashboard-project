@@ -5,14 +5,28 @@ import ReportActions from "./ReportActions";
 import ReportDetailsModal from "./ReportDetailsModal";
 import ReportFilters from "./ReportFilters";
 
+import type { Dispatch, SetStateAction } from "react";
+
+import type { Deal } from "../../types";
+import type { ReportFilterState } from "./ReportFilters";
+
+type ReportsTableProps = {
+  /** Already filtered and sorted by the page; this slices it to one page. */
+  reports: Deal[];
+  currentPage: number;
+  itemsPerPage: number;
+  filters: ReportFilterState;
+  setFilters: Dispatch<SetStateAction<ReportFilterState>>;
+};
+
 const ReportsTable = ({
   reports,
   currentPage,
   itemsPerPage,
   filters,
   setFilters,
-}) => {
-  const [selectedReport, setSelectedReport] = useState(null);
+}: ReportsTableProps) => {
+  const [selectedReport, setSelectedReport] = useState<Deal | null>(null);
   const [open, setOpen] = useState(false);
 
   const paginatedReports = useMemo(() => {
@@ -110,7 +124,7 @@ const ReportsTable = ({
                     <ReportActions
                       report={deal}
                       filteredData={reports}
-                      onView={(report) => {
+                      onView={(report: Deal) => {
                         setSelectedReport(report);
                         setOpen(true);
                       }}
@@ -158,7 +172,7 @@ const ReportsTable = ({
                   <ReportActions
                     report={deal}
                     filteredData={reports}
-                    onView={(report) => {
+                    onView={(report: Deal) => {
                       setSelectedReport(report);
                       setOpen(true);
                     }}

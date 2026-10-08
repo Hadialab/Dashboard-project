@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import { AlertTriangle } from "lucide-react";
 import { leadSchema } from "../../validation/leadSchema";
 import Modal from "../ui/Modal";
@@ -7,10 +8,49 @@ import Select from "../ui/Select";
 import Button from "../ui/Button";
 import { LEAD_STATUSES, LEAD_SOURCES } from "../../utils/crmConstants";
 import OwnerSelect from "../ui/OwnerSelect";
+import type { Lead } from "../../types";
+
+/**
+ * The form's own shape: every field is the string an input holds.
+ *
+ * `leadSchema` exports a `LeadInput` for the six fields it validates, and the
+ * payload is not typed with it. `ownerId` is a seventh field the schema has
+ * never heard of — the server derives the display name from the owner rather
+ * than accepting one — so a `LeadInput` payload would silently drop the
+ * assignment on every save. AddCustomerModal can reuse its `CustomerInput`
+ * because its form has no such field.
+ */
+type LeadFormData = {
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  status: string;
+  source: string;
+  /** Empty string for unassigned; the API rejects a null here. */
+  ownerId: string;
+};
+
+type AddLeadModalProps = {
+  open: boolean;
+  onClose: () => void;
+  /** New record. Receives only the form fields, not an id. */
+  onAddLead: (lead: LeadFormData) => void;
+  /** Existing record. Receives the whole lead with the form fields applied. */
+  onUpdateLead: (lead: Lead) => void;
+  /** The record being edited. Null or absent means create. */
+  lead?: Lead | null;
+  /**
+   * Every email already in use, for the duplicate check. Leads and customers
+   * together, because a lead whose email is already a customer is the duplicate
+   * worth catching.
+   */
+  existingEmails?: string[];
+};
 
 // No rep is pre-selected. A real account is chosen from the company team, or the
 // record is left for the person creating it.
-const initialFormData = {
+const initialFormData: LeadFormData = {
   name: "",
   company: "",
   email: "",
@@ -21,9 +61,16 @@ const initialFormData = {
   ownerId: "",
 };
 
-function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead, existingEmails = [] }) {
-  const [formData, setFormData] = useState(initialFormData);
-  const [errors, setErrors] = useState({});
+function AddLeadModal({
+  open,
+  onClose,
+  onAddLead,
+  onUpdateLead,
+  lead,
+  existingEmails = [],
+}: AddLeadModalProps) {
+  const [formData, setFormData] = useState<LeadFormData>(initialFormData);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // A warning, not a block — see the note in AddCustomerModal.
   const duplicateMatch = useMemo(() => {
@@ -51,7 +98,10 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead, existingEm
     setErrors({});
   }, [lead, open]);
 
-  const handleChange = (e) => {
+  // The one handler behind every field: Input, Select and OwnerSelect all hand
+  // back the same synthetic change event, so a union of the two element types is
+  // the honest type rather than a cast to whichever was written last.
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     setFormData((prev) => ({
@@ -94,9 +144,12 @@ function AddLeadModal({ open, onClose, onAddLead, onUpdateLead, lead, existingEm
       setFormData(initialFormData);
       onClose();
     } catch (err) {
-      const validationErrors = {};
+      const validationErrors: Record<string, string> = {};
 
-      err.inner.forEach((error) => {
+      // Yup's ValidationError, narrowed to the two fields read here. `inner`
+      // carries one entry per failed field, which is why `validate` above is
+      // asked for abortEarly: false.
+      (err.inner as { path?: string; message: string }[]).forEach((error) => {
         validationErrors[error.path] = error.message;
       });
 

@@ -10,9 +10,16 @@ import {
   YAxis,
 } from "recharts";
 
+import type { FunnelRow } from "../../utils/reportAnalytics";
+
 // Matches the stage badge colours, so the funnel and the tables agree on what
 // "Proposal" looks like.
-const FUNNEL_FILL = {
+//
+// Indexed by string rather than by DealStage: `row.stage` arrives as a plain
+// string, and both call sites already fall back to slate for anything not listed
+// here. `Record<string, string>` states that honestly — a stage not in this table
+// is a colour to default, not a type error.
+const FUNNEL_FILL: Record<string, string> = {
   Lead: "#3b82f6",
   Qualified: "#eab308",
   Proposal: "#a855f7",
@@ -29,8 +36,12 @@ const FUNNEL_FILL = {
  *
  * The caveat that matters is in getStageFunnel: these are current positions, not
  * cumulative reach.
+ *
+ * `change`, `dropOff` and `grew` describe the movement *into* a row, so the
+ * transition from row[i-1] to row[i] is read off row[i]. See the note on
+ * FunnelRow.
  */
-function FunnelChart({ data }) {
+function FunnelChart({ data }: { data: FunnelRow[] }) {
   const hasDeals = data.some((row) => row.count > 0);
 
   return (

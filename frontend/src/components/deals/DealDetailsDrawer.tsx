@@ -7,8 +7,16 @@ import NotesTimeline from "../ui/NotesTimeline";
 import useRecentlyViewedStore from "../../store/recentlyViewedStore";
 import { stageBadge } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
+import type { Deal } from "../../types";
 
-function DealDetailsDrawer({ deal, open, onClose }) {
+type DealDetailsDrawerProps = {
+  /** The deal being shown. Null or absent while closed. */
+  deal?: Deal | null;
+  open: boolean;
+  onClose: () => void;
+};
+
+function DealDetailsDrawer({ deal, open, onClose }: DealDetailsDrawerProps) {
   const remember = useRecentlyViewedStore((state) => state.record);
 
   useEffect(() => {

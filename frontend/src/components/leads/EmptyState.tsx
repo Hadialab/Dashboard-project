@@ -2,7 +2,7 @@ import { Plus, Users } from "lucide-react";
 
 // Matches the customers empty state: same radius, same title size, same
 // full-width-on-mobile button.
-function EmptyState({ onAddLead }) {
+function EmptyState({ onAddLead }: { onAddLead: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-12 text-center dark:border-slate-700 dark:bg-slate-950">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20">

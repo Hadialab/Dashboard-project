@@ -1,8 +1,17 @@
 import { TriangleAlert } from "lucide-react";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
+import type { Deal } from "../../types";
 
-function DeleteDealModal({ open, onClose, onConfirm, deal }) {
+type DeleteDealModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (id: string) => void;
+  /** The deal about to go. Null or absent while closed. */
+  deal?: Deal | null;
+};
+
+function DeleteDealModal({ open, onClose, onConfirm, deal }: DeleteDealModalProps) {
   if (!open || !deal) return null;
 
   const handleDelete = () => {

@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
-import ErrorBoundary from './components/ErrorBoundary.jsx'
-import { initErrorTracking, reportError } from './services/errorTracking.js'
+import App from './App'
+import ErrorBoundary from './components/ErrorBoundary'
+import { initErrorTracking, reportError } from './services/errorTracking'
 
 // Before anything renders, so a failure during the very first render is still
 // reported. A no-op unless VITE_SENTRY_DSN is set, so development and CI send

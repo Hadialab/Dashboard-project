@@ -2,8 +2,10 @@
 import PageHeader from "../components/ui/PageHeader";
 import Card from "../components/ui/Card";
 import { SunMedium, Moon } from "lucide-react";
+import type { Theme } from "../store/themeStore";
+import type { ButtonIcon } from "../components/ui/Button";
 
-const options = [
+const options: { value: Theme; label: string; icon: ButtonIcon }[] = [
   { value: "light", label: "Light", icon: SunMedium },
   { value: "dark", label: "Dark", icon: Moon },
 ];

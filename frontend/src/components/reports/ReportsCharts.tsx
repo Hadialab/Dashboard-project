@@ -11,11 +11,26 @@ import {
 } from "recharts";
 
 import { formatAxisCount, formatAxisMoney, formatMoney } from "../../utils/chartFormat";
+import type { RevenueTrendPoint, StageCount, StatusCount } from "../../utils/reportAnalytics";
+import type { ValueType } from "recharts/types/component/DefaultTooltipContent";
+
+type ReportsChartsProps = {
+  /** One point per month that has an expected close date. */
+  revenueData: RevenueTrendPoint[];
+  /** One row per stage present in the data, not per canonical stage. */
+  dealsStageData: StageCount[];
+  /**
+   * Passed by the page and deliberately not drawn — there is no leads-by-status
+   * chart here. Accepted so the call site keeps compiling; removing it from the
+   * page is a change to Reports.jsx, not to this component.
+   */
+  leadsStatusData?: StatusCount[];
+};
 
 const ReportsCharts = ({
   revenueData,
   dealsStageData,
-}) => {
+}: ReportsChartsProps) => {
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
       {/* Revenue Trend */}
@@ -53,7 +68,9 @@ const ReportsCharts = ({
                 width={54}
               />
 
-              <Tooltip formatter={(value) => [formatMoney(value), "Revenue"]} />
+              {/* Same cast as RevenueBarChart: recharts widens the formatter's argument to
+                  ValueType for any series, and this one holds numbers. */}
+              <Tooltip formatter={(value: ValueType) => [formatMoney(value as number), "Revenue"]} />
 
               <Line
                 type="monotone"

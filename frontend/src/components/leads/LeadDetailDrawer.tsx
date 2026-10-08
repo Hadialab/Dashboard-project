@@ -8,8 +8,22 @@ import usePermissions from "../../hooks/usePermissions";
 import useRecentlyViewedStore from "../../store/recentlyViewedStore";
 import { leadStatusBadge, CONVERTED_STATUS } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
+import type { Lead } from "../../types";
 
-function LeadDetailDrawer({ open, onClose, lead, onConvertLead }) {
+type LeadDetailDrawerProps = {
+  open: boolean;
+  onClose: () => void;
+  /** The lead being shown. Null or absent while closed. */
+  lead?: Lead | null;
+  /**
+   * Opens the convert modal for this lead. Optional: absent means the drawer has
+   * no way to convert, and the footer omits the button rather than offering one
+   * that goes nowhere.
+   */
+  onConvertLead?: (lead: Lead) => void;
+};
+
+function LeadDetailDrawer({ open, onClose, lead, onConvertLead }: LeadDetailDrawerProps) {
   const { can } = usePermissions();
   const remember = useRecentlyViewedStore((state) => state.record);
 

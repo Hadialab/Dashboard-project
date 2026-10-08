@@ -14,6 +14,8 @@ import PipelineColumn from "../components/pipeline/PipelineColumn";
 import { boardStages, WON_STAGE, LOST_STAGE } from "../utils/crmConstants";
 import { getApiErrorMessage } from "../utils/apiError";
 import { useNotificationGenerator } from "../services/notificationService";
+import type { DragEvent } from "react";
+import type { Deal, DealStage, ID } from "../types";
 
 /**
  * The pipeline as a board: one column per stage, deals dragged between them.
@@ -26,16 +28,16 @@ function Pipeline() {
   const canEdit = can("deals", "edit");
   const notifications = useNotificationGenerator();
 
-  const [deals, setDeals] = useState([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   // Which column the pointer is currently over, for the drop highlight.
-  const [dragOver, setDragOver] = useState(null);
+  const [dragOver, setDragOver] = useState<DealStage | null>(null);
   // The deal being dragged, so the card can be dimmed while it is in flight.
-  const [dragging, setDragging] = useState(null);
+  const [dragging, setDragging] = useState<ID | null>(null);
 
-  const [selectedDeal, setSelectedDeal] = useState(null);
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const fetchDeals = useCallback(async () => {
@@ -54,11 +56,27 @@ function Pipeline() {
     fetchDeals();
   }, [fetchDeals]);
 
-  const stages = useMemo(() => boardStages(deals), [deals]);
+  // boardStages returns strings because it appends any unrecognised stage it
+  // finds in the data, so the cast is what the function already promised.
+  const stages = useMemo(() => boardStages(deals) as DealStage[], [deals]);
 
   // Group once per render rather than filtering inside each column.
   const byStage = useMemo(() => {
-    const grouped = Object.fromEntries(stages.map((stage) => [stage, []]));
+    // Annotated rather than inferred: `Object.fromEntries` on a `[stage, []][]`
+    // pair widens the value to `never[]`, which then rejects `.push(deal)`. The
+    // inference is wrong about what the map holds, not the code.
+    //
+    // Keyed by `string`, not DealStage: `Deal.stage` is deliberately
+    // `DealStage | string`, because the database does not constrain it and a
+    // record can arrive with a stage the board has no column for. That is what
+    // the `??= []` on the next line is for — it creates the missing bucket rather
+    // than throwing on an unrecognised stage.
+    const grouped: Record<string, Deal[]> = Object.fromEntries(
+      // The element type is stated because `Object.fromEntries` cannot infer it:
+      // without it the pair widens to `(string | never[])[]`, which is what the
+      // TS7011 below is complaining about.
+      stages.map((stage): [string, Deal[]] => [stage, []]),
+    );
 
     for (const deal of deals) {
       (grouped[deal.stage] ??= []).push(deal);
@@ -77,7 +95,7 @@ function Pipeline() {
    * pipeline.
    */
   const moveDeal = useCallback(
-    async (deal, stage) => {
+    async (deal: Deal, stage: DealStage) => {
       if (stage === deal.stage) return;
 
       const previous = deals;
@@ -114,7 +132,7 @@ function Pipeline() {
     [deals, notifications],
   );
 
-  function handleDragStart(event, deal) {
+  function handleDragStart(event: DragEvent<HTMLDivElement>, deal: Deal) {
     setDragging(deal.id);
     event.dataTransfer.effectAllowed = "move";
     // Some browsers only begin a drag once data is set. Only the id travels,
@@ -122,7 +140,7 @@ function Pipeline() {
     event.dataTransfer.setData("text/plain", deal.id);
   }
 
-  function handleDragOver(event, stage) {
+  function handleDragOver(event: DragEvent<HTMLElement>, stage: DealStage) {
     if (!canEdit) return;
     // Without preventDefault the browser refuses the drop and no drop event
     // ever fires, so the column would highlight but nothing would move.
@@ -131,14 +149,21 @@ function Pipeline() {
     setDragOver(stage);
   }
 
-  function handleDragLeave(event) {
+  function handleDragLeave(event: DragEvent<HTMLElement>) {
     // Ignore the leave that fires when the pointer moves onto a child element,
     // which would otherwise flicker the highlight as the drag passes over.
-    if (event.currentTarget.contains(event.relatedTarget)) return;
+    // `relatedTarget` is typed `EventTarget | null` because it is whatever the
+    // pointer moved from, and a drag can start from outside the document — where it
+    // is null. `contains` wants a Node. Narrowed rather than cast, so a non-node
+    // event target cannot reach `contains` and throw. `contains(null)` is false, so
+    // leaving the column entirely still clears the highlight.
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
     setDragOver(null);
   }
 
-  function handleDrop(event, stage) {
+  function handleDrop(event: DragEvent<HTMLElement>, stage: DealStage) {
     event.preventDefault();
     setDragOver(null);
     setDragging(null);

@@ -4,6 +4,29 @@ import RowCheckbox from "../ui/RowCheckbox";
 import usePermissions from "../../hooks/usePermissions";
 import { customerStatusBadge } from "../../utils/crmConstants";
 import { formatRelative, formatRelativeShort } from "../../utils/time";
+import type { RowSelection } from "../../hooks/useRowSelection";
+import type { Customer } from "../../types";
+
+/**
+ * The Customers list, rendered twice: as a real table above md and as stacked
+ * cards below it, so the same data never gets cut off on a phone.
+ *
+ * The three row handlers are separate rather than one `onRowAction`, so the page
+ * gets each decision as its own call rather than this component deciding what an
+ * action name means.
+ *
+ * `selection` comes from useRowSelection and is optional: a page may render the
+ * rows without offering selection, and every access below is optional-chained
+ * rather than assumed present.
+ */
+type CustomersTableProps = {
+  customers: Customer[];
+  onView: (customer: Customer) => void;
+  onEditCustomer: (customer: Customer) => void;
+  onDeleteCustomer: (customer: Customer) => void;
+  /** Row selection for the current page. Absent means no checkbox column. */
+  selection?: RowSelection;
+};
 
 function CustomersTable({
   customers,
@@ -11,7 +34,7 @@ function CustomersTable({
   onEditCustomer,
   onDeleteCustomer,
   selection,
-}) {
+}: CustomersTableProps) {
   const { can } = usePermissions();
   const canEdit = can("customers", "edit");
   const canDelete = can("customers", "delete");

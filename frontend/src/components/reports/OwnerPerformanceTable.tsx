@@ -5,7 +5,9 @@
  * to be read as a set, and there are rarely more than a handful of reps — a bar
  * chart of four columns per rep is harder to compare than numbers in a grid.
  */
-function OwnerPerformanceTable({ rows }) {
+import type { OwnerPerformance } from "../../utils/reportAnalytics";
+
+function OwnerPerformanceTable({ rows }: { rows?: OwnerPerformance[] | null }) {
   if (!rows || rows.length === 0) {
     return (
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">

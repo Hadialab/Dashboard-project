@@ -16,20 +16,54 @@ import {
   updateUserPermissions,
   updateUserRole,
 } from "../services/teamService";
+import type { FormEvent } from "react";
+import type {
+  ID,
+  PermissionResource,
+  Permissions,
+  ResourcePermissions,
+  User,
+} from "../types";
 
-const emptyForm = { name: "", email: "", password: "", role: "rep" };
+/** The add-member form. All strings — this is what the inputs hold. */
+type NewUserForm = {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+};
+
+/**
+ * The slice of a rejected request this page reads.
+ *
+ * `api` is a bare AxiosInstance, so a rejection arrives here as `unknown`.
+ * Only the response is ever touched, and only these fields of it: the status
+ * tells the admin-only case apart, `error` is the general sentence, and
+ * `details` is the per-field map a 400 sends.
+ */
+type ApiFailure = {
+  response?: {
+    status?: number;
+    data?: { error?: string; details?: Record<string, string> };
+  };
+};
+
+const emptyForm: NewUserForm = { name: "", email: "", password: "", role: "rep" };
 
 // Matches the server's defaults. Used to show the user what a new account gets.
-const DEFAULT_PERMISSIONS = {
+const DEFAULT_PERMISSIONS: Permissions = {
   customers: { view: true, create: true, edit: true, delete: false },
   leads: { view: "own", create: true, edit: true, delete: true },
   deals: { view: "own", create: true, edit: true, delete: true },
   reports: { view: false },
 };
 
+/** One row of a visibility dropdown: a wire value and what it says. */
+type ViewOption = { value: string; label: string };
+
 // Which visibility options each resource offers. Customers have no owner, so
 // "own records" would be meaningless for them.
-const VIEW_OPTIONS = {
+const VIEW_OPTIONS: Record<PermissionResource, ViewOption[]> = {
   customers: [
     { value: "true", label: "Can view" },
     { value: "false", label: "No access" },
@@ -50,20 +84,23 @@ const VIEW_OPTIONS = {
   ],
 };
 
-const ACTIONS = {
+/** The actions a rep can be granted on a CRM collection. */
+type PermissionAction = "create" | "edit" | "delete";
+
+const ACTIONS: Record<PermissionResource, PermissionAction[]> = {
   customers: ["create", "edit", "delete"],
   leads: ["create", "edit", "delete"],
   deals: ["create", "edit", "delete"],
   reports: [],
 };
 
-const ACTION_LABELS = {
+const ACTION_LABELS: Record<string, string> = {
   create: "Create",
   edit: "Edit",
   delete: "Delete",
 };
 
-const RESOURCE_LABELS = {
+const RESOURCE_LABELS: Record<PermissionResource, string> = {
   customers: "Customers",
   leads: "Leads",
   deals: "Deals",
@@ -72,8 +109,11 @@ const RESOURCE_LABELS = {
 
 // The wire format uses booleans for view on unscoped resources and the strings
 // "own"/"all"/false for scoped ones. This is the inverse, for the <select>.
-const viewValue = (resource, value) => String(value);
-const parseView = (resource, value) =>
+// `resource` is unused in both. It was never read, and the parameter is kept
+// because both are called as `viewValue(resource, ...)` from a map over the
+// resources — the underscore is what marks it deliberately unused.
+const viewValue = (_resource: PermissionResource, value: unknown): string => String(value);
+const parseView = (_resource: PermissionResource, value: string) =>
   value === "true" ? true : value === "false" ? false : value;
 
 /**
@@ -84,13 +124,13 @@ const parseView = (resource, value) =>
 function Team() {
   const currentUser = useAuthStore((state) => state.user);
   const refreshUser = useAuthStore((state) => state.refreshUser);
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<NewUserForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [openEditor, setOpenEditor] = useState(null);
+  const [openEditor, setOpenEditor] = useState<ID | null>(null);
 
   const load = useCallback(async () => {
     // A sales user is never going to be allowed to list users, so don't ask.
@@ -104,10 +144,11 @@ function Team() {
       setUsers(await listUsers());
       setError("");
     } catch (err) {
+      const { response } = err as ApiFailure;
       setError(
-        err.response?.status === 403
+        response?.status === 403
           ? "Only administrators can manage the team."
-          : (err.response?.data?.error ?? "Could not load the team."),
+          : (response?.data?.error ?? "Could not load the team."),
       );
     } finally {
       setLoading(false);
@@ -118,7 +159,7 @@ function Team() {
     load();
   }, [load]);
 
-  async function handleCreate(event) {
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     try {
@@ -136,18 +177,19 @@ function Team() {
       setError("");
       toast.success(`${created.name} added with default access.`);
     } catch (err) {
-      const detail = err.response?.data?.details;
+      const { response } = err as ApiFailure;
+      const detail = response?.data?.details;
       setError(
         detail
           ? Object.values(detail)[0]
-          : (err.response?.data?.error ?? "Could not add that user."),
+          : (response?.data?.error ?? "Could not add that user."),
       );
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleRoleChange(user, role) {
+  async function handleRoleChange(user: User, role: string) {
     try {
       const updated = await updateUserRole(user.id, role);
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
@@ -160,12 +202,12 @@ function Team() {
         await refreshUser();
       }
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not change that role.");
+      setError((err as ApiFailure).response?.data?.error ?? "Could not change that role.");
       load();
     }
   }
 
-  async function handleSavePermissions(user, permissions) {
+  async function handleSavePermissions(user: User, permissions: Partial<Permissions>) {
     try {
       const updated = await updateUserPermissions(user.id, permissions);
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
@@ -176,27 +218,28 @@ function Team() {
         await refreshUser();
       }
     } catch (err) {
-      const detail = err.response?.data?.details;
+      const { response } = err as ApiFailure;
+      const detail = response?.data?.details;
       setError(
         detail
           ? Object.values(detail)[0]
-          : (err.response?.data?.error ?? "Could not update access."),
+          : (response?.data?.error ?? "Could not update access."),
       );
     }
   }
 
-  async function handleResetPermissions(user) {
+  async function handleResetPermissions(user: User) {
     try {
       const updated = await resetUserPermissions(user.id);
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
       setOpenEditor(null);
       toast.success(`${updated.name} reset to default access.`);
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not reset access.");
+      setError((err as ApiFailure).response?.data?.error ?? "Could not reset access.");
     }
   }
 
-  async function handleDelete(user) {
+  async function handleDelete(user: User) {
     if (!window.confirm(`Remove ${user.name}? Their records become unassigned.`)) {
       return;
     }
@@ -206,7 +249,7 @@ function Team() {
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
       toast.success(`${user.name} removed.`);
     } catch (err) {
-      setError(err.response?.data?.error ?? "Could not remove that user.");
+      setError((err as ApiFailure).response?.data?.error ?? "Could not remove that user.");
     }
   }
 
@@ -431,31 +474,44 @@ function Team() {
   );
 }
 
+/** What the access editor needs from the page, and what it hands back. */
+type PermissionsEditorProps = {
+  /** The user being edited. Their saved permissions seed the draft. */
+  user: User;
+  onSave: (permissions: Partial<Permissions>) => void;
+  onReset: () => void;
+  onCancel: () => void;
+};
+
 // The per-resource access editor. One row per resource: a visibility dropdown
 // plus a checkbox per action that resource supports.
-function PermissionsEditor({ user, onSave, onReset, onCancel }) {
+function PermissionsEditor({ user, onSave, onReset, onCancel }: PermissionsEditorProps) {
   const [draft, setDraft] = useState(() => structuredClone(user.permissions));
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(user.permissions);
 
-  function setView(resource, value) {
+  function setView(resource: PermissionResource, value: string) {
     setDraft((prev) => ({
       ...prev,
-      [resource]: { ...prev[resource], view: parseView(resource, value) },
+      // `permissions.reports` is typed as possibly a bare boolean, but the API
+      // stores the object form for every resource and so does every write
+      // here — the cast says the editor cannot meet the other shape, rather
+      // than widening the spread to `never`.
+      [resource]: { ...(prev[resource] as ResourcePermissions), view: parseView(resource, value) },
     }));
   }
 
-  function setAction(resource, action, value) {
+  function setAction(resource: PermissionResource, action: string, value: boolean) {
     setDraft((prev) => ({
       ...prev,
-      [resource]: { ...prev[resource], [action]: value },
+      [resource]: { ...(prev[resource] as ResourcePermissions), [action]: value },
     }));
   }
 
   return (
     <div className="mt-4 space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800">
-      {Object.keys(VIEW_OPTIONS).map((resource) => {
-        const permission = draft[resource];
+      {(Object.keys(VIEW_OPTIONS) as PermissionResource[]).map((resource) => {
+        const permission = draft[resource] as ResourcePermissions;
         const viewOn = viewValue(resource, permission.view) !== "false";
         const actions = ACTIONS[resource];
 

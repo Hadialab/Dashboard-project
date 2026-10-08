@@ -1,7 +1,30 @@
 import { Search, Upload } from "lucide-react";
 import Select from "../ui/Select";
 import ScopeToggle from "../ui/ScopeToggle";
+import type { Scope } from "../ui/ScopeToggle";
 import { LEAD_STATUSES, LEAD_SOURCES } from "../../utils/crmConstants";
+
+type LeadsToolbarProps = {
+  searchTerm: string;
+  onSearchChange: (term: string) => void;
+  /** A status name, or "All" for no status filter. */
+  statusFilter: string;
+  onStatusChange: (status: string) => void;
+  /** A source name, or "All" for no source filter. */
+  sourceFilter: string;
+  onSourceChange: (source: string) => void;
+  /** One of the option values below; "newest" is the default sort. */
+  sortBy: string;
+  onSortChange: (sort: string) => void;
+  /** One of the convertedFilter options: include, all or only. */
+  convertedFilter: string;
+  onConvertedFilterChange: (filter: string) => void;
+  scope: Scope;
+  onScopeChange: (scope: Scope) => void;
+  onImport: () => void;
+  /** Import is a create, so the page gates it on the same permission. */
+  canImport?: boolean;
+};
 
 function LeadsToolbar({
   searchTerm,
@@ -18,7 +41,7 @@ function LeadsToolbar({
   onScopeChange,
   onImport,
   canImport = false,
-}) {
+}: LeadsToolbarProps) {
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <ScopeToggle scope={scope} onScopeChange={onScopeChange} noun="Leads" />

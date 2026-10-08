@@ -1,5 +1,15 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+type LeadPaginationProps = {
+  currentPage: number;
+  totalPages: number;
+  /** After filtering, not the whole collection. */
+  totalLeads: number;
+  leadsPerPage: number;
+  onPageChange: (page: number) => void;
+  onRowsPerPageChange: (perPage: number) => void;
+};
+
 function LeadPagination({
   currentPage,
   totalPages,
@@ -7,14 +17,15 @@ function LeadPagination({
   leadsPerPage,
   onPageChange,
   onRowsPerPageChange,
-}) {
+}: LeadPaginationProps) {
   if (totalLeads === 0) return null;
 
   const start = (currentPage - 1) * leadsPerPage + 1;
   const end = Math.min(currentPage * leadsPerPage, totalLeads);
 
-  const getPageNumbers = () => {
-    const pages = [];
+  /** Page numbers, with "..." standing in for a run of skipped pages. */
+  const getPageNumbers = (): (number | string)[] => {
+    const pages: (number | string)[] = [];
 
     if (totalPages <= 5) {
       for (let i = 1; i <= totalPages; i++) {
@@ -94,7 +105,10 @@ function LeadPagination({
               <button
                 key={index}
                 type="button"
-                onClick={() => onPageChange(page)}
+                // The `page === "..."` test above has already taken the ellipsis
+                // out of this branch, but TypeScript re-widens `page` inside a
+                // closure, so it has to be said again here.
+                onClick={() => onPageChange(page as number)}
                 aria-current={currentPage === page ? "page" : undefined}
                 className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-sm font-medium transition ${
                   currentPage === page

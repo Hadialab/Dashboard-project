@@ -10,6 +10,7 @@ import {
 import Card from "../ui/Card";
 import { formatAxisMoney, formatMoney } from "../../utils/chartFormat";
 import type { RevenueTrendPoint } from "../../utils/reportAnalytics";
+import type { ValueType } from "recharts/types/component/DefaultTooltipContent";
 
 // Data comes from the API via getRevenueTrend(). Renders an empty state rather
 // than a hardcoded placeholder series when there is no data.
@@ -31,7 +32,13 @@ function RevenueBarChart({ revenueData = [] }: { revenueData?: RevenueTrendPoint
             {/* Formatted, because Recharts clips a tick rather than shrinking it:
                 a raw 125000 in a 50px axis renders as ",00". */}
             <YAxis tick={{ fontSize: 12 }} tickFormatter={formatAxisMoney} width={50} />
-            <Tooltip formatter={(value) => [formatMoney(value), "Revenue"]} />
+            {/* Recharts types the formatter's argument as `ValueType` (number |
+                string | array) because a series can hold any of them. This series
+                is `revenue`, which is a number, so the cast says what is true at
+                this call site rather than loosening formatMoney for every other
+                caller. Not `Number(value)`: that would change what a string value
+                renders as, and formatMoney already decides what a non-number means. */}
+            <Tooltip formatter={(value: ValueType) => [formatMoney(value as number), "Revenue"]} />
             <Bar dataKey="revenue" fill="#3b82f6" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

@@ -3,8 +3,17 @@ import DetailRow from "../ui/DataCard";
 import usePermissions from "../../hooks/usePermissions";
 import { stageBadge } from "../../utils/crmConstants";
 import { formatRelative, formatRelativeShort } from "../../utils/time";
+import type { Deal } from "../../types";
 
-function DealsTable({ deals, onViewDeal, onEditDeal, onDeleteDeal }) {
+type DealsTableProps = {
+  /** The current page's rows only — pagination happens on the page. */
+  deals: Deal[];
+  onViewDeal: (deal: Deal) => void;
+  onEditDeal: (deal: Deal) => void;
+  onDeleteDeal: (deal: Deal) => void;
+};
+
+function DealsTable({ deals, onViewDeal, onEditDeal, onDeleteDeal }: DealsTableProps) {
   const { can } = usePermissions();
   const canEdit = can("deals", "edit");
   const canDelete = can("deals", "delete");

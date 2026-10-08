@@ -6,7 +6,13 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-const SummaryCards = ({ summary }) => {
+import type { SummaryMetrics } from "../../utils/reportAnalytics";
+
+type SummaryCardsProps = {
+  summary: SummaryMetrics;
+};
+
+const SummaryCards = ({ summary }: SummaryCardsProps) => {
   const cards = [
     {
       title: "Customers",

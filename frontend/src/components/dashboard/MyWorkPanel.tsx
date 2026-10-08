@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 import { getClosingSoon, getStaleLeads, totalValue, CLOSING_SOON_DAYS, STALE_LEAD_DAYS } from "../../utils/myWork";
 import { stageBadge, leadStatusBadge } from "../../utils/crmConstants";
 import { daysUntil, formatRelative } from "../../utils/time";
+import type { Deal, Lead, User } from "../../types";
 
 /**
  * What needs doing now: deals about to close, and leads going quiet.
@@ -16,8 +17,29 @@ import { daysUntil, formatRelative } from "../../utils/time";
  * on the record rather than on a list they then have to find it in again.
  *
  * Thresholds come from utils/myWork.js, not from here.
+ *
+ * `user` is the whole signed-in user and is used for truthiness only — the empty
+ * message says "that is a good sign" to a signed-in user. Both lists default to
+ * empty so the panel can be rendered before any data arrives.
+ *
+ * `canSeeDeals` and `canSeeLeads` are separate because a user may hold one
+ * permission and not the other, and each list is gated on its own.
  */
-function MyWorkPanel({ deals = [], leads = [], user, canSeeDeals, canSeeLeads }) {
+type MyWorkPanelProps = {
+  deals?: Deal[];
+  leads?: Lead[];
+  user?: User | null;
+  canSeeDeals: boolean;
+  canSeeLeads: boolean;
+};
+
+function MyWorkPanel({
+  deals = [],
+  leads = [],
+  user,
+  canSeeDeals,
+  canSeeLeads,
+}: MyWorkPanelProps) {
   const navigate = useNavigate();
 
   // "My" work when a user is signed in; otherwise everything visible, so an

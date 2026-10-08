@@ -1,8 +1,31 @@
 import { AlertTriangle } from "lucide-react";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
+import type { Customer } from "../../types";
 
-function DeleteCustomerModal({ open, customer, onClose, onConfirm }) {
+/**
+ * The confirming step before a customer is destroyed.
+ *
+ * `customer` is null while the modal is closed rather than the modal being
+ * unmounted, which is why the name can be required in the body: the guard below
+ * has already returned for the closed case.
+ *
+ * `onConfirm` takes no arguments — the page already holds the record in its own
+ * state, so passing it back here would be a second source of truth.
+ */
+type DeleteCustomerModalProps = {
+  open: boolean;
+  customer?: Customer | null;
+  onClose: () => void;
+  onConfirm: () => void;
+};
+
+function DeleteCustomerModal({
+  open,
+  customer,
+  onClose,
+  onConfirm,
+}: DeleteCustomerModalProps) {
   if (!open || !customer) return null;
 
   return (

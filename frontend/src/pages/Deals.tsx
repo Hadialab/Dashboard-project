@@ -22,22 +22,28 @@ import DealTableSkeleton from "../components/deals/DealTableSkeleton";
 import ErrorState from "../components/ui/ErrorState";
 import EmptyState from "../components/deals/EmptyState";
 import { useLiveUpdates } from "../hooks/useLiveUpdates";
+import type { Deal } from "../types";
+import type { Scope } from "../components/ui/ScopeToggle";
 
 function Deals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentUser = useAuthStore((state) => state.user);
 
-  const [deals, setDeals] = useState([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
 
   // "all" or "mine" â€” see the note in Leads.jsx.
-  const [scope, setScope] = useState(searchParams.get("scope") || "all");
+  const [scope, setScope] = useState<Scope>(
+    (searchParams.get("scope") as Scope) || "all"
+  );
 
   // Deep link from the dashboard widget, the command palette or a notification.
   // See the matching effect further down.
   const openDealId = searchParams.get("open");
 
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
+  // Held in state, not just logged, so a failed load is told apart from an empty
+  // board. Only ever read back by handing it to the console.
+  const [loadError, setLoadError] = useState<unknown>(null);
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || ""
@@ -60,8 +66,8 @@ function Deals() {
   );
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedDeal, setSelectedDeal] = useState(null);
-  const [dealToDelete, setDealToDelete] = useState(null);
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [dealToDelete, setDealToDelete] = useState<Deal | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const notifications = useNotificationGenerator();
@@ -93,7 +99,11 @@ function Deals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    const params = {};
+    // Built up key by key, so only the filters that differ from their default
+    // reach the URL. The page and row counts are numbers; createSearchParams
+    // stringifies every value on the way into URLSearchParams, so the cast is
+    // what the runtime already does rather than a change in behaviour.
+    const params: Record<string, string | number> = {};
 
     if (searchTerm) params.search = searchTerm;
     if (stageFilter !== "All") params.stage = stageFilter;
@@ -102,7 +112,7 @@ function Deals() {
     if (currentPage !== 1) params.page = currentPage;
     if (rowsPerPage !== 5) params.rows = rowsPerPage;
 
-    setSearchParams(params);
+    setSearchParams(params as Record<string, string>);
   }, [
     searchTerm,
     stageFilter,
@@ -146,10 +156,12 @@ function Deals() {
 
     switch (sortBy) {
       case "oldest":
+        // `.getTime()` on both sides because `-` on two Date objects is not
+        // something TypeScript allows, and it is what the runtime does anyway.
         filtered.sort(
           (a, b) =>
-            new Date(a.expectedClose) -
-            new Date(b.expectedClose)
+            new Date(a.expectedClose!).getTime() -
+            new Date(b.expectedClose!).getTime()
         );
         break;
 
@@ -178,18 +190,20 @@ function Deals() {
         break;
 
       case "value-high":
-        filtered.sort((a, b) => b.value - a.value);
+        // `value` is a Money, so it may arrive as a string from pg. Number()
+        // before subtracting, which is what `-` would have done implicitly.
+        filtered.sort((a, b) => Number(b.value) - Number(a.value));
         break;
 
       case "value-low":
-        filtered.sort((a, b) => a.value - b.value);
+        filtered.sort((a, b) => Number(a.value) - Number(b.value));
         break;
 
       default:
         filtered.sort(
           (a, b) =>
-            new Date(b.expectedClose) -
-            new Date(a.expectedClose)
+            new Date(b.expectedClose!).getTime() -
+            new Date(a.expectedClose!).getTime()
         );
     }
 
@@ -227,7 +241,7 @@ function Deals() {
     setSearchParams(params, { replace: true });
   }, [openDealId, loading, deals, searchParams, setSearchParams]);
 
- const handleAddDeal = async (deal) => {
+ const handleAddDeal = async (deal: Partial<Deal>) => {
   try {
     const newDeal = {
       ...deal,
@@ -244,7 +258,7 @@ function Deals() {
     toast.error("Failed to add deal");
   }
 };
- const handleUpdateDeal = async (updatedDeal) => {
+ const handleUpdateDeal = async (updatedDeal: Deal) => {
   try {
     const updated = await updateDeal(updatedDeal.id, updatedDeal);
 
@@ -263,7 +277,7 @@ function Deals() {
     toast.error("Failed to update deal");
   }
 };
- const handleDeleteDeal = async (id) => {
+ const handleDeleteDeal = async (id: string) => {
   try {
     await deleteDeal(id);
 

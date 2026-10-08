@@ -1,4 +1,5 @@
 import { STAGE_PROBABILITY } from "../../utils/crmConstants";
+import type { RevenueForecast } from "../../utils/reportAnalytics";
 
 /**
  * The forecast headline: what the open pipeline is worth if it converts at the
@@ -7,15 +8,19 @@ import { STAGE_PROBABILITY } from "../../utils/crmConstants";
  * The gap between the two is the point — quoting open pipeline at face value
  * treats a Lead exactly like a Negotiation, which is how forecasts come in
  * wildly high.
+ *
+ * Every field below has a default, so a missing forecast renders as zeroes
+ * rather than throwing. `winRate` defaults to `null` and not to 0 because an
+ * open pipeline has no win rate at all, and "0%" would claim otherwise.
  */
-function ForecastCard({ forecast }) {
+function ForecastCard({ forecast }: { forecast?: RevenueForecast | null }) {
   const {
     openCount = 0,
     openValue = 0,
     weighted = 0,
     wonValue = 0,
     winRate = null,
-  } = forecast ?? {};
+  }: Partial<RevenueForecast> = forecast ?? {};
 
   // What share of the raw open value survives the weighting. Meaningless with no
   // open pipeline, so it is hidden rather than shown as 0%.

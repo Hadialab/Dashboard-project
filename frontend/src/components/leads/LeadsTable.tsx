@@ -4,6 +4,19 @@ import RowCheckbox from "../ui/RowCheckbox";
 import usePermissions from "../../hooks/usePermissions";
 import { leadStatusBadge, leadSourceBadge, CONVERTED_STATUS } from "../../utils/crmConstants";
 import { formatRelative, formatRelativeShort } from "../../utils/time";
+import type { RowSelection } from "../../hooks/useRowSelection";
+import type { Lead } from "../../types";
+
+type LeadsTableProps = {
+  /** The current page's rows only — pagination happens on the page. */
+  leads: Lead[];
+  onViewLead: (lead: Lead) => void;
+  onEditLead: (lead: Lead) => void;
+  onDeleteLead: (lead: Lead) => void;
+  onConvertLead: (lead: Lead) => void;
+  /** Row selection for the current page. Absent means no checkbox column. */
+  selection?: RowSelection;
+};
 
 function LeadsTable({
   leads,
@@ -12,7 +25,7 @@ function LeadsTable({
   onDeleteLead,
   onConvertLead,
   selection,
-}) {
+}: LeadsTableProps) {
   const { can } = usePermissions();
   const canEdit = can("leads", "edit");
   const canDelete = can("leads", "delete");

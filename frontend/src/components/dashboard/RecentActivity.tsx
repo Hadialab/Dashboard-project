@@ -1,9 +1,28 @@
 import { Download, RefreshCcw } from "lucide-react";
 import Card from "../ui/Card";
 import { exportActivityCsv } from "../../utils/exportCsv";
+import type { ActivityItem } from "../../utils/exportCsv";
+
+/**
+ * One row of the feed, and the ranked customers beside it, as the Dashboard page
+ * builds them. Both default to empty because the panel renders above the fetch
+ * that fills them.
+ *
+ * `topCustomers` is the return shape of getTopCustomers — revenue per customer
+ * name, highest first — declared structurally rather than imported because
+ * reportAnalytics infers it rather than naming it.
+ *
+ * `onRefresh` takes no arguments and returns nothing the panel uses; the page
+ * owns the refetch, so an in-flight request is never restarted twice over.
+ */
+type RecentActivityProps = {
+  items?: ActivityItem[];
+  topCustomers?: { customer: string; revenue: number }[];
+  onRefresh: () => void;
+};
 
 // Receives real records from the Dashboard rather than a hardcoded list.
-function RecentActivity({ items = [], topCustomers = [], onRefresh }) {
+function RecentActivity({ items = [], topCustomers = [], onRefresh }: RecentActivityProps) {
   function handleExport() {
     // Activity rows are not deals, so they get their own exporter. This used to
     // reshape them into deal-shaped objects to satisfy exportCsv, which wrote a

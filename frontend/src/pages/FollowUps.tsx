@@ -10,6 +10,7 @@ import { getFollowUps, notifyFollowUp, updateFollowUp } from "../services/follow
 import { downloadIcsForFollowUp, buildMailtoForFollowUp, followUpTypeLabel, isOverdue } from "../utils/calendar";
 import api from "../api/axios";
 import { getApiErrorMessage } from "../utils/apiError";
+import type { Customer, Deal, FollowUp } from "../types";
 
 const FILTERS = [
   { value: "pending", label: "Pending" },
@@ -17,13 +18,32 @@ const FILTERS = [
   { value: "all", label: "All" },
 ];
 
-const TYPE_ICONS = { call: Users, email: Mail, meeting: Users, task: Check };
+const TYPE_ICONS: Record<string, typeof Users> = {
+  call: Users,
+  email: Mail,
+  meeting: Users,
+  task: Check,
+};
+
+/**
+ * Whichever record a follow-up hangs off, keyed by `${entityType}:${entityId}`.
+ *
+ * A customer carries a `name` and a deal a `title`, so both are read here and
+ * the list falls back from one to the other. Only these three fields are ever
+ * touched, which is why this is narrower than `Customer | Deal` rather than that
+ * union — a full Customer would claim fields the drawer never reads.
+ */
+type FollowUpParent = {
+  name?: string;
+  title?: string;
+  email?: string;
+};
 
 // Every follow-up the signed-in user can see, across all records. The API
 // already scopes this, so a sales rep only ever gets their own.
 function FollowUps() {
-  const [items, setItems] = useState([]);
-  const [contacts, setContacts] = useState({});
+  const [items, setItems] = useState<FollowUp[]>([]);
+  const [contacts, setContacts] = useState<Record<string, FollowUpParent>>({});
   const [filter, setFilter] = useState("pending");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,11 +72,11 @@ function FollowUps() {
     (async () => {
       try {
         const [customers, deals] = await Promise.all([
-          api.get("/customers"),
-          api.get("/deals"),
+          api.get<Customer[]>("/customers"),
+          api.get<Deal[]>("/deals"),
         ]);
 
-        const byId = {
+        const byId: Record<string, FollowUpParent> = {
           ...Object.fromEntries(customers.data.map((c) => [`customer:${c.id}`, c])),
           ...Object.fromEntries(deals.data.map((d) => [`deal:${d.id}`, d])),
         };
@@ -75,7 +95,7 @@ function FollowUps() {
 
   const overdueCount = items.filter(isOverdue).length;
 
-  async function toggleDone(followUp) {
+  async function toggleDone(followUp: FollowUp) {
     try {
       const updated = await updateFollowUp(followUp.id, {
         status: followUp.status === "done" ? "pending" : "done",
@@ -86,7 +106,7 @@ function FollowUps() {
     }
   }
 
-  async function handleNotify(followUp) {
+  async function handleNotify(followUp: FollowUp) {
     const parent = contacts[`${followUp.entityType}:${followUp.entityId}`];
 
     try {

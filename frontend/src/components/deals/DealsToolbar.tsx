@@ -1,7 +1,21 @@
 import { Search } from "lucide-react";
 import Select from "../ui/Select";
 import ScopeToggle from "../ui/ScopeToggle";
+import type { Scope } from "../ui/ScopeToggle";
 import { DEAL_STAGES } from "../../utils/crmConstants";
+
+type DealsToolbarProps = {
+  searchTerm: string;
+  onSearchChange: (term: string) => void;
+  /** A stage name, or "All" for no stage filter. */
+  stageFilter: string;
+  onStageChange: (stage: string) => void;
+  /** One of the option values below; "newest" is the default sort. */
+  sortBy: string;
+  onSortChange: (sort: string) => void;
+  scope: Scope;
+  onScopeChange: (scope: Scope) => void;
+};
 
 function DealsToolbar({
   searchTerm,
@@ -12,7 +26,7 @@ function DealsToolbar({
   onSortChange,
   scope,
   onScopeChange,
-}) {
+}: DealsToolbarProps) {
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <ScopeToggle scope={scope} onScopeChange={onScopeChange} noun="Deals" />

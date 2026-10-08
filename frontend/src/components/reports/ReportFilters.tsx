@@ -1,8 +1,49 @@
 import { RotateCcw, Search } from "lucide-react";
+import type { Dispatch, SetStateAction } from "react";
+
 import Select from "../ui/Select";
 
-const ReportFilters = ({ filters, setFilters }) => {
-  const updateFilters = (newFilters) => {
+import type { ReportSortKey } from "./reportSort";
+
+/**
+ * The filter bar's state, owned by the page and passed down whole so the URL sync
+ * in Reports.jsx and the filtering in ReportsTable read from one object.
+ *
+ * Every field is a select option value or a search string. The option lists
+ * below are the only thing that constrains them, and the database does not
+ * constrain the underlying stage either, so they stay plain strings.
+ *
+ * `sortBy` is the exception - see ReportSortKey.
+ */
+export type ReportFilterState = {
+  search: string;
+  /** "All", or a report type. */
+  reportType: string;
+  /** "All", or a deal stage. */
+  status: string;
+  /**
+   * A deal field name, or "none" for no sort.
+   *
+   * Union rather than plain `string` because the page indexes a Deal with it
+   * (`report[filters.sortBy]`), which a bare string cannot do. The options below
+   * are the source of truth for the list.
+   */
+  sortBy: ReportSortKey;
+  /** YYYY-MM-DD, or empty for no lower bound. */
+  dateFrom: string;
+  /** YYYY-MM-DD, or empty for no upper bound. */
+  dateTo: string;
+};
+
+type ReportFiltersProps = {
+  filters: ReportFilterState;
+  setFilters: Dispatch<SetStateAction<ReportFilterState>>;
+};
+
+const ReportFilters = ({ filters, setFilters }: ReportFiltersProps) => {
+  // Merged rather than replacing: each control owns one field, so a change here
+  // must not reset the others the page is also reading.
+  const updateFilters = (newFilters: Partial<ReportFilterState>) => {
     setFilters((prev) => ({
       ...prev,
       ...newFilters,
@@ -62,7 +103,12 @@ const ReportFilters = ({ filters, setFilters }) => {
           label="Sort By"
           name="sortBy"
           value={filters.sortBy}
-          onChange={(e) => updateFilters({ sortBy: e.target.value })}
+          // The cast is the price of the union type above: a <select> hands
+          // back a string, and the only thing that makes it one of these six is
+          // that the options below are exactly these six.
+          onChange={(e) =>
+            updateFilters({ sortBy: e.target.value as ReportSortKey })
+          }
         >
           <option value="none">None</option>
           <option value="title">Deal Title</option>

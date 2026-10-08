@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { getApiErrorMessage } from "../utils/apiError";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
+import type { FormEvent } from "react";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -44,12 +45,13 @@ function Login() {
       setError("");
       return true;
     } catch (validationError) {
-      setError(validationError.message);
+      // Yup's own error: a plain string message, with no API shape behind it.
+      setError((validationError as Error).message);
       return false;
     }
   }
 
-  async function handleLogin(event) {
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!(await validate())) {

@@ -9,17 +9,48 @@ import {
   FileText,
 } from "lucide-react";
 
+import type { ReactNode } from "react";
+
 import exportPdf from "../../utils/exportPdf";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
+import type { Deal } from "../../types";
 
-const statusStyles = {
+// `Record<string, string>` rather than `satisfies`: report.status is typed `string`,
+// so indexing a three-key literal with it is an error under noImplicitAny. `satisfies`
+// preserves the literal keys, which is the wrong trade here - it moves the failure to
+// the call site instead of removing it. An unrecognised status yields undefined and
+// renders no badge colour, which is what the API already does for an unknown value.
+const statusStyles: Record<string, string> = {
   Generated: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   Draft: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
   Archived: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
-const ReportDetailsModal = ({ report, open, onClose }) => {
+/**
+ * Report-only fields, none of which a Deal carries.
+ *
+ * The reports table hands this modal a deal row, so these are always absent
+ * today and the matching cells render blank. Kept in the type because the modal
+ * reads them, and declared optional so the row it is actually given satisfies
+ * it without a cast.
+ */
+type ReportExtras = {
+  customers?: number;
+  leads?: number;
+  deals?: number;
+  status?: string;
+  description?: string;
+};
+
+type ReportDetailsModalProps = {
+  /** The row being shown. Null or absent while closed. */
+  report?: (Deal & ReportExtras) | null;
+  open: boolean;
+  onClose: () => void;
+};
+
+const ReportDetailsModal = ({ report, open, onClose }: ReportDetailsModalProps) => {
   if (!open || !report) return null;
 
   return (
@@ -108,7 +139,15 @@ const ReportDetailsModal = ({ report, open, onClose }) => {
   );
 };
 
-function InfoCard({ icon, title, value }) {
+type InfoCardProps = {
+  /** The lucide icon, already sized by the caller. */
+  icon: ReactNode;
+  title: ReactNode;
+  /** A number or an already-formatted string. */
+  value: ReactNode;
+};
+
+function InfoCard({ icon, title, value }: InfoCardProps) {
   return (
     <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
       <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">

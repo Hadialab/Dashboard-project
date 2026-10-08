@@ -26,22 +26,31 @@ import {
 
 import exportCsv from "../utils/exportCsv";
 import exportPdf from "../utils/exportPdf";
+import type { Customer, Deal, Lead } from "../types";
+// The filter shape is owned by the component that edits it, and the page both
+// seeds it from the URL and reads it back, so all three agree by construction.
+import type { ReportFilterState } from "../components/reports/ReportFilters";
+import { asReportSortKey } from "../components/reports/reportSort";
 
-
+/** Which export button is showing a spinner. At most one at a time. */
+type Exporting = "csv" | "pdf" | null;
 
 const Reports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [customers, setCustomers] = useState([]);
-  const [leads, setLeads] = useState([]);
-  const [deals, setDeals] = useState([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<ReportFilterState>({
     search: searchParams.get("search") || "",
     reportType: searchParams.get("type") || "All",
     status: searchParams.get("status") || "All",
-    sortBy: searchParams.get("sort") || "none",
+    // The URL is user-editable, so this validates rather than casts. An
+    // unknown ?sort= would otherwise reach `report[filters.sortBy]` as a key
+    // the Deal type does not have, and silently sort by nothing.
+    sortBy: asReportSortKey(searchParams.get("sort")),
     dateFrom: searchParams.get("from") || "",
     dateTo: searchParams.get("to") || "",
   });
@@ -52,7 +61,7 @@ const Reports = () => {
 
   // Which export is in flight, so the button being pressed is the one that
   // shows a spinner and the other stays available.
-  const [exporting, setExporting] = useState(null);
+  const [exporting, setExporting] = useState<Exporting>(null);
 
   useEffect(() => {
     const fetchData = async () => {

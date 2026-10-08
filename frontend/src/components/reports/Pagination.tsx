@@ -1,9 +1,24 @@
+import type { Dispatch, SetStateAction } from "react";
+
+type PaginationProps = {
+  currentPage: number;
+  /**
+   * The page's own setter rather than an `onPageChange` callback, because the
+   * report row filter also resets the page from inside the table — one setter,
+   * shared, so both paths land in the same state.
+   */
+  setCurrentPage: Dispatch<SetStateAction<number>>;
+  /** Rows after filtering, not the whole collection. */
+  totalItems: number;
+  itemsPerPage: number;
+};
+
 const Pagination = ({
   currentPage,
   setCurrentPage,
   totalItems,
   itemsPerPage,
-}) => {
+}: PaginationProps) => {
   const totalPages = Math.ceil(
     totalItems / itemsPerPage
   );

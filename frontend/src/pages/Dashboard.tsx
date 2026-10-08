@@ -18,13 +18,14 @@ import {
   getDealsByStage,
   getTopCustomers,
 } from "../utils/reportAnalytics";
+import type { Customer, Deal, Lead } from "../types";
 
 function Dashboard() {
   const { can } = usePermissions();
   const currentUser = useAuthStore((state) => state.user);
-  const [customers, setCustomers] = useState([]);
-  const [leads, setLeads] = useState([]);
-  const [deals, setDeals] = useState([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -38,11 +39,17 @@ function Dashboard() {
       setError("");
 
       // Only request what the user may see, rather than asking and getting
-      // nothing back.
+      // nothing back. The bare-array fallbacks are the "not permitted" arm.
       const [customersRes, leadsRes, dealsRes] = await Promise.all([
-        canSeeCustomers ? api.get("/customers") : Promise.resolve({ data: [] }),
-        canSeeLeads ? api.get("/leads") : Promise.resolve({ data: [] }),
-        canSeeDeals ? api.get("/deals") : Promise.resolve({ data: [] }),
+        canSeeCustomers
+          ? api.get<Customer[]>("/customers")
+          : Promise.resolve({ data: [] as Customer[] }),
+        canSeeLeads
+          ? api.get<Lead[]>("/leads")
+          : Promise.resolve({ data: [] as Lead[] }),
+        canSeeDeals
+          ? api.get<Deal[]>("/deals")
+          : Promise.resolve({ data: [] as Deal[] }),
       ]);
 
       setCustomers(customersRes.data);

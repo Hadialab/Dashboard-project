@@ -23,18 +23,23 @@ import CustomerTableSkeleton from "../components/customers/CustomerTableSkeleton
 import ErrorState from "../components/ui/ErrorState";
 import RowsPerPage from "../components/customers/RowsPerPage";
 import { useLiveUpdates } from "../hooks/useLiveUpdates";
+import type { Customer, Deal } from "../types";
+import type { CustomerInput } from "../validation/customerSchema";
+
+/** The one thing a deal form needs pre-seeded when started from a customer. */
+type DealPrefill = { customer: string };
 
 function Customers() {
-  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "name");
   const [sortOrder, setSortOrder] = useState(() => searchParams.get("order") || "asc");
   const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get("page")) || 1);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalPages, setTotalPages] = useState(1);
 
   const [loading, setLoading] = useState(true);
@@ -45,12 +50,12 @@ function Customers() {
     () => Number(searchParams.get("rows")) || 10
   );
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "All");
-  const [customerToDelete, setCustomerToDelete] = useState(null);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Starting a deal from a customer drawer. The name is carried into the form;
   // everything else the user fills in.
-  const [dealPrefill, setDealPrefill] = useState(null);
+  const [dealPrefill, setDealPrefill] = useState<DealPrefill | null>(null);
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
 
   const { can } = usePermissions();
@@ -64,7 +69,7 @@ function Customers() {
   // Every email in the company, for the duplicate check on create and on
   // import. Fetched unpaginated; the customers list is small enough that pulling
   // it all in one request beats paginating a lookup the user never sees.
-  const [allEmails, setAllEmails] = useState([]);
+  const [allEmails, setAllEmails] = useState<string[]>([]);
 
   useEffect(() => {
     if (!canCreate) return;
@@ -120,7 +125,7 @@ function Customers() {
     setSearchParams,
   ]);
 
-  const handleEditCustomer = (customer) => {
+  const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer);
     setIsAddModalOpen(true);
   };
@@ -129,37 +134,37 @@ function Customers() {
   // These are combined into the state setters below instead of a
   // separate effect, so a filter change triggers exactly one fetch
   // (not one for the filter change, then another when page resets).
-  const handleSearchChange = (value) => {
+  const handleSearchChange = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
   };
 
-  const handleStatusChange = (value) => {
+  const handleStatusChange = (value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
   };
 
-  const handleSortByChange = (value) => {
+  const handleSortByChange = (value: string) => {
     setSortBy(value);
     setCurrentPage(1);
   };
 
-  const handleSortOrderChange = (value) => {
+  const handleSortOrderChange = (value: string) => {
     setSortOrder(value);
     setCurrentPage(1);
   };
 
-  const handleRowsPerPageChange = (value) => {
+  const handleRowsPerPageChange = (value: number) => {
     setCustomersPerPage(value);
     setCurrentPage(1);
   };
 
-  const handleViewCustomer = (customer) => {
+  const handleViewCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setIsDrawerOpen(true);
   };
 
-  const handleAddCustomer = async (customer) => {
+  const handleAddCustomer = async (customer: CustomerInput) => {
     try {
       await createCustomer(customer);
       await fetchCustomers();
@@ -170,7 +175,7 @@ function Customers() {
     }
   };
 
-  const handleUpdateCustomer = async (updatedCustomer) => {
+  const handleUpdateCustomer = async (updatedCustomer: Customer) => {
     try {
       await updateCustomer(updatedCustomer.id, updatedCustomer);
       await fetchCustomers();
@@ -182,7 +187,7 @@ function Customers() {
     }
   };
 
-  const handleOpenDeleteModal = (customer) => {
+  const handleOpenDeleteModal = (customer: Customer) => {
     setCustomerToDelete(customer);
     setIsDeleteModalOpen(true);
   };
@@ -205,13 +210,13 @@ function Customers() {
   // Opens the deal form with the customer's name already filled in. A deal
   // references its customer by name, which is the only thing worth carrying
   // over — the value, stage and close date are the user's call.
-  const handleStartDeal = (customer) => {
+  const handleStartDeal = (customer: Customer) => {
     setDealPrefill({ customer: customer.name });
     setIsDealModalOpen(true);
     setIsDrawerOpen(false);
   };
 
-  const handleCreateDealFromCustomer = async (deal) => {
+  const handleCreateDealFromCustomer = async (deal: Partial<Deal>) => {
     try {
       const created = await createDeal(deal);
 
@@ -228,7 +233,7 @@ function Customers() {
     }
   };
 
-  const handleBulkStatus = async (status) => {
+  const handleBulkStatus = async (status: string) => {
     const records = customers.filter((row) => selection.selected.includes(row.id));
 
     const result = await bulkSetCustomerStatus(records, status);

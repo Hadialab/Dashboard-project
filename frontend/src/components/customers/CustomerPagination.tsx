@@ -1,4 +1,22 @@
-function CustomersPagination({ currentPage, totalPages, onPageChange }) {
+/**
+ * The pager under the Customers table.
+ *
+ * Page numbers are always chosen here rather than by the caller: at most five
+ * buttons, always including the current page, so the row cannot grow without
+ * bound as records are added.
+ */
+type CustomersPaginationProps = {
+  currentPage: number;
+  totalPages: number;
+  /** Receives the page to move to. Callers clamp and refetch; this only asks. */
+  onPageChange: (page: number) => void;
+};
+
+function CustomersPagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: CustomersPaginationProps) {
   const handlePrevious = () => {
     if (currentPage > 1) onPageChange(currentPage - 1);
   };
@@ -8,8 +26,8 @@ function CustomersPagination({ currentPage, totalPages, onPageChange }) {
   };
 
   const getVisiblePages = () => {
-    const pages = [];
-    let start, end;
+    const pages: number[] = [];
+    let start: number, end: number;
 
     if (totalPages <= 5) {
       start = 1;

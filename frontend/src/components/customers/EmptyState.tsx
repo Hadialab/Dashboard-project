@@ -1,9 +1,36 @@
 import { Plus, SearchX } from "lucide-react";
+import type { ReactNode } from "react";
 
 // One empty state for the app. The shared primitive carries the title,
 // description and button; this only supplies the illustration so each list can
 // show something relevant to its entity.
-function EmptyState({ title, description, buttonText, onClick, isSearchResult = false }) {
+
+/**
+ * Props are ReactNode rather than string because the title is rendered inside a
+ * heading and a description inside a paragraph — a node is legal in both, and a
+ * string is a legal node.
+ *
+ * `isSearchResult` picks the amber "nothing matched" treatment over the blue
+ * "you have not created anything yet" one. It is the caller's job to tell those
+ * apart: "no customers" and "no customers matching that search" need different
+ * words, not just a different icon.
+ */
+type EmptyStateProps = {
+  title: ReactNode;
+  description?: ReactNode;
+  /** The label alone is not enough — a button with no handler does nothing. */
+  buttonText?: string;
+  onClick?: () => void;
+  isSearchResult?: boolean;
+};
+
+function EmptyState({
+  title,
+  description,
+  buttonText,
+  onClick,
+  isSearchResult = false,
+}: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-12 text-center dark:border-slate-700 dark:bg-slate-950">
       <div

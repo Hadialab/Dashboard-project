@@ -50,8 +50,25 @@ type NotificationState = {
  *           which is the part that matters: without it, re-checking on every
  *           render or every tab focus would pile up the same reminder.
  */
+/**
+ * What actually goes into localStorage.
+ *
+ * `persist`'s fourth type parameter, and separate from NotificationState because
+ * `partialize` below deliberately drops the five action functions — they are not
+ * serialisable and rehydrating them would be meaningless.
+ */
+type PersistedNotifications = {
+  notifications: Notification[];
+};
+
 const useNotificationStore = create<NotificationState>()(
-  persist(
+  // The type arguments are not redundant with `create<NotificationState>()` above.
+  // `persist` infers its state from the initializer it is handed, and an object
+  // literal's `notifications: []` widens to `any[]` on its own, so the empty array
+  // would never be checked against Notification. PersistedNotifications is what
+  // `partialize` is allowed to return; without it, partialize has to return the
+  // whole state including the functions it is designed to omit.
+  persist<NotificationState, [], [], PersistedNotifications>(
     (set) => ({
       notifications: [],
 

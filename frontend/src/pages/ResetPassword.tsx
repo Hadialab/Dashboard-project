@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 
@@ -43,7 +44,7 @@ function ResetPassword() {
 
   const looksValid = TOKEN_PATTERN.test(token);
 
-  async function handleSubmit(event) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (password !== confirm) {

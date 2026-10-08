@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent, FormEvent, MouseEvent } from "react";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 
 import Modal from "../ui/Modal";
@@ -6,8 +7,10 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import { customerSchema } from "../../validation/customerSchema";
+import type { CustomerInput } from "../../validation/customerSchema";
 import { getApiErrorMessage } from "../../utils/apiError";
 import { CUSTOMER_STATUSES } from "../../utils/crmConstants";
+import type { Lead } from "../../types";
 
 /**
  * Confirms turning a lead into a customer.
@@ -20,15 +23,41 @@ import { CUSTOMER_STATUSES } from "../../utils/crmConstants";
  * the save: the same person can legitimately hold two records, and the server
  * does not enforce uniqueness, so blocking here would be a rule the UI invented.
  */
-function ConvertLeadModal({ open, onClose, onConfirm, lead, existingEmails = [] }) {
-  const [formData, setFormData] = useState({
+
+/**
+ * `onConfirm` always creates. There is no update path to make optional here —
+ * unlike a modal shared with an edit form — because converting a lead always
+ * yields a new customer, and the lead itself is only marked, never rewritten.
+ *
+ * It is awaited and its rejection is what `submitError` reports, so it returns a
+ * promise rather than being fire-and-forget.
+ */
+type ConvertLeadModalProps = {
+  open: boolean;
+  onClose: () => void;
+  /** Creates the customer. Rejecting leaves the modal open with the error shown. */
+  onConfirm: (customer: CustomerInput) => Promise<unknown>;
+  /** The lead being converted. Null or absent while closed. */
+  lead?: Lead | null;
+  /** Every customer email in use, for the duplicate warning. */
+  existingEmails?: string[];
+};
+
+function ConvertLeadModal({
+  open,
+  onClose,
+  onConfirm,
+  lead,
+  existingEmails = [],
+}: ConvertLeadModalProps) {
+  const [formData, setFormData] = useState<CustomerInput>({
     name: "",
     company: "",
     email: "",
     phone: "",
     status: "Active",
   });
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -47,7 +76,10 @@ function ConvertLeadModal({ open, onClose, onConfirm, lead, existingEmails = [] 
     setSubmitError("");
   }, [open, lead]);
 
-  const handleChange = (event) => {
+  // The one handler behind every field: both Input and Select hand back the
+  // same synthetic change event, so a union of the two element types is the
+  // honest type rather than a cast to whichever was written last.
+  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target;
 
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -63,14 +95,23 @@ function ConvertLeadModal({ open, onClose, onConfirm, lead, existingEmails = [] 
     return existingEmails.find((row) => String(row).toLowerCase() === email) ?? null;
   }, [formData.email, existingEmails]);
 
-  async function handleSubmit(event) {
+  // Both the form's onSubmit and the footer's button, so the parameter is the
+  // union of the two events and stays optional — which is what the `?.` here
+  // has always been guarding.
+  async function handleSubmit(
+    event?: FormEvent<HTMLFormElement> | MouseEvent<HTMLButtonElement>,
+  ) {
     event?.preventDefault();
 
     try {
       await customerSchema.validate(formData, { abortEarly: false });
     } catch (err) {
-      const validationErrors = {};
-      err.inner.forEach((error) => {
+      const validationErrors: Record<string, string> = {};
+
+      // Yup's ValidationError, narrowed to the two fields read here. `inner`
+      // carries one entry per failed field, which is why `validate` above is
+      // asked for abortEarly: false.
+      (err.inner as { path?: string; message: string }[]).forEach((error) => {
         validationErrors[error.path] = error.message;
       });
 

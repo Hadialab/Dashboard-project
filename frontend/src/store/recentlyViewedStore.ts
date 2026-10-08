@@ -26,8 +26,17 @@ type RecentlyViewedState = {
  * customer sitting in localStorage for weeks is a liability rather than a
  * feature, and the target page re-reads the real data anyway.
  */
+/** What goes into localStorage: the entries only, never the actions. */
+type PersistedRecentlyViewed = {
+  items: RecentlyViewed[];
+};
+
 const useRecentlyViewedStore = create<RecentlyViewedState>()(
-  persist(
+  // Stated for the same reason as notificationStore: `persist` infers its state
+  // from the initializer, so a bare `items: []` widens to `any[]` and is never
+  // checked against RecentlyViewed. The persisted shape is separate because
+  // partialize below drops `record` and `clear`, which are not serialisable.
+  persist<RecentlyViewedState, [], [], PersistedRecentlyViewed>(
     (set) => ({
       items: [],
 

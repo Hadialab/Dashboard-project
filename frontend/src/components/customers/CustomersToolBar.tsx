@@ -2,6 +2,33 @@ import { Search, Upload } from "lucide-react";
 import Select from "../ui/Select";
 import { CUSTOMER_STATUSES } from "../../utils/crmConstants";
 
+/**
+ * Search, filter and sort for the Customers list.
+ *
+ * Every handler takes the new value rather than the change event, so the page
+ * owns the state and this stays a set of controlled inputs. Each one resets to
+ * page 1 on the page's side — a filter that leaves the user on an empty page 4
+ * reads as a broken filter.
+ *
+ * `sortBy` and `sortOrder` are plain strings rather than unions of the listed
+ * options: they are written back into the URL search params, so an unknown
+ * value from a hand-edited link has to survive rather than throw.
+ */
+type CustomersToolbarProps = {
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  /** "All", or one of CUSTOMER_STATUSES. */
+  statusFilter: string;
+  onStatusChange: (value: string) => void;
+  sortBy: string;
+  onSortByChange: (value: string) => void;
+  /** "asc" or "desc". */
+  sortOrder: string;
+  onSortOrderChange: (value: string) => void;
+  onImport: () => void;
+  canImport?: boolean;
+};
+
 const CustomersToolbar = ({
   searchTerm,
   onSearchChange,
@@ -13,7 +40,7 @@ const CustomersToolbar = ({
   onSortOrderChange,
   onImport,
   canImport = false,
-}) => {
+}: CustomersToolbarProps) => {
   return (
     <div className="mt-4 flex flex-col gap-3 sm:mt-6 lg:flex-row lg:items-center lg:justify-between">
       <div className="relative w-full lg:max-w-xs">

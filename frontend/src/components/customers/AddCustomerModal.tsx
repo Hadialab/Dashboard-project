@@ -1,11 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import { AlertTriangle } from "lucide-react";
 import { customerSchema } from "../../validation/customerSchema";
+import type { CustomerInput } from "../../validation/customerSchema";
 import Modal from "../ui/Modal";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import { CUSTOMER_STATUSES } from "../../utils/crmConstants";
+import type { Customer } from "../../types";
+
+/**
+ * One form for both create and edit.
+ *
+ * `customer` is what distinguishes them: present means the record already exists
+ * and is being updated, absent means it is being created. `onAddCustomer` and
+ * `onUpdateCustomer` are separate rather than one handler with a branch, so the
+ * page keeps ownership of what each call means.
+ *
+ * `existingEmails` powers the duplicate warning only — it never blocks a save.
+ */
+type AddCustomerModalProps = {
+  open: boolean;
+  onClose: () => void;
+  /** New record. Receives only the five form fields, not an id. */
+  onAddCustomer: (customer: CustomerInput) => void;
+  /** Existing record. Receives the whole customer with the form fields applied. */
+  onUpdateCustomer: (customer: Customer) => void;
+  /** The record being edited. Null or absent means create. */
+  customer?: Customer | null;
+  /** Every email in the organisation, for the duplicate check. */
+  existingEmails?: string[];
+};
 
 const initialFormData = {
   name: "",
@@ -22,9 +48,10 @@ function AddCustomerModal({
   onUpdateCustomer,
   customer,
   existingEmails = [],
-}) {
+}: AddCustomerModalProps) {
   const [formData, setFormData] = useState(initialFormData);
-  const [errors, setErrors] = useState({});
+  // Keyed by field name, so a new field needs no change here.
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (customer) {
@@ -54,7 +81,10 @@ function AddCustomerModal({
     );
   }, [formData.email, existingEmails]);
 
-  const handleChange = (e) => {
+  // The one handler behind every field: both Input and Select hand back the
+  // same synthetic change event, so a union of the two element types is the
+  // honest type rather than a cast to whichever was written last.
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     setFormData((prev) => ({
@@ -89,9 +119,12 @@ function AddCustomerModal({
 
       onClose();
     } catch (err) {
-      const validationErrors = {};
+      const validationErrors: Record<string, string> = {};
 
-      err.inner.forEach((error) => {
+      // Yup's ValidationError, narrowed to the two fields read here. `inner`
+      // carries one entry per failed field, which is why `validate` above is
+      // asked for abortEarly: false.
+      (err.inner as { path?: string; message: string }[]).forEach((error) => {
         validationErrors[error.path] = error.message;
       });
 

@@ -1,5 +1,6 @@
 import { Mail, Building2, Phone, CircleUser, Calendar, Handshake } from "lucide-react";
 import { useEffect } from "react";
+import type { ComponentType } from "react";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
 import FollowUpsPanel from "../ui/FollowUpsPanel";
@@ -8,8 +9,43 @@ import usePermissions from "../../hooks/usePermissions";
 import useRecentlyViewedStore from "../../store/recentlyViewedStore";
 import { customerStatusBadge } from "../../utils/crmConstants";
 import { formatRelative } from "../../utils/time";
+import type { Customer } from "../../types";
 
-function CustomerDetailsDrawer({ customer, open, onClose, onCreateDeal }) {
+/**
+ * The drawer behind the Customers table.
+ *
+ * `customer` is null while the drawer is closed rather than the drawer being
+ * unmounted, so the page keeps one node mounted and this reads "no record yet"
+ * the same way whether the drawer is shut or empty.
+ *
+ * `onCreateDeal` is optional because only some roles may create deals — the
+ * button is also gated on permission, so the handler is absent rather than
+ * disabled.
+ */
+type CustomerDetailsDrawerProps = {
+  customer?: Customer | null;
+  open: boolean;
+  onClose: () => void;
+  onCreateDeal?: (customer: Customer) => void;
+};
+
+/**
+ * One row of the details list. Narrower than lucide's own icon type on purpose:
+ * every icon here is rendered at the same fixed size and colour, so a prop typed
+ * as the whole icon type would accept a dozen props this never passes.
+ */
+type DetailEntry = {
+  icon: ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  value: string;
+};
+
+function CustomerDetailsDrawer({
+  customer,
+  open,
+  onClose,
+  onCreateDeal,
+}: CustomerDetailsDrawerProps) {
   const { can } = usePermissions();
   const remember = useRecentlyViewedStore((state) => state.record);
 
@@ -32,7 +68,7 @@ function CustomerDetailsDrawer({ customer, open, onClose, onCreateDeal }) {
 
   if (!open || !customer) return null;
 
-  const details = [
+  const details: DetailEntry[] = [
     { icon: Building2, label: "Company", value: customer.company },
     { icon: Mail, label: "Email", value: customer.email },
     { icon: Phone, label: "Phone", value: customer.phone || "+961 00 000 000" },

@@ -9,12 +9,24 @@ import {
 
 import exportCsv from "../../utils/exportCsv";
 import exportPdf from "../../utils/exportPdf";
+import type { Deal } from "../../types";
+
+type ReportActionsProps = {
+  /** The row this menu belongs to. */
+  report: Deal;
+  /**
+   * Every filtered row, not just this page's — an export that only covered the
+   * five rows on screen would be called "Export CSV" and quietly lose the rest.
+   */
+  filteredData: Deal[];
+  onView: (report: Deal) => void;
+};
 
 const ReportActions = ({
   report,
   filteredData,
   onView,
-}) => {
+}: ReportActionsProps) => {
   return (
     <Menu
       as="div"

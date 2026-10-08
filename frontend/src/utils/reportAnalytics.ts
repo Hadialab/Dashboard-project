@@ -198,7 +198,10 @@ const closedCount = (deals: Deal[]): number => deals.filter((d) => isClosedStage
 export const getStageFunnel = (deals: Deal[] = []): FunnelRow[] => {
   const at = (stage: string) => deals.filter((deal) => deal.stage === stage);
 
-  const rows: FunnelRow[] = FUNNEL_STAGES.map((stage) => {
+  // The callback's return type is stated because `rows: FunnelRow[]` annotates the
+  // result of the whole expression, not this object literal. Without it `dropOff:
+  // null` has nothing to be checked against and infers as an implicit any.
+  const rows: FunnelRow[] = FUNNEL_STAGES.map((stage): FunnelRow => {
     const matching = at(stage);
 
     return {

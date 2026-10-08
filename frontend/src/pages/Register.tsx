@@ -6,6 +6,17 @@ import useAuthStore from "../store/authStore";
 import { getApiErrorMessage } from "../utils/apiError";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
+import type { ChangeEvent, FormEvent } from "react";
+
+/** The five fields the form holds. All strings: this is what the inputs hold. */
+type RegisterFormData = {
+  name: string;
+  organizationName: string;
+  email: string;
+  password: string;
+  /** Never sent to the API — only compared against `password` client-side. */
+  confirmPassword: string;
+};
 
 const registerSchema = yup.object({
   name: yup
@@ -38,7 +49,7 @@ function Register() {
   const navigate = useNavigate();
   const register = useAuthStore((state) => state.register);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RegisterFormData>({
     name: "",
     organizationName: "",
     email: "",
@@ -49,7 +60,7 @@ function Register() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (event) => {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
 
     setFormData((prev) => ({
@@ -58,7 +69,7 @@ function Register() {
     }));
   };
 
-  const handleRegister = async (event) => {
+  const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     try {
@@ -82,8 +93,11 @@ function Register() {
       navigate("/dashboard", { replace: true });
     } catch (err) {
       // Yup throws for client-side validation; anything else came from the API.
-      if (err.inner) {
-        setError(err.message);
+      // Only Yup's aggregate error carries `inner`; an Axios failure does not.
+      const validation = err as { inner?: unknown[]; message?: string };
+
+      if (validation.inner) {
+        setError(validation.message ?? "");
       } else {
         setError(
           getApiErrorMessage(err, "Unable to create your account. Please try again.")

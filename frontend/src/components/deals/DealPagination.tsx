@@ -1,3 +1,13 @@
+type DealPaginationProps = {
+  currentPage: number;
+  totalPages: number;
+  /** After filtering, not the whole collection. */
+  totalDeals: number;
+  dealsPerPage: number;
+  onPageChange: (page: number) => void;
+  onRowsPerPageChange: (perPage: number) => void;
+};
+
 function DealPagination({
   currentPage,
   totalPages,
@@ -5,7 +15,7 @@ function DealPagination({
   dealsPerPage,
   onPageChange,
   onRowsPerPageChange,
-}) {
+}: DealPaginationProps) {
   const controlClass =
     "inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border px-3 text-sm font-medium transition " +
     "border-slate-200 bg-white hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 " +

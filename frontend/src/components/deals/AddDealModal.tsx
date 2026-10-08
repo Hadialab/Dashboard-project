@@ -1,10 +1,66 @@
 import { useEffect, useState } from "react";
+import type { ChangeEvent } from "react";
 import * as yup from "yup";
 import Modal from "../ui/Modal";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import OwnerSelect from "../ui/OwnerSelect";
+import type { Deal } from "../../types";
+
+/**
+ * One form for both create and edit.
+ *
+ * `deal` is what distinguishes them: present means the record already exists and
+ * is being updated, absent means it is being created — `onAddDeal` and
+ * `onUpdateDeal` are separate so the page keeps ownership of what each call
+ * means.
+ *
+ * Reused from the customer drawer, which passes `prefill` instead of `deal` to
+ * start a deal for a known customer.
+ */
+
+/** The form's own shape: every field is the string an input holds. */
+type DealFormData = {
+  title: string;
+  customer: string;
+  /** A string until submit, where it is coerced with Number(). */
+  value: string;
+  stage: string;
+  /** Empty string for unassigned; the API rejects a null here. */
+  ownerId: string;
+  expectedClose: string;
+};
+
+/** What the form submits: `value` is a number by the time it leaves. */
+type DealFormPayload = {
+  title: string;
+  customer: string;
+  value: number;
+  stage: string;
+  ownerId: string;
+  expectedClose: string;
+};
+
+type AddDealModalProps = {
+  open: boolean;
+  onClose: () => void;
+  /** New record. Receives only the form fields, not an id. */
+  onAddDeal: (deal: DealFormPayload) => void;
+  /**
+   * Existing record. Receives the whole deal with the form fields applied.
+   * Optional because a caller that only ever creates — the customer drawer —
+   * has no update path and never passes one.
+   */
+  onUpdateDeal?: (deal: Deal) => void;
+  /** The record being edited. Null or absent means create. */
+  deal?: Deal | null;
+  /**
+   * Seeds a blank form, for starting a deal from somewhere else. Only the fields
+   * present are applied; the rest keep their empty defaults.
+   */
+  prefill?: Partial<DealFormData> | null;
+};
 
 const dealSchema = yup.object({
   title: yup.string().required("Deal title is required"),
@@ -20,7 +76,7 @@ const dealSchema = yup.object({
   // browser's value is ignored. See the comment in validation/resources.js.
 });
 
-const initialFormData = {
+const initialFormData: DealFormData = {
   title: "",
   customer: "",
   value: "",
@@ -29,13 +85,24 @@ const initialFormData = {
   expectedClose: "",
 };
 
-function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal, prefill }) {
-  const [formData, setFormData] = useState(initialFormData);
-  const [errors, setErrors] = useState({});
+function AddDealModal({
+  open,
+  onClose,
+  onAddDeal,
+  onUpdateDeal,
+  deal,
+  prefill,
+}: AddDealModalProps) {
+  const [formData, setFormData] = useState<DealFormData>(initialFormData);
+  // Keyed by field name, so a new field needs no change here.
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (deal) {
-      setFormData(deal);
+      // The record is copied wholesale into form state. `value` comes back from
+      // pg as a string on a NUMERIC column, and the input coerces it either way,
+      // so the two shapes are the same thing to this form.
+      setFormData(deal as unknown as DealFormData);
     } else {
       // `prefill` seeds a blank form, for starting a deal from somewhere else —
       // a customer drawer, say. It is read when the modal opens and is
@@ -48,7 +115,10 @@ function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal, prefill })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deal, open]);
 
-  const handleChange = (e) => {
+  // The one handler behind every field: Input, Select and OwnerSelect all hand
+  // back the same synthetic change event, so a union of the two element types is
+  // the honest type rather than a cast to whichever was written last.
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     setFormData((prev) => ({
@@ -82,16 +152,19 @@ function AddDealModal({ open, onClose, onAddDeal, onUpdateDeal, deal, prefill })
       };
 
       if (deal) {
-        onUpdateDeal({ ...deal, ...payload });
+        onUpdateDeal?.({ ...deal, ...payload });
       } else {
         onAddDeal(payload);
       }
 
       onClose();
     } catch (err) {
-      const validationErrors = {};
+      const validationErrors: Record<string, string> = {};
 
-      err.inner.forEach((error) => {
+      // Yup's ValidationError, narrowed to the two fields read here. `inner`
+      // carries one entry per failed field, which is why `validate` above is
+      // asked for abortEarly: false. Same shape as AddCustomerModal.
+      (err.inner as { path?: string; message: string }[]).forEach((error) => {
         validationErrors[error.path] = error.message;
       });
 
