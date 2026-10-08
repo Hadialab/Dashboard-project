@@ -6,16 +6,25 @@
     "looked at a single test file. That hid 28 real errors across three test files",
     "that were already written in TypeScript and already looked correct.",
     "",
-    "`src/vite-env.d.ts` is in `include` because it declares the ImportMetaEnv",
-    "global that src/config.ts reads. Without it this config reports two phantom",
-    "errors in a file it was never meant to be checking.",
+    "The two `.d.ts` files are listed explicitly, because an `include` glob that",
+    "misses one produces phantom errors in a file this config was never meant to",
+    "be checking:",
+    "  - src/vite-env.d.ts declares the ImportMetaEnv global that src/config.ts reads.",
+    "  - src/test/vitest-env.d.ts declares the jest-dom matchers that setup.js",
+    "    registers at runtime. setup.js is JavaScript and allowJs is now false, so",
+    "    without this every test using a matcher fails to type-check.",
     "",
-    "Verification-only: not wired to any npm script, and safe to delete."
+    "Verification-only: wired to `npm run typecheck:tests`, so it is not throwaway —",
+    "but it is a check rather than the build config."
   ],
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noImplicitAny": true
   },
-  "include": ["src/test", "src/vite-env.d.ts"],
+  "include": [
+    "src/test",
+    "src/vite-env.d.ts",
+    "src/test/vitest-env.d.ts"
+  ],
   "exclude": []
 }

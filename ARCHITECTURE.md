@@ -560,10 +560,11 @@ nothing.
 Real gaps, not a to-do list. Each would change the design above rather than sit
 alongside it.
 
-**Logout does not revoke an issued token.** Stateless JWTs cannot be revoked
-without a server-side deny list. Bounded by `JWT_EXPIRES_IN`. The same applies to
-a password reset: it does not sign the previous owner out, so a session opened
-before the reset stays valid until it expires on its own.
+**Logout does not revoke an issued token, and neither does a password reset.**
+Stateless JWTs cannot be revoked without a server-side deny list, so a session
+opened before either survives it — including an attacker's, when the victim resets
+their password. Bounded by `JWT_EXPIRES_IN`. Closing this means a token version
+column or a deny list.
 
 **Deals store a customer name, not a customer id.** So a deal follow-up has no
 email address of its own and sends from the linked customer. Changing it means
@@ -589,14 +590,6 @@ there is not one yet.
 than a bug, but it is a sharp edge: a key created without ticking anything looks
 broken rather than locked, and the UI has to say so in words.
 
-**Logout does not revoke an issued token**, and neither does a password reset: a JWT
-cannot be revoked, so a session opened before either survives it. Closing this means a
-token version or deny list.
-
-**Password reset does not end existing sessions.** A JWT cannot be revoked, so an
-attacker's session survives the victim resetting their password. Closing this means
-a token version or deny list, which is the same gap logout has.
-
 **Audit entries are written after the business write commits, and a failed write
 is logged rather than raised.** Failing the request would report a change that did
 happen as an error. The consequence is that an audit write can fail silently apart
@@ -607,6 +600,13 @@ records it describes.
 mutation passes through `routes/factory.js`, so those are covered by
 construction. A write that bypasses it — a direct SQL fix, or a future script run
 outside the API — leaves no trace.
+
+**Four search inputs had no accessible name until a test caught it.** The deals,
+leads, customers and reports toolbars labelled their search field with a placeholder
+only. A placeholder is not an accessible name: it disappears as soon as the field
+has a value, so a screen reader reaching the field mid-session announced nothing.
+Fixed with `aria-label`, and noted because the fix was found by a test that could
+not address the input by role — not by reading the markup.
 
 **The browser test run drives system Chrome.** Playwright's pinned Chromium could
 not be downloaded on the development machine. CI uses the pinned build, so the

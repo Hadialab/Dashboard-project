@@ -7,7 +7,7 @@ React front end, Express + PostgreSQL API, one repo.
 
 [![CI](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
 [![E2E](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml/badge.svg?job=e2e)](https://github.com/Hadialab/Dashboard-project/actions/workflows/ci.yml)
-![Types](https://img.shields.io/badge/TypeScript-strict-22c55e)
+![Types](https://img.shields.io/badge/TypeScript-strictNullChecks-22c55e)
 ![Tests](https://img.shields.io/badge/tests-364%20passing-22c55e)
 ![E2E](https://img.shields.io/badge/e2e-19%20specs-0ea5e9)
 ![Coverage](https://img.shields.io/badge/coverage-93%25-0ea5e9)
@@ -179,10 +179,11 @@ Recharts, Yup, jsPDF, Papa Parse, lucide-react, Sentry.
 end-to-end, oxlint, TypeScript 7, GitHub Actions. Node 22.22.2 or newer; see
 [Requirements](#requirements).
 
-TypeScript is being adopted file by file from the bottom up — types, services,
-stores and hooks are converted and the data layer runs under `tsc --noEmit` on
-every commit. Components are still `.jsx`. Nothing is checked in a way that lets
-the migration rot: the type check runs in CI on whatever is converted.
+The frontend is fully TypeScript. `strictNullChecks` is on, and the type check
+runs in CI on three configurations, because one is not enough: the shipped config
+catches mismatches, and two stricter ones catch what it cannot — a prop or callback
+parameter left implicit, and anything wrong in the test tree, which the shipped
+config excludes outright.
 
 ## Scripts
 
@@ -195,7 +196,9 @@ Run from `frontend/` unless noted.
 | `npm run build:staging`  | staging bundle — picks up `.env.staging`                     |
 | `npm run preview`        | serve the built bundle                                       |
 | `npm run lint`           | oxlint                                                       |
-| `npm run typecheck`      | `tsc --noEmit` over everything converted                     |
+| `npm run typecheck`      | `tsc --noEmit` over the app                                  |
+| `npm run typecheck:strict` | as above plus `noImplicitAny`, which catches an untyped prop or callback parameter — invisible to the shipped config |
+| `npm run typecheck:tests`  | `noImplicitAny` over `src/test`, which `tsconfig.json` excludes |
 | `npm test`               | unit + integration, no database or API needed                |
 | `npm run test:watch`     | the same, in watch mode                                      |
 | `npm run test:ui`        | Vitest's interactive UI                                      |
