@@ -44,6 +44,12 @@ function DealsToolbar({
             name="search"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
+            // Labelled rather than relying on the placeholder. A placeholder is not
+            // an accessible name: it disappears as soon as the field has a value, so
+            // a screen reader reaching this input mid-session announces nothing at
+            // all. Without the label there is also no `searchbox` role to target in
+            // a test, which is how the gap was found.
+            aria-label="Search deals"
             placeholder="Search deals..."
             className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
           />

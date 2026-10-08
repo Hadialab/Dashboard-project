@@ -64,6 +64,9 @@ const ReportFilters = ({ filters, setFilters }: ReportFiltersProps) => {
 
         <input
           type="text"
+          // Same reason as the three toolbars: a placeholder is not an
+          // accessible name, and it vanishes once the field has a value.
+          aria-label="Search reports"
           name="search"
           placeholder="Search reports..."
           value={filters.search}

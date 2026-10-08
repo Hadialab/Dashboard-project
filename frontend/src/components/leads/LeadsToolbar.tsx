@@ -58,6 +58,9 @@ function LeadsToolbar({
           <input
             type="text"
             name="search"
+            // Same reason as DealsToolbar: a placeholder is not an accessible name,
+            // and it vanishes once the field has a value.
+            aria-label="Search leads"
             placeholder="Search leads..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
