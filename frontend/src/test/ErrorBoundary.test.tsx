@@ -12,7 +12,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
  * also be rendered in a healthy state, which is what proves the boundary is
  * transparent when nothing is wrong.
  */
-function Boom({ explode }) {
+function Boom({ explode }: { explode: boolean }) {
   if (explode) throw new Error("Component exploded on purpose");
   return <p>Everything is fine</p>;
 }
@@ -94,7 +94,7 @@ describe("ErrorBoundary", () => {
   it("reports the error to its onError, rather than swallowing it", () => {
     // A crash nobody hears about is a crash that ships and gets worse.
     console.error = vi.fn();
-    const onError = vi.fn();
+    const onError = vi.fn<(error: Error) => void>();
 
     render(
       <ErrorBoundary onError={onError}>

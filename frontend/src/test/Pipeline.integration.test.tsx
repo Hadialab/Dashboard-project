@@ -14,6 +14,7 @@ vi.mock("../services/dealService", () => ({
 }));
 
 import { getDeals, updateDeal } from "../services/dealService";
+import type { Deal } from "../types";
 
 /**
  * The board's stage move is exercised through each card's stage <select> rather
@@ -25,29 +26,29 @@ import { getDeals, updateDeal } from "../services/dealService";
  * Playwright suite in Phase 1's E2E pass.
  */
 
-const deals = [
+const deals: Deal[] = [
   { id: "d039", title: "Vertex Fleet", customer: "Vertex Logistics", owner: "QA Admin", ownerId: "u1", stage: "Lead", value: 14000, expectedClose: "2026-10-03" },
   { id: "d041", title: "Beirut Rollout", customer: "Beirut Dairy", owner: "QA Admin", ownerId: "u1", stage: "Qualified", value: 32000, expectedClose: "2026-10-05" },
   { id: "d043", title: "Tyre Export", customer: "Tyre Seafood", owner: "QA Admin", ownerId: "u1", stage: "Proposal", value: 47500, expectedClose: "2026-10-01" },
 ];
 
 /** The column element for a stage, found by its accessible label. */
-function column(stage) {
+function column(stage: string) {
   return screen.getByRole("region", { name: new RegExp(`^${stage} stage`) });
 }
 
 /** A card's stage select, addressed the way a screen reader would find it. */
-function stageSelect(dealTitle) {
+function stageSelect(dealTitle: string) {
   return screen.getByRole("combobox", { name: `Stage for ${dealTitle}` });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   resetStores();
-  getDeals.mockResolvedValue(deals);
+  vi.mocked(getDeals).mockResolvedValue(deals);
   // dealService is mocked wholesale, so updateDeal resolves to the deal itself —
   // the real service already unwraps response.data.
-  updateDeal.mockImplementation((id, deal) => Promise.resolve({ ...deal, id }));
+  vi.mocked(updateDeal).mockImplementation((id, deal) => Promise.resolve({ ...deal, id } as Deal));
 });
 
 afterEach(() => {
@@ -82,7 +83,7 @@ describe("Pipeline — board", () => {
   });
 
   it("shows the empty state for a board with no deals", async () => {
-    getDeals.mockResolvedValue([]);
+    vi.mocked(getDeals).mockResolvedValue([]);
     renderWithProviders(<Pipeline />);
 
     expect(await screen.findByText(/no deals/i)).toBeInTheDocument();
@@ -154,7 +155,7 @@ describe("Pipeline — moving a deal between stages", () => {
 
   it("puts the card back where it was when the server refuses", async () => {
     const user = userEvent.setup();
-    updateDeal.mockRejectedValue({ response: { status: 403, data: { error: "You do not have permission" } } });
+    vi.mocked(updateDeal).mockRejectedValue({ response: { status: 403, data: { error: "You do not have permission" } } });
     renderWithProviders(<Pipeline />);
     await waitFor(() => expect(screen.getByText("Vertex Fleet")).toBeInTheDocument());
 

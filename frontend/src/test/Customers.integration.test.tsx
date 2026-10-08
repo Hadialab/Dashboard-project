@@ -24,15 +24,16 @@ import {
   updateCustomer,
   deleteCustomer,
 } from "../services/customerService";
-import axios from "axios";
+import axios, { type AxiosResponse } from "axios";
+import type { Customer, Paginated } from "../types";
 
 /**
  * Failures reach the page through getApiErrorMessage, which only recognises a
  * real AxiosError, so rejections are built as genuine ones.
  */
-const apiError = (status, data) => {
+const apiError = (status: number, data: unknown) => {
   const error = new axios.AxiosError("Request failed");
-  error.response = { status, data };
+  error.response = { status, data } as never;
   return error;
 };
 
@@ -45,9 +46,10 @@ const apiError = (status, data) => {
  * service layer's own contract is covered separately in services.test.js.
  */
 
-const listResponse = (rows) => ({ data: { data: rows, pages: 1, items: rows.length } });
+const listResponse = (rows: Customer[]) =>
+  ({ data: { data: rows, pages: 1, items: rows.length } }) as AxiosResponse<Paginated<Customer>>;
 
-const customers = [
+const customers: Customer[] = [
   { id: "c001", name: "Jad Khoury", company: "Vertex Logistics", email: "jad@vertex.test", phone: "+961 1 111 001", status: "Active", updatedAt: "2026-09-28T10:00:00Z" },
   { id: "c002", name: "Sara Mansour", company: "Nova Analytics", email: "sara@nova.test", phone: "+961 1 111 002", status: "Pending", updatedAt: "2026-09-27T10:00:00Z" },
 ];
@@ -55,10 +57,10 @@ const customers = [
 beforeEach(() => {
   vi.clearAllMocks();
   resetStores();
-  getCustomers.mockResolvedValue(listResponse(customers));
-  createCustomer.mockResolvedValue({ data: { id: "c003" } });
-  updateCustomer.mockResolvedValue({ data: { id: "c001" } });
-  deleteCustomer.mockResolvedValue({ data: {} });
+  vi.mocked(getCustomers).mockResolvedValue(listResponse(customers));
+  vi.mocked(createCustomer).mockResolvedValue({ data: { id: "c003" } } as AxiosResponse<Customer>);
+  vi.mocked(updateCustomer).mockResolvedValue({ data: { id: "c001" } } as AxiosResponse<Customer>);
+  vi.mocked(deleteCustomer).mockResolvedValue({ data: {} } as AxiosResponse<unknown>);
 });
 
 afterEach(() => {
@@ -77,10 +79,10 @@ const rows = () => within(screen.getByRole("table")).getAllByRole("row").slice(1
  * Row action buttons exist in both the desktop table and the mobile card layout,
  * so they must be looked up inside the table rather than across the page.
  */
-const rowAction = (name) => table().getByRole("button", { name });
+const rowAction = (name: RegExp) => table().getByRole("button", { name });
 
 /** Asserts a row action is absent from the whole page, for the permission tests. */
-const hasRowAction = (name) => screen.queryAllByRole("button", { name }).length > 0;
+const hasRowAction = (name: RegExp) => screen.queryAllByRole("button", { name }).length > 0;
 
 describe("Customers — list", () => {
   it("renders a row per customer returned by the API", async () => {
@@ -95,12 +97,12 @@ describe("Customers — list", () => {
     renderWithProviders(<Customers />);
 
     await waitFor(() => expect(getCustomers).toHaveBeenCalled());
-    expect(getCustomers.mock.calls[0][0]).toMatchObject({ page: 1, limit: expect.any(Number) });
+    expect(vi.mocked(getCustomers).mock.calls[0][0]).toMatchObject({ page: 1, limit: expect.any(Number) });
   });
 
   it("shows a retryable error, not an empty list, when the load fails", async () => {
     // A dead API must not read as "you have no customers".
-    getCustomers.mockRejectedValue(apiError(500, {}));
+    vi.mocked(getCustomers).mockRejectedValue(apiError(500, {}));
     renderWithProviders(<Customers />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not load customers/i);
@@ -110,12 +112,12 @@ describe("Customers — list", () => {
 
   it("re-fetches when the error is retried", async () => {
     const user = userEvent.setup();
-    getCustomers.mockRejectedValue(apiError(500, {}));
+    vi.mocked(getCustomers).mockRejectedValue(apiError(500, {}));
     renderWithProviders(<Customers />);
 
     await screen.findByRole("alert");
 
-    getCustomers.mockResolvedValue(listResponse(customers));
+    vi.mocked(getCustomers).mockResolvedValue(listResponse(customers));
     await user.click(screen.getByRole("button", { name: /try again/i }));
 
     await waitFor(() => expect(rows()).toHaveLength(2));
@@ -123,7 +125,7 @@ describe("Customers — list", () => {
   });
 
   it("shows the empty state for a genuinely empty account", async () => {
-    getCustomers.mockResolvedValue(listResponse([]));
+    vi.mocked(getCustomers).mockResolvedValue(listResponse([]));
     renderWithProviders(<Customers />);
 
     expect(await screen.findByText(/no customers/i)).toBeInTheDocument();
@@ -269,7 +271,7 @@ describe("Customers — delete", () => {
 
   it("keeps the row when the delete is refused by the server", async () => {
     const user = userEvent.setup();
-    deleteCustomer.mockRejectedValue(apiError(403, { error: "You do not have permission" }));
+    vi.mocked(deleteCustomer).mockRejectedValue(apiError(403, { error: "You do not have permission" }));
     renderWithProviders(<Customers />);
     await waitFor(() => expect(rows()).toHaveLength(2));
 

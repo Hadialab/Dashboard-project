@@ -6,6 +6,7 @@ import { vi } from "vitest";
 import useAuthStore from "../store/authStore";
 import useNotificationStore from "../store/notificationStore";
 import useRecentlyViewedStore from "../store/recentlyViewedStore";
+import type { User } from "../types";
 
 /**
  * Renders a page the way the app does: inside a router, with toasts mounted so
@@ -17,6 +18,11 @@ import useRecentlyViewedStore from "../store/recentlyViewedStore";
  * assertion pass or fail for the wrong reason.
  */
 
+// The two users below are asserted as `User` rather than annotated `: User`
+// because neither carries `organizationId`, and adding it would be inventing
+// fixture data. Nothing here reads that field: these tests are about what
+// `permissions` allows, so a session without an organization id is exactly what
+// the store is asked to hold.
 export const ADMIN = {
   id: "u1",
   name: "QA Admin",
@@ -29,7 +35,7 @@ export const ADMIN = {
     deals: { view: "all", create: true, edit: true, delete: true },
     reports: { view: true },
   },
-};
+} as User;
 
 /** A Sales user who may read customers and leads but not delete anything. */
 export const RESTRICTED_REP = {
@@ -43,9 +49,9 @@ export const RESTRICTED_REP = {
     deals: { view: false, create: false, edit: false, delete: false },
     reports: { view: false },
   },
-};
+} as User;
 
-export function seedSession(user = ADMIN) {
+export function seedSession(user: User = ADMIN) {
   useAuthStore.setState({ isLoggedIn: true, user, isChecking: false });
 }
 
@@ -57,7 +63,10 @@ export function resetStores() {
 }
 
 /** Renders `ui` inside the providers every page in this app expects. */
-export function renderWithProviders(ui, { route = "/", user = ADMIN } = {}) {
+export function renderWithProviders(
+  ui: React.ReactNode,
+  { route = "/", user = ADMIN }: { route?: string; user?: User } = {},
+) {
   seedSession(user);
 
   const result = render(

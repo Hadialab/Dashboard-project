@@ -22,16 +22,18 @@ vi.mock("../services/bulkService", () => ({
 
 import { getLeads, convertLead, updateLead } from "../services/leadService";
 import { getCustomers } from "../services/customerService";
-import axios from "axios";
+import axios, { type AxiosResponse } from "axios";
+import type { Customer, ConvertLeadResponse, Lead, Paginated } from "../types";
+import type { UserEvent } from "@testing-library/user-event";
 
 /**
  * The page reads failures through getApiErrorMessage, which only recognises a
  * real AxiosError. A plain object would fall through to the generic fallback and
  * hide the server's actual reason, so rejections are built as genuine ones.
  */
-const apiError = (status, data) => {
+const apiError = (status: number, data: unknown) => {
   const error = new axios.AxiosError("Request failed");
-  error.response = { status, data };
+  error.response = { status, data } as never;
   return error;
 };
 
@@ -47,32 +49,39 @@ const apiError = (status, data) => {
  *     therefore matched the lead against itself.
  */
 
-const leads = [
+const leads: Lead[] = [
   { id: "l031", name: "Marwan Y", company: "Bekaa Dairy", email: "marwan@bekaa.test", phone: "+961 1 222 001", status: "New", source: "Website", ownerId: "u1" },
   { id: "l032", name: "Nadia C", company: "Achrafieh Hotels", email: "nadia@hotels.test", phone: "+961 1 222 002", status: "Contacted", source: "Referral", ownerId: "u1" },
 ];
 
-const customers = [
+// Partial because this fixture carries no phone, and the page reads exactly one
+// field off each of these rows: `email`, to decide whether an email is taken.
+const customers: Partial<Customer>[] = [
   { id: "c001", name: "Jad Khoury", company: "Vertex Logistics", email: "jad@vertex.test", status: "Active" },
 ];
 
 const table = () => within(screen.getByRole("table"));
 const rows = () => within(screen.getByRole("table")).getAllByRole("row").slice(1);
-const rowAction = (name) => table().getByRole("button", { name });
-const hasRowAction = (name) => screen.queryAllByRole("button", { name }).length > 0;
+const rowAction = (name: RegExp) => table().getByRole("button", { name });
+const hasRowAction = (name: RegExp) => screen.queryAllByRole("button", { name }).length > 0;
 
 beforeEach(() => {
   vi.clearAllMocks();
   resetStores();
-  getLeads.mockResolvedValue(leads);
-  getCustomers.mockResolvedValue({ data: { data: customers, pages: 1, items: 1 } });
-  convertLead.mockResolvedValue({
+  vi.mocked(getLeads).mockResolvedValue(leads);
+  vi.mocked(getCustomers).mockResolvedValue({
+    data: { data: customers, pages: 1, items: 1 },
+  } as AxiosResponse<Paginated<Customer>>);
+  vi.mocked(convertLead).mockResolvedValue({
     customer: { id: "c041", name: "Nadia C", company: "Achrafieh Hotels" },
     leadId: "l032",
     leadStatus: "Converted",
     convertedCustomerId: "c041",
-  });
-  updateLead.mockResolvedValue({ data: {} });
+  } as ConvertLeadResponse);
+  // updateLead resolves to a bare Lead, so this envelope-shaped stand-in is not
+  // one. `as never` says exactly that instead of dressing it up; nothing in this
+  // file exercises the update path that would read the resolved value.
+  vi.mocked(updateLead).mockResolvedValue({ data: {} } as never);
 });
 
 afterEach(() => {
@@ -80,7 +89,7 @@ afterEach(() => {
 });
 
 /** Opens the convert dialog for the named lead. */
-async function openConvertFor(user, name) {
+async function openConvertFor(user: UserEvent, name: string) {
   await waitFor(() => expect(rows()).toHaveLength(2));
   await user.click(rowAction(new RegExp(`convert ${name} to a customer`, "i")));
   return screen.findByRole("dialog");
@@ -95,7 +104,7 @@ describe("Lead — list", () => {
   });
 
   it("shows a retryable error rather than 'no leads' when the load fails", async () => {
-    getLeads.mockRejectedValue(apiError(500, {}));
+    vi.mocked(getLeads).mockRejectedValue(apiError(500, {}));
     renderWithProviders(<Leads />);
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -191,7 +200,7 @@ describe("Lead — conversion", () => {
 
   it("keeps the dialog open and reports the reason when the server refuses", async () => {
     const user = userEvent.setup();
-    convertLead.mockRejectedValue(apiError(409, { error: "This lead has already been converted" }));
+    vi.mocked(convertLead).mockRejectedValue(apiError(409, { error: "This lead has already been converted" }));
     renderWithProviders(<Leads />);
     const dialog = await openConvertFor(user, "Nadia C");
 
@@ -208,7 +217,7 @@ describe("Lead — conversion", () => {
     // `details` as the message — so the user saw the text "c041" and no
     // explanation of what happened.
     const user = userEvent.setup();
-    convertLead.mockRejectedValue(apiError(409, { error: "This lead has already been converted", details: { customerId: "c041" } }));
+    vi.mocked(convertLead).mockRejectedValue(apiError(409, { error: "This lead has already been converted", details: { customerId: "c041" } }));
     renderWithProviders(<Leads />);
     const dialog = await openConvertFor(user, "Nadia C");
 
@@ -220,7 +229,7 @@ describe("Lead — conversion", () => {
 
   it("leaves the lead unconverted when the request fails", async () => {
     const user = userEvent.setup();
-    convertLead.mockRejectedValue(apiError(500, { error: "boom" }));
+    vi.mocked(convertLead).mockRejectedValue(apiError(500, { error: "boom" }));
     renderWithProviders(<Leads />);
     const dialog = await openConvertFor(user, "Nadia C");
 
@@ -271,7 +280,7 @@ describe("Lead — creation", () => {
   it("raises a notification for a new lead", async () => {
     const user = userEvent.setup();
     const { createLead } = await import("../services/leadService");
-    createLead.mockResolvedValue({
+    vi.mocked(createLead).mockResolvedValue({
       id: "l099",
       name: "Hiba S",
       company: "Kaslik Digital",
