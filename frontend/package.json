@@ -19,7 +19,8 @@
     "test:e2e:reset": "node scripts/reset-e2e-db.mjs",
     "test:all": "npm run test && npm run test:e2e",
     "screenshots": "node scripts/capture-screenshots.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:strict": "tsc -p tsconfig.typeproof.json --noEmit"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",

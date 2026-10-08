@@ -1,0 +1,32 @@
+{
+  "//": [
+    "A second, stricter type check. Run with `npm run typecheck:strict`.",
+    "",
+    "tsconfig.json sets noImplicitAny: false, deliberately, so that untyped",
+    "JavaScript still being migrated compiles. The cost is that `tsc --noEmit`",
+    "passing proves much less than it appears to: a component whose props are",
+    "entirely untyped, or whose .map() callback takes an implicit any, reports",
+    "zero errors. This file turns that one flag back on so an untyped prop or",
+    "callback parameter is an actual failure.",
+    "",
+    "No files are listed, so the `include` is inherited and this checks exactly",
+    "the same set the project builds. That matters in two ways: an error here",
+    "points at something real, and `--listFilesOnly` can prove the files were",
+    "checked rather than silently absent. A clean run against an empty file list",
+    "would be worse than no check at all.",
+    "",
+    "Kept as a separate file rather than folded into tsconfig.json because turning",
+    "noImplicitAny on globally is a one-way door: it would also apply to src/test,",
+    "which tsconfig excludes and which still has untyped JavaScript. Once that is",
+    "converted, this can become the real tsconfig and this file can go.",
+    "",
+    "strictNullChecks is deliberately still off. That is the next step and it is",
+    "not cosmetic: it surfaces real null-handling bugs, in code that has been",
+    "working, and deserves its own commit rather than being bundled into a",
+    "migration."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": true
+  }
+}

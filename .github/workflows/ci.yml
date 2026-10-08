@@ -136,6 +136,21 @@ jobs:
         # the build, so a new warning cannot block a merge on its own.
         run: npm run lint
 
+      # Both typechecks, because neither alone is worth much.
+      #
+      # `typecheck` uses the shipped tsconfig, where noImplicitAny is off so that
+      # untyped JavaScript still compiles. That means it passes on a component whose
+      # props are entirely untyped — it catches type *mismatches* but not missing
+      # types. `typecheck:strict` turns that flag on and is the only thing that
+      # catches a prop or callback parameter left implicit.
+      #
+      # Both are run so neither can rot: the strict one is the real check, and the
+      # plain one is what an editor reports on. A green build here has previously
+      # been a false signal for exactly this reason.
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck && npm run typecheck:strict
+
       # Vitest's default pool is `forks`, and every test file needs a worker
       # process spawned for it. GitHub's runners give the container 64MB of
       # /dev/shm, which is the usual cause of "Failed to start forks worker".
