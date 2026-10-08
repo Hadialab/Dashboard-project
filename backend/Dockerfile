@@ -47,6 +47,11 @@ COPY --from=build /app/scripts ./scripts
 # compromise.
 USER node
 
+# Documentation only. Render reads the port from the PORT environment variable it
+# sets at deploy time and routes to whatever the process actually bound, so this
+# number has no effect on where traffic goes — but naming 5000 here while the app
+# listens elsewhere is a good way to waste an afternoon, so it is kept in step with
+# the local default rather than left to drift.
 EXPOSE 5000
 
 # Uses the existing /health endpoint rather than adding one. The healthcheck

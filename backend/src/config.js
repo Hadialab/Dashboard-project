@@ -54,7 +54,18 @@ export const config = {
   // Long enough for a normal work session, short enough to limit the damage
   // from a leaked token.
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "12h",
+  // Render assigns the port at deploy time and passes it as PORT, which changes
+  // between deploys. Reading it here is what lets one image serve every deploy
+  // without a rebuild; the 5000 fallback is for local development.
   port: Number(process.env.PORT) || 5000,
+  // The interface to bind. 0.0.0.0 rather than 127.0.0.1, because Render's proxy
+  // connects from outside the process's network namespace: bound to loopback, the
+  // server answers locally and Render reports 502 for every request.
+  //
+  // Overridable for the rare setup that wants a narrower bind, but the default has
+  // to be the reachable one — a default that silently produces an unreachable
+  // service is worse than no default.
+  host: process.env.HOST || "0.0.0.0",
   // Trailing slashes stripped, because they compose badly: `${appUrl}/login`
   // against a configured `https://crm.example.com/` produces a doubled slash,
   // which some routers treat as a different path and 404 on.

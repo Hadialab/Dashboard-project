@@ -38,8 +38,22 @@ async function start() {
   // provide it.
   await startChangeListener(deliverChange);
 
-  const server = app.listen(config.port, () => {
-    console.log(`CRM API listening on http://localhost:${config.port}`);
+  // The host is stated rather than left to Node's default, even though omitting it
+  // already binds to every interface. Two reasons:
+  //
+  //   1. The log line is the only evidence a deploy has that it bound correctly,
+  //      and "localhost" in it reads as loopback-only to whoever is debugging a
+  //      502 — which is exactly the wrong conclusion, and the one that sends people
+  //      looking for a bug that isn't there. Printing 0.0.0.0 states the fact.
+  //   2. IPv4-only becomes explicit. Node's unspecified host resolves to `::` when
+  //      IPv6 is available, which accepts IPv4 through v4-mapped addresses only if
+  //      net.ipv6.bindv6only is 0. That is the default, but it is a kernel setting,
+  //      so "0.0.0.0" removes the dependency on it entirely.
+  const server = app.listen(config.port, config.host, () => {
+    // Read the port back off the server rather than echoing config.port: if the
+    // configured port were 0, the OS assigns a real one, and logging the
+    // configured value would name a port nothing is listening on.
+    console.log(`CRM API listening on port ${server.address().port} (${config.host})`);
   });
 
   // Housekeeping. Expired reset tokens accumulate, one per forgotten password, and
