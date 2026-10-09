@@ -258,7 +258,10 @@ request to `main` and `dev`. Both jobs fail the workflow on error.
   running Node, then oxlint, three typecheck passes, Vitest with the coverage gate,
   a production build and a staging build. No database needed.
 - **End-to-end** — the full stack against a throwaway PostgreSQL 16, with the
-  Playwright report and failure traces uploaded as artefacts.
+  Playwright report and failure traces uploaded as artefacts. Includes a
+  responsiveness pass: every page is visited at 375, 768, 1280 and 1920px and
+  asserted to keep every element inside the viewport, keep every navigation
+  target reachable and large enough to tap, and log no console errors.
 
 Two steps exist because of failures that were hard to read rather than hard to
 fix. The `engines` check names the dependency that does not support the runtime
@@ -275,6 +278,15 @@ the first time reported 47 errors in files that had already been converted and
 already passed. The third pass exists because `tsconfig.json` excludes `src/test`
 outright, and that exclusion had been hiding 28 more in three test files. Each pass
 has proved its worth by failing on a mutation that the previous one passed.
+
+  The same applies to the responsive checks, and it is worth spelling out because
+  it went wrong first time. `index.css` sets `overflow-x: hidden`, so an
+  overflowing page is **clipped** rather than scrollable: `scrollWidth` stays
+  pinned to the viewport width and a scrollWidth-based assertion can never fail.
+  The first version of that check passed at every width - including 240px - while
+  a 5000px element sat invisible beside the viewport. It now measures element
+  geometry, and was verified by planting an oversized element and watching it
+  get caught.
 
 One step is deliberately inverted: it asserts that a publish build with a
 placeholder API URL **fails**. A configuration guard that is never exercised is a
