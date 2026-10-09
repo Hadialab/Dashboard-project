@@ -110,7 +110,21 @@ for (const vp of VIEWPORTS) {
               if (r.width === 0 || r.height === 0) return false;
               const style = getComputedStyle(el);
               if (style.visibility === "hidden" || style.display === "none") return false;
-              return r.right > viewWidth + slack;
+              if (r.right <= viewWidth + slack) return false;
+
+              // Skip anything inside a horizontally scrollable ancestor. The
+              // Reports table is `min-w-max` inside `overflow-x-auto` by design
+              // - index.css says so outright: "Wide content (tables, charts) is
+              // expected to scroll inside its own container instead." Those
+              // elements are meant to be wider than the viewport, and flagging
+              // them is a false positive, not a finding. It failed here on CI at
+              // 768px for exactly that reason.
+              for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+                const ox = getComputedStyle(p).overflowX;
+                if (ox === "auto" || ox === "scroll") return false;
+              }
+
+              return true;
             })
             // Deepest first: the element actually sticking out is more useful
             // than the full-width wrapper that contains it.
