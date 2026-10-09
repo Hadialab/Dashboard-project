@@ -38,22 +38,20 @@ async function start() {
   // provide it.
   await startChangeListener(deliverChange);
 
-  // The host is stated rather than left to Node's default, even though omitting it
-  // already binds to every interface. Two reasons:
-  //
-  //   1. The log line is the only evidence a deploy has that it bound correctly,
-  //      and "localhost" in it reads as loopback-only to whoever is debugging a
-  //      502 — which is exactly the wrong conclusion, and the one that sends people
-  //      looking for a bug that isn't there. Printing 0.0.0.0 states the fact.
-  //   2. IPv4-only becomes explicit. Node's unspecified host resolves to `::` when
-  //      IPv6 is available, which accepts IPv4 through v4-mapped addresses only if
-  //      net.ipv6.bindv6only is 0. That is the default, but it is a kernel setting,
-  //      so "0.0.0.0" removes the dependency on it entirely.
+  // No host argument, deliberately — see the note below. An earlier version
+  // passed "0.0.0.0" explicitly and that was a mistake, found the hard way.
   const server = app.listen(config.port, config.host, () => {
     // Read the port back off the server rather than echoing config.port: if the
     // configured port were 0, the OS assigns a real one, and logging the
     // configured value would name a port nothing is listening on.
-    console.log(`CRM API listening on port ${server.address().port} (${config.host})`);
+    //
+    // The address is read from the socket rather than from config, because the
+    // address that actually got bound is the fact worth logging. It is `::` in
+    // practice, and "listening on port 5000 (::)" is the honest line: it says the
+    // socket is dual-stack, which is what lets a browser that resolved
+    // `localhost` to `::1` reach it.
+    const { address, port } = server.address();
+    console.log(`CRM API listening on port ${port} (bound ${address})`);
   });
 
   // Housekeeping. Expired reset tokens accumulate, one per forgotten password, and

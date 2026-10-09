@@ -58,14 +58,20 @@ export const config = {
   // between deploys. Reading it here is what lets one image serve every deploy
   // without a rebuild; the 5000 fallback is for local development.
   port: Number(process.env.PORT) || 5000,
-  // The interface to bind. 0.0.0.0 rather than 127.0.0.1, because Render's proxy
-  // connects from outside the process's network namespace: bound to loopback, the
-  // server answers locally and Render reports 502 for every request.
+  // The interface to bind. Undefined means "let Node decide", which resolves to
+  // `::` when IPv6 is available — dual-stack, accepting IPv4 through
+  // v4-mapped addresses. That is the default because it is what a browser needs.
   //
-  // Overridable for the rare setup that wants a narrower bind, but the default has
-  // to be the reachable one — a default that silently produces an unreachable
-  // service is worse than no default.
-  host: process.env.HOST || "0.0.0.0",
+  // This was previously "0.0.0.0", on the reasoning that stating IPv4 removed a
+  // dependency on the kernel's net.ipv6.bindv6only. That reasoning was right about
+  // the kernel setting and wrong about the consequence: `localhost` resolves to
+  // `::1` FIRST on a default Windows and macOS install, so a browser asking for
+  // http://localhost:5000 tried IPv6, got ECONNREFUSED, and could not reach a
+  // perfectly healthy API. Every page that needed data rendered blank.
+  //
+  // Never set this to 0.0.0.0 to "be explicit". Set it to `::` if you must state
+  // something; omit it for the default. It exists as an escape hatch, not a knob.
+  host: process.env.HOST || undefined,
   // Trailing slashes stripped, because they compose badly: `${appUrl}/login`
   // against a configured `https://crm.example.com/` produces a doubled slash,
   // which some routers treat as a different path and 404 on.
