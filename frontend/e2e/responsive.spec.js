@@ -38,6 +38,22 @@ const PAGES = [
   ["/profile", "Profile"],
 ];
 
+/**
+ * Waits for the page shell to render, not for the network to fall quiet.
+ *
+ * `waitForLoadState("networkidle")` is the obvious choice and the wrong one: this
+ * app holds an SSE connection open to /events, so the network is never idle, and
+ * on a slower CI runner the wait burns the whole 45s test timeout and fails on
+ * timing rather than on layout. Playwright's own guidance is to avoid it.
+ *
+ * Layout is what this file is checking, and layout exists whether or not the data
+ * has arrived, so waiting for the shell to be on screen is both sufficient and
+ * much faster.
+ */
+async function waitForRender(page) {
+  await page.locator("main").waitFor({ state: "attached", timeout: 15_000 });
+  await page.locator("main").first().waitFor({ state: "visible", timeout: 15_000 });
+}
 let credentials;
 
 // Registered through the real signup form rather than seeded, so the session
@@ -64,7 +80,7 @@ for (const vp of VIEWPORTS) {
 
       for (const [path, label] of PAGES) {
         await page.goto(path);
-        await page.waitForLoadState("networkidle");
+        await waitForRender(page);
 
         const overflow = await page.evaluate(() => {
           // Measured by geometry, NOT by documentElement.scrollWidth.
@@ -116,7 +132,7 @@ for (const vp of VIEWPORTS) {
     test("keeps every navigation link reachable and tappable", async ({ page }) => {
       await signIn(page, credentials);
       await page.goto("/dashboard");
-      await page.waitForLoadState("networkidle");
+      await waitForRender(page);
 
       const links = page.getByRole("navigation").getByRole("link");
       const count = await links.count();
@@ -151,7 +167,7 @@ for (const vp of VIEWPORTS) {
 
       for (const [path] of PAGES) {
         await page.goto(path);
-        await page.waitForLoadState("networkidle");
+        await waitForRender(page);
       }
 
       expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
